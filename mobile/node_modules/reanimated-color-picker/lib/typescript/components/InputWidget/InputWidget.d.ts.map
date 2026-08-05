@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "InputWidget.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../src/components/InputWidget/InputWidget.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAmB,MAAM,OAAO,CAAC;AAaxC,OAAO,KAAK,EAAE,gBAAgB,EAAE,MAAM,aAAa,CAAC;AAKpD,wBAAgB,WAAW,CAAC,EAC1B,aAAqB,EACrB,OAAwB,EACxB,SAAmB,EACnB,mBAA2B,EAC3B,cAAmB,EACnB,UAAe,EACf,eAAoB,EACpB,SAAc,EACd,UAAe,GAChB,EAAE,gBAAgB,qBAsElB"
+}

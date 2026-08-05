@@ -1,24 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, SectionList, FlatList, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useIsFocused, useRoute } from '@react-navigation/native';
-import { IconPlus } from 'tabler-icons-react-native';
+import { IconPlus, IconUser } from 'tabler-icons-react-native';
 import ScreenLayout from '../../components/common/ScreenLayout';
 import JournalCard from '../../components/journal/JournalCard';
-import HabitCard from '../../components/habits/HabitCard';
 import TaskCard from '../../components/tasks/TaskCard';
 import EventCard from '../../components/events/EventCard';
+import { AppText } from '../../components/ui/AppText';
 import { getJournalEntries, getJournalSettings } from '../../api/journal';
 import { getHabitsForDate, getHabitById } from '../../api/habits';
 import { getTasksForDate, getTaskById } from '../../api/tasks';
 import { getEventsForDate, getEventById } from '../../api/events';
 import { ActionButton } from '../../components/common/ActionButton';
-import { DayScrollPicker } from '../../components/common/DayScrollPicker';
+import CalendarPickerModal from '../../components/common/CalendarPickerModal';
 import { TimelineAgenda } from '../../components/common/TimelineAgenda';
 import { CreateNewModal } from './components/CreateNewModal';
-import { HabitChip } from '../../components/habits/HabitChip';
-import { toggleHabitCompletion, incrementHabitProgress, decrementHabitProgress } from '../../api/habits';
+import { toggleHabitCompletion } from '../../api/habits';
 import { toggleTaskCompletion } from '../../api/tasks';
 // Add helper import
 import { getJournalTimelineState, JournalSettings } from '../../utils/journalScheduling';
@@ -110,61 +108,6 @@ export default function TodayScreen() {
     return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }).toUpperCase();
   };
 
-  const renderHabitList = () => (
-    <View style={styles.habitContainer}>
-      <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        data={habits}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => {
-          console.log('Rendering Habit Item:', item.name, 'Stats:', item.stats);
-          return (
-            <View style={styles.chipWrapper}>
-              <HabitChip 
-              name={item.name} 
-              iconName={item.icon}
-              isCompleted={item.completed}
-              progress={item.progress}
-              targetValue={item.target_value}
-              hasTarget={item.has_target}
-              targetType={item.target_type}
-              daysOfWeek={item.days_of_week}
-              history={item.history}
-              onToggle={async () => {                  setHabits(habits.map(h => h.id === item.id ? { ...h, completed: !h.completed } : h));
-                  try {
-                    await toggleHabitCompletion(item.id, selectedDate.toISOString().split('T')[0]);
-                    fetchEntries();
-                  } catch (e) {
-                    fetchEntries();
-                  }
-                }}
-                onIncrement={async () => {
-                  setHabits(habits.map(h => h.id === item.id ? { ...h, progress: Math.min(h.progress + 1, h.target_value), completed: h.progress + 1 >= h.target_value } : h));
-                  try {
-                    await incrementHabitProgress(item.id, selectedDate.toISOString().split('T')[0]);
-                    fetchEntries();
-                  } catch (e) {
-                    fetchEntries();
-                  }
-                }}
-                onDecrement={async () => {
-                  setHabits(habits.map(h => h.id === item.id ? { ...h, progress: Math.max(h.progress - 1, 0), completed: h.progress - 1 >= h.target_value } : h));
-                  try {
-                    await decrementHabitProgress(item.id, selectedDate.toISOString().split('T')[0]);
-                    fetchEntries();
-                  } catch (e) {
-                    fetchEntries();
-                  }
-                }}
-              />
-            </View>
-          );
-        }}
-      />
-    </View>
-  );
-
   const renderPageContent = () => {
     const dateStr = selectedDate.getFullYear() + '-' + 
       ('0' + (selectedDate.getMonth() + 1)).slice(-2) + '-' + 
@@ -172,14 +115,6 @@ export default function TodayScreen() {
 
     return (
       <View style={styles.contentContainer}>
-        {showPicker && (
-          <View style={styles.pickerWrapper}>
-            <DayScrollPicker selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
-          </View>
-        )}
-
-        {habits.length > 0 && renderHabitList()}
-
         <View style={{ flex: 1 }}>
           <TimelineAgenda 
               items={[
@@ -258,8 +193,12 @@ export default function TodayScreen() {
     <ScreenLayout 
       title={formatDate(selectedDate)}
       rightOption={{ 
-        icon: () => <ActionButton icon={IconPlus} onPress={() => setModalVisible(true)} size={40} />,
-        onPress: () => setModalVisible(true) 
+        render: () => (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <ActionButton icon={IconUser} onPress={() => navigation.navigate('Profile')} size={40} />
+            <ActionButton icon={IconPlus} onPress={() => setModalVisible(true)} size={40} />
+          </View>
+        )
       }}
       onTitlePress={() => setShowPicker(!showPicker)}
       showPicker={showPicker}
@@ -296,13 +235,17 @@ export default function TodayScreen() {
         onClose={() => setModalVisible(false)} 
         onSelect={handleOptionPress}
       />
+
+      <CalendarPickerModal
+        visible={showPicker}
+        onClose={() => setShowPicker(false)}
+        selectedDate={selectedDate}
+        onSelect={setSelectedDate}
+      />
     </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
   contentContainer: { flex: 1 },
-  habitContainer: { marginBottom: 15 },
-  chipWrapper: { marginRight: 16, paddingTop: 15 },
-  pickerWrapper: { marginBottom: 10 },
 });

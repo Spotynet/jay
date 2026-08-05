@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "OpacitySlider.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../src/components/Sliders/OpacitySlider.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAS1B,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,aAAa,CAAC;AAI/C,wBAAgB,aAAa,CAAC,EAAE,QAAa,EAAE,KAAU,EAAE,QAAgB,EAAE,OAAe,EAAE,GAAG,KAAK,EAAE,EAAE,WAAW,qBA8JpH"
+}

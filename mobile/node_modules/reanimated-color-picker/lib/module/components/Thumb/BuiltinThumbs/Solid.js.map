@@ -1,0 +1,37 @@
+{
+  "version": 3,
+  "names": [
+    "React",
+    "Animated",
+    "useAnimatedStyle",
+    "styles",
+    "enableAndroidHardwareTextures",
+    "getStyle",
+    "Solid",
+    "width",
+    "height",
+    "borderRadius",
+    "thumbColor",
+    "adaptiveColor",
+    "handleStyle",
+    "style",
+    "computedStyle",
+    "backgroundColor",
+    "borderWidth",
+    "borderColor",
+    "adaptiveColorStyle",
+    "value",
+    "createElement",
+    "View",
+    "handle",
+    "shadow",
+    "renderToHardwareTextureAndroid"
+  ],
+  "sourceRoot": "../../../../src/components/Thumb/BuiltinThumbs",
+  "sources": ["Solid.tsx"],
+  "sourcesContent": [
+    "import React from 'react';\nimport Animated, { useAnimatedStyle } from 'react-native-reanimated';\n\nimport { styles } from '../../../styles';\nimport { enableAndroidHardwareTextures, getStyle } from '../../../utils';\n\nimport type { BuiltinThumbsProps } from '../../../types';\n\nexport default function Solid({\n  width,\n  height,\n  borderRadius,\n  thumbColor,\n  adaptiveColor,\n  handleStyle,\n  style,\n}: BuiltinThumbsProps) {\n  const computedStyle = { width, height, borderRadius, backgroundColor: thumbColor || 'gray', borderWidth: 1 };\n  const borderColor = getStyle(style, 'borderColor');\n  const adaptiveColorStyle = useAnimatedStyle(() => ({ borderColor: borderColor ?? adaptiveColor.value }), [adaptiveColor]);\n\n  return (\n    <Animated.View\n      style={[styles.handle, computedStyle, style, styles.shadow, adaptiveColorStyle, handleStyle]}\n      renderToHardwareTextureAndroid={enableAndroidHardwareTextures}\n    />\n  );\n}\n"
+  ],
+  "mappings": "AAAA,OAAOA,KAAK,MAAM,OAAO;AACzB,OAAOC,QAAQ,IAAIC,gBAAgB,QAAQ,yBAAyB;AAEpE,SAASC,MAAM,QAAQ,iBAAiB;AACxC,SAASC,6BAA6B,EAAEC,QAAQ,QAAQ,gBAAgB;AAIxE,eAAe,SAASC,KAAKA,CAAC;EAC5BC,KAAK;EACLC,MAAM;EACNC,YAAY;EACZC,UAAU;EACVC,aAAa;EACbC,WAAW;EACXC;AACkB,CAAC,EAAE;EACrB,MAAMC,aAAa,GAAG;IAAEP,KAAK;IAAEC,MAAM;IAAEC,YAAY;IAAEM,eAAe,EAAEL,UAAU,IAAI,MAAM;IAAEM,WAAW,EAAE;EAAE,CAAC;EAC5G,MAAMC,WAAW,GAAGZ,QAAQ,CAACQ,KAAK,EAAE,aAAa,CAAC;EAClD,MAAMK,kBAAkB,GAAGhB,gBAAgB,CAAC,OAAO;IAAEe,WAAW,EAAEA,WAAW,IAAIN,aAAa,CAACQ;EAAM,CAAC,CAAC,EAAE,CAACR,aAAa,CAAC,CAAC;EAEzH,oBACEX,KAAA,CAAAoB,aAAA,CAACnB,QAAQ,CAACoB,IAAI;IACZR,KAAK,EAAE,CAACV,MAAM,CAACmB,MAAM,EAAER,aAAa,EAAED,KAAK,EAAEV,MAAM,CAACoB,MAAM,EAAEL,kBAAkB,EAAEN,WAAW,CAAE;IAC7FY,8BAA8B,EAAEpB;EAA8B,CAC/D,CAAC;AAEN",
+  "ignoreList": []
+}

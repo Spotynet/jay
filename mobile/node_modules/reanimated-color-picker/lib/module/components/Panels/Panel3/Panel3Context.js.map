@@ -1,0 +1,20 @@
+{
+  "version": 3,
+  "names": [
+    "createContext",
+    "useContext",
+    "panel3Context",
+    "Panel3ContextProvider",
+    "Provider",
+    "usePanel3Context",
+    "ctx",
+    "Error"
+  ],
+  "sourceRoot": "../../../../src/components/Panels/Panel3",
+  "sources": ["Panel3Context.ts"],
+  "sourcesContent": [
+    "import { createContext, useContext } from 'react';\n\nimport type { Panel3Context } from '../../../types';\n\nconst panel3Context = createContext<Panel3Context>(null!);\nexport const Panel3ContextProvider = panel3Context.Provider;\n\nexport default function usePanel3Context() {\n  const ctx = useContext(panel3Context);\n  if (!ctx) {\n    throw new Error('[reanimated-color-picker]: App context is not ready yet!');\n  }\n  return ctx;\n}\n"
+  ],
+  "mappings": "AAAA,SAASA,aAAa,EAAEC,UAAU,QAAQ,OAAO;AAIjD,MAAMC,aAAa,gBAAGF,aAAa,CAAgB,IAAK,CAAC;AACzD,OAAO,MAAMG,qBAAqB,GAAGD,aAAa,CAACE,QAAQ;AAE3D,eAAe,SAASC,gBAAgBA,CAAA,EAAG;EACzC,MAAMC,GAAG,GAAGL,UAAU,CAACC,aAAa,CAAC;EACrC,IAAI,CAACI,GAAG,EAAE;IACR,MAAM,IAAIC,KAAK,CAAC,0DAA0D,CAAC;EAC7E;EACA,OAAOD,GAAG;AACZ",
+  "ignoreList": []
+}

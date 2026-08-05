@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../ui/AppText';
@@ -18,9 +19,15 @@ interface AppHeaderProps {
 }
 
 export const AppHeader = ({ title, showBack = false, rightOption, onTitlePress, showPicker }: AppHeaderProps) => {
-  const { colors } = useTheme();
+  const { colors, accentColor, isDark } = useTheme();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+
+  const gradientColors = (
+    isDark
+      ? [accentColor + '14', 'rgba(0,0,0,0)']
+      : [accentColor + '1A', 'rgba(255,255,255,0)']
+  ) as [string, string];
 
   const iconStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: withTiming(showPicker ? '180deg' : '0deg') }]
@@ -35,6 +42,13 @@ export const AppHeader = ({ title, showBack = false, rightOption, onTitlePress, 
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <LinearGradient
+        colors={gradientColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <View style={styles.content}>
         {showBack ? (
           <>
@@ -76,7 +90,7 @@ export const AppHeader = ({ title, showBack = false, rightOption, onTitlePress, 
 
 const styles = StyleSheet.create({
   container: { width: '100%' },
-  content: { height: 85, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 },
+  content: { height: 85, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15 },
   leftContainer: { width: 50, alignItems: 'flex-start' },
   rightContainer: { width: 50, alignItems: 'flex-end' },
   leftAlignedContent: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

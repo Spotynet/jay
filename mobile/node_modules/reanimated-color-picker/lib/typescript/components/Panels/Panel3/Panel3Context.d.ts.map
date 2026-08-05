@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "Panel3Context.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/Panels/Panel3/Panel3Context.ts"],
+  "names": [],
+  "mappings": ";AAEA,OAAO,KAAK,EAAE,aAAa,EAAE,MAAM,gBAAgB,CAAC;AAGpD,eAAO,MAAM,qBAAqB,yCAAyB,CAAC;AAE5D,MAAM,CAAC,OAAO,UAAU,gBAAgB,kBAMvC"
+}

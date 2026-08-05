@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "Panel1.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../src/components/Panels/Panel1.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAsB,MAAM,OAAO,CAAC;AAU3C,OAAO,KAAK,EAAE,UAAU,EAAE,MAAM,aAAa,CAAC;AAI9C,2HAA2H;AAC3H,wBAAgB,MAAM,CAAC,EAAE,QAAa,EAAE,KAAU,EAAE,GAAG,KAAK,EAAE,EAAE,UAAU,qBAqHzE"
+}

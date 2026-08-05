@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "Solid.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/Thumb/BuiltinThumbs/Solid.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAM1B,OAAO,KAAK,EAAE,kBAAkB,EAAE,MAAM,gBAAgB,CAAC;AAEzD,MAAM,CAAC,OAAO,UAAU,KAAK,CAAC,EAC5B,KAAK,EACL,MAAM,EACN,YAAY,EACZ,UAAU,EACV,aAAa,EACb,WAAW,EACX,KAAK,GACN,EAAE,kBAAkB,qBAWpB"
+}

@@ -26,5 +26,5 @@ class TransactionSerializer(serializers.ModelSerializer):
 class FinanceEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = FinanceEntry
-        fields = ['id', 'name', 'type', 'value', 'created_at']
+        fields = ['id', 'name', 'type', 'value', 'date', 'created_at']
         read_only_fields = ['id', 'created_at']

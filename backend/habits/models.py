@@ -24,9 +24,16 @@ class Habit(TimeStampedModel, OwnedModel):
         return self.name
 
 class HabitLog(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('COMPLETED', 'Completed'),
+        ('SKIPPED', 'Skipped'),
+        ('FAILED', 'Failed'),
+    ]
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="habit_logs", null=True)
     habit = models.ForeignKey(Habit, on_delete=models.CASCADE, related_name="logs")
     date = models.DateField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
     completed = models.BooleanField(default=False)
     progress = models.IntegerField(default=0)
 
@@ -34,4 +41,11 @@ class HabitLog(models.Model):
         constraints = [
             models.UniqueConstraint(fields=['user', 'habit', 'date'], name='unique_user_habit_log_per_day')
         ]
+
+    def save(self, *args, **kwargs):
+        if self.status == 'COMPLETED':
+            self.completed = True
+        elif self.status in ('PENDING', 'SKIPPED', 'FAILED'):
+            self.completed = False
+        super().save(*args, **kwargs)
 

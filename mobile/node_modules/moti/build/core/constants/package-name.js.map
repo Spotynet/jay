@@ -1,0 +1,1 @@
+{"version":3,"file":"package-name.js","sourceRoot":"","sources":["../../../src/core/constants/package-name.ts"],"names":[],"mappings":"AAAA,2CAA2C;AAC3C,MAAM,CAAC,MAAM,WAAW,GAAG,MAAM,CAAA","sourcesContent":["// import Package from '../../package.json'\nexport const PackageName = 'moti'\n"]}

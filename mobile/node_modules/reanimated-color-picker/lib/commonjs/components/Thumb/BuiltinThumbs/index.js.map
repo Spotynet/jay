@@ -1,0 +1,42 @@
+{
+  "version": 3,
+  "names": [
+    "_Circle",
+    "_interopRequireDefault",
+    "require",
+    "_DoubleTriangle",
+    "_Hollow",
+    "_Line",
+    "_Pill",
+    "_Plus",
+    "_Rect",
+    "_Ring",
+    "_Solid",
+    "_TriangleDown",
+    "_TriangleUp",
+    "e",
+    "__esModule",
+    "default",
+    "BuiltinThumbs",
+    "Ring",
+    "Solid",
+    "Hollow",
+    "Line",
+    "Pill",
+    "Plus",
+    "TriangleUp",
+    "TriangleDown",
+    "DoubleTriangle",
+    "Rect",
+    "Circle",
+    "_default",
+    "exports"
+  ],
+  "sourceRoot": "../../../../src/components/Thumb/BuiltinThumbs",
+  "sources": ["index.ts"],
+  "sourcesContent": [
+    "import Circle from './Circle';\nimport DoubleTriangle from './DoubleTriangle';\nimport Hollow from './Hollow';\nimport Line from './Line';\nimport Pill from './Pill';\nimport Plus from './Plus';\nimport Rect from './Rect';\nimport Ring from './Ring';\nimport Solid from './Solid';\nimport TriangleDown from './TriangleDown';\nimport TriangleUp from './TriangleUp';\n\nconst BuiltinThumbs = {\n  Ring,\n  Solid,\n  Hollow,\n  Line,\n  Pill,\n  Plus,\n  TriangleUp,\n  TriangleDown,\n  DoubleTriangle,\n  Rect,\n  Circle,\n};\n\nexport default BuiltinThumbs;\n"
+  ],
+  "mappings": ";;;;;;AAAA,IAAAA,OAAA,GAAAC,sBAAA,CAAAC,OAAA;AACA,IAAAC,eAAA,GAAAF,sBAAA,CAAAC,OAAA;AACA,IAAAE,OAAA,GAAAH,sBAAA,CAAAC,OAAA;AACA,IAAAG,KAAA,GAAAJ,sBAAA,CAAAC,OAAA;AACA,IAAAI,KAAA,GAAAL,sBAAA,CAAAC,OAAA;AACA,IAAAK,KAAA,GAAAN,sBAAA,CAAAC,OAAA;AACA,IAAAM,KAAA,GAAAP,sBAAA,CAAAC,OAAA;AACA,IAAAO,KAAA,GAAAR,sBAAA,CAAAC,OAAA;AACA,IAAAQ,MAAA,GAAAT,sBAAA,CAAAC,OAAA;AACA,IAAAS,aAAA,GAAAV,sBAAA,CAAAC,OAAA;AACA,IAAAU,WAAA,GAAAX,sBAAA,CAAAC,OAAA;AAAsC,SAAAD,uBAAAY,CAAA,WAAAA,CAAA,IAAAA,CAAA,CAAAC,UAAA,GAAAD,CAAA,KAAAE,OAAA,EAAAF,CAAA;AAEtC,MAAMG,aAAa,GAAG;EACpBC,IAAI,EAAJA,aAAI;EACJC,KAAK,EAALA,cAAK;EACLC,MAAM,EAANA,eAAM;EACNC,IAAI,EAAJA,aAAI;EACJC,IAAI,EAAJA,aAAI;EACJC,IAAI,EAAJA,aAAI;EACJC,UAAU,EAAVA,mBAAU;EACVC,YAAY,EAAZA,qBAAY;EACZC,cAAc,EAAdA,uBAAc;EACdC,IAAI,EAAJA,aAAI;EACJC,MAAM,EAANA;AACF,CAAC;AAAC,IAAAC,QAAA,GAAAC,OAAA,CAAAd,OAAA,GAEaC,aAAa",
+  "ignoreList": []
+}

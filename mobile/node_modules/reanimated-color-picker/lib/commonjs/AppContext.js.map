@@ -1,0 +1,23 @@
+{
+  "version": 3,
+  "names": [
+    "_react",
+    "require",
+    "pickerContext",
+    "createContext",
+    "PickerContextProvider",
+    "exports",
+    "Provider",
+    "usePickerContext",
+    "ctx",
+    "useContext",
+    "Error"
+  ],
+  "sourceRoot": "../src",
+  "sources": ["AppContext.ts"],
+  "sourcesContent": [
+    "import { createContext, useContext } from 'react';\n\nimport type { ColorPickerContext } from './types';\n\nconst pickerContext = createContext<ColorPickerContext>(null!);\nexport const PickerContextProvider = pickerContext.Provider;\n\nexport default function usePickerContext() {\n  const ctx = useContext(pickerContext);\n  if (!ctx) {\n    throw new Error('[reanimated-color-picker]: App context is not ready yet!');\n  }\n  return ctx;\n}\n"
+  ],
+  "mappings": ";;;;;;;AAAA,IAAAA,MAAA,GAAAC,OAAA;AAIA,MAAMC,aAAa,gBAAG,IAAAC,oBAAa,EAAqB,IAAK,CAAC;AACvD,MAAMC,qBAAqB,GAAAC,OAAA,CAAAD,qBAAA,GAAGF,aAAa,CAACI,QAAQ;AAE5C,SAASC,gBAAgBA,CAAA,EAAG;EACzC,MAAMC,GAAG,GAAG,IAAAC,iBAAU,EAACP,aAAa,CAAC;EACrC,IAAI,CAACM,GAAG,EAAE;IACR,MAAM,IAAIE,KAAK,CAAC,0DAA0D,CAAC;EAC7E;EACA,OAAOF,GAAG;AACZ",
+  "ignoreList": []
+}

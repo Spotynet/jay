@@ -1,0 +1,43 @@
+{
+  "version": 3,
+  "names": [
+    "React",
+    "Animated",
+    "useAnimatedStyle",
+    "styles",
+    "enableAndroidHardwareTextures",
+    "Plus",
+    "width",
+    "height",
+    "borderRadius",
+    "thumbColor",
+    "adaptiveColor",
+    "handleStyle",
+    "innerStyle",
+    "style",
+    "vertical",
+    "thickness",
+    "computedStyle",
+    "borderWidth",
+    "line1",
+    "position",
+    "line2",
+    "adaptiveColorStyle",
+    "backgroundColor",
+    "value",
+    "adaptiveBorderColorStyle",
+    "borderColor",
+    "createElement",
+    "View",
+    "handle",
+    "renderToHardwareTextureAndroid",
+    "shadow"
+  ],
+  "sourceRoot": "../../../../src/components/Thumb/BuiltinThumbs",
+  "sources": ["Plus.tsx"],
+  "sourcesContent": [
+    "import React from 'react';\nimport Animated, { useAnimatedStyle } from 'react-native-reanimated';\n\nimport { styles } from '../../../styles';\nimport { enableAndroidHardwareTextures } from '../../../utils';\n\nimport type { BuiltinThumbsProps } from '../../../types';\n\nexport default function Plus({\n  width,\n  height,\n  borderRadius,\n  thumbColor,\n  adaptiveColor,\n  handleStyle,\n  innerStyle,\n  style,\n  vertical,\n}: BuiltinThumbsProps) {\n  const thickness = 2;\n  const computedStyle = { width, height, borderRadius, borderWidth: thickness };\n  const line1 = {\n    borderRadius,\n    position: 'absolute' as const,\n    width: vertical ? '100%' : thickness,\n    height: vertical ? thickness : '100%',\n  } as const;\n  const line2 = {\n    borderRadius,\n    width: vertical ? thickness : '100%',\n    height: vertical ? '100%' : thickness,\n  } as const;\n\n  const adaptiveColorStyle = useAnimatedStyle(() => {\n    return { backgroundColor: thumbColor ?? adaptiveColor.value };\n  }, [adaptiveColor]);\n\n  const adaptiveBorderColorStyle = useAnimatedStyle(() => {\n    return { borderColor: thumbColor ?? adaptiveColor.value };\n  }, [adaptiveColor]);\n\n  return (\n    <Animated.View\n      style={[styles.handle, style, computedStyle, adaptiveBorderColorStyle, handleStyle]}\n      renderToHardwareTextureAndroid={enableAndroidHardwareTextures}\n    >\n      <Animated.View style={[line1, styles.shadow, adaptiveColorStyle, innerStyle]} />\n      <Animated.View style={[line2, styles.shadow, adaptiveColorStyle, innerStyle]} />\n    </Animated.View>\n  );\n}\n"
+  ],
+  "mappings": "AAAA,OAAOA,KAAK,MAAM,OAAO;AACzB,OAAOC,QAAQ,IAAIC,gBAAgB,QAAQ,yBAAyB;AAEpE,SAASC,MAAM,QAAQ,iBAAiB;AACxC,SAASC,6BAA6B,QAAQ,gBAAgB;AAI9D,eAAe,SAASC,IAAIA,CAAC;EAC3BC,KAAK;EACLC,MAAM;EACNC,YAAY;EACZC,UAAU;EACVC,aAAa;EACbC,WAAW;EACXC,UAAU;EACVC,KAAK;EACLC;AACkB,CAAC,EAAE;EACrB,MAAMC,SAAS,GAAG,CAAC;EACnB,MAAMC,aAAa,GAAG;IAAEV,KAAK;IAAEC,MAAM;IAAEC,YAAY;IAAES,WAAW,EAAEF;EAAU,CAAC;EAC7E,MAAMG,KAAK,GAAG;IACZV,YAAY;IACZW,QAAQ,EAAE,UAAmB;IAC7Bb,KAAK,EAAEQ,QAAQ,GAAG,MAAM,GAAGC,SAAS;IACpCR,MAAM,EAAEO,QAAQ,GAAGC,SAAS,GAAG;EACjC,CAAU;EACV,MAAMK,KAAK,GAAG;IACZZ,YAAY;IACZF,KAAK,EAAEQ,QAAQ,GAAGC,SAAS,GAAG,MAAM;IACpCR,MAAM,EAAEO,QAAQ,GAAG,MAAM,GAAGC;EAC9B,CAAU;EAEV,MAAMM,kBAAkB,GAAGnB,gBAAgB,CAAC,MAAM;IAChD,OAAO;MAAEoB,eAAe,EAAEb,UAAU,IAAIC,aAAa,CAACa;IAAM,CAAC;EAC/D,CAAC,EAAE,CAACb,aAAa,CAAC,CAAC;EAEnB,MAAMc,wBAAwB,GAAGtB,gBAAgB,CAAC,MAAM;IACtD,OAAO;MAAEuB,WAAW,EAAEhB,UAAU,IAAIC,aAAa,CAACa;IAAM,CAAC;EAC3D,CAAC,EAAE,CAACb,aAAa,CAAC,CAAC;EAEnB,oBACEV,KAAA,CAAA0B,aAAA,CAACzB,QAAQ,CAAC0B,IAAI;IACZd,KAAK,EAAE,CAACV,MAAM,CAACyB,MAAM,EAAEf,KAAK,EAAEG,aAAa,EAAEQ,wBAAwB,EAAEb,WAAW,CAAE;IACpFkB,8BAA8B,EAAEzB;EAA8B,gBAE9DJ,KAAA,CAAA0B,aAAA,CAACzB,QAAQ,CAAC0B,IAAI;IAACd,KAAK,EAAE,CAACK,KAAK,EAAEf,MAAM,CAAC2B,MAAM,EAAET,kBAAkB,EAAET,UAAU;EAAE,CAAE,CAAC,eAChFZ,KAAA,CAAA0B,aAAA,CAACzB,QAAQ,CAAC0B,IAAI;IAACd,KAAK,EAAE,CAACO,KAAK,EAAEjB,MAAM,CAAC2B,MAAM,EAAET,kBAAkB,EAAET,UAAU;EAAE,CAAE,CAClE,CAAC;AAEpB",
+  "ignoreList": []
+}

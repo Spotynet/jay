@@ -60,6 +60,16 @@ export async function updateHabit(habitId: number, habit: any) {
   return res.json();
 }
 
+export async function setHabitStatus(habitId: number, date: string, status: 'PENDING' | 'COMPLETED' | 'SKIPPED' | 'FAILED') {
+  const res = await fetch(`${getApiUrl()}/api/habits/habits/${habitId}/set_status/`, {
+    method: 'POST',
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ date, status }),
+  });
+  if (!res.ok) throw new Error('Failed to set habit status');
+  return res.json();
+}
+
 export async function toggleHabitCompletion(habitId: number, date: string) {
   const res = await fetch(`${getApiUrl()}/api/habits/habits/${habitId}/toggle_completion/`, {
     method: 'POST',
@@ -87,4 +97,14 @@ export async function deleteHabit(habitId: number) {
   });
   if (!res.ok) throw new Error('Failed to delete habit');
   return true;
+}
+
+export async function decrementHabitProgress(habitId: number, date: string) {
+  const res = await fetch(`${getApiUrl()}/api/habits/habits/${habitId}/decrement_progress/`, {
+    method: 'POST',
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ date }),
+  });
+  if (!res.ok) throw new Error('Failed to decrement habit progress');
+  return res.json();
 }

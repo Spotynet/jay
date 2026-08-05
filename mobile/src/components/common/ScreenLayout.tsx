@@ -22,7 +22,7 @@ export default function ScreenLayout({ children, title, showBack = false, rightO
       {(title || showBack || rightOption) && (
         <AppHeader title={title} showBack={showBack} rightOption={rightOption} onTitlePress={onTitlePress} showPicker={showPicker} />
       )}
-      <View style={[styles.content, { paddingHorizontal: 20 }, contentStyle]}>
+      <View style={[styles.content, { paddingHorizontal: 15 }, contentStyle]}>
         {children}
       </View>
     </View>

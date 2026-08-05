@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "RedSlider.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/Sliders/RGB/RedSlider.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAU1B,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,gBAAgB,CAAC;AAIrD,wBAAgB,SAAS,CAAC,EAAE,QAAa,EAAE,KAAU,EAAE,QAAgB,EAAE,OAAe,EAAE,GAAG,KAAK,EAAE,EAAE,cAAc,qBAsInH"
+}

@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "HueSlider.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/Sliders/Hue/HueSlider.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAS1B,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,gBAAgB,CAAC;AAIlD,wBAAgB,SAAS,CAAC,EAAE,QAAa,EAAE,KAAU,EAAE,QAAgB,EAAE,OAAe,EAAE,GAAG,KAAK,EAAE,EAAE,WAAW,qBAiIhH"
+}

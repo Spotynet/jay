@@ -1,101 +1,180 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import ScreenLayout from '../../components/common/ScreenLayout';
-import { SystemManagementCell } from '../../components/manage/SystemManagementCell';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import { IconPlus, IconWallet, IconTrendingUp, IconTrendingDown, IconChartPie } from 'tabler-icons-react-native';
-import { ActionButton } from '../../components/common/ActionButton';
+import ScreenLayout from '../../components/common/ScreenLayout';
 import { AppText } from '../../components/ui/AppText';
-import { getFinanceEntries } from '../../api/finance';
+import { Icon } from '../../components/ui/Icon';
+import { FinanceSummaryCard } from '../../components/finance/FinanceSummaryCard';
+import { TransactionRow } from '../../components/finance/TransactionRow';
+import { PeriodSelector } from '../../components/finance/PeriodSelector';
+import { getTransactions, getFinanceEntries } from '../../api/finance';
+import { IconWallet } from 'tabler-icons-react-native';
+
 export default function ManageFinanceScreen() {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
   const { colors, entityColors } = useTheme();
 
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth());
+  const [year, setYear] = useState(now.getFullYear());
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [entries, setEntries] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchFinanceEntries = async () => {
+  const fetchData = useCallback(async () => {
     try {
-        const data = await getFinanceEntries();
-        setEntries(data);
+      const [t, e] = await Promise.all([getTransactions(), getFinanceEntries()]);
+      setTransactions(Array.isArray(t) ? t : []);
+      setEntries(Array.isArray(e) ? e : []);
     } catch (e) {
-        console.error('Failed to fetch finance entries', e);
+      console.error('Failed to fetch finance data', e);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (isFocused) {
-        fetchFinanceEntries();
-    }
-  }, [isFocused]);
+    if (isFocused) fetchData();
+  }, [isFocused, fetchData]);
 
-  const income = entries
-    .filter(e => e.type === 'INCOME')
-    .reduce((sum, e) => sum + parseFloat(e.value || e.amount || 0), 0);
-    
-  const expenses = entries
-    .filter(e => e.type === 'EXPENSE')
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
+
+  const filteredTransactions = transactions.filter((t) => {
+    const d = new Date(t.date);
+    return d.getMonth() === month && d.getFullYear() === year;
+  });
+
+  const filteredEntries = entries.filter((e) => {
+    if (!e.date) return true;
+    const d = new Date(e.date);
+    return d.getMonth() === month && d.getFullYear() === year;
+  });
+
+  const periodIncome = filteredTransactions
+    .filter((t) => t.type === 'EARNING')
+    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
+  const periodExpenses = filteredTransactions
+    .filter((t) => t.type === 'EXPENSE')
+    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
+  const entryIncome = filteredEntries
+    .filter((e) => e.type === 'INCOME')
     .reduce((sum, e) => sum + parseFloat(e.value || e.amount || 0), 0);
 
-  const balance = income - expenses;
+  const entryExpenses = filteredEntries
+    .filter((e) => e.type === 'EXPENSE')
+    .reduce((sum, e) => sum + parseFloat(e.value || e.amount || 0), 0);
+
+  const totalIncome = periodIncome + entryIncome;
+  const totalExpenses = periodExpenses + entryExpenses;
+  const balance = totalIncome - totalExpenses;
+
+  const prevMonth = () => {
+    if (month === 0) { setMonth(11); setYear(year - 1); }
+    else setMonth(month - 1);
+  };
+
+  const nextMonth = () => {
+    if (month === 11) { setMonth(0); setYear(year + 1); }
+    else setMonth(month + 1);
+  };
+
+  const allItems = [
+    ...filteredTransactions.map((t) => ({
+      id: `t-${t.id}`,
+      type: t.type === 'EARNING' ? 'INCOME' as const : 'EXPENSE' as const,
+      amount: parseFloat(t.amount || 0),
+      description: t.description || 'Transaction',
+      date: t.date,
+      kind: 'transaction' as const,
+    })),
+    ...filteredEntries.map((e) => ({
+      id: `e-${e.id}`,
+      type: e.type as 'INCOME' | 'EXPENSE',
+      amount: parseFloat(e.value || e.amount || 0),
+      description: e.name || 'Entry',
+      date: e.date || e.created_at,
+      kind: 'entry' as const,
+    })),
+  ].sort((a, b) => {
+    const da = a.date ? new Date(a.date).getTime() : 0;
+    const db = b.date ? new Date(b.date).getTime() : 0;
+    return db - da;
+  });
 
   return (
-    <ScreenLayout 
-        title="FINANCE" 
-        showBack={true}
-        rightOption={{ 
-            icon: () => <ActionButton icon={IconPlus} onPress={() => {}} size={40} />,
-            onPress: () => {} 
-        }}
-    >
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
-            <View style={styles.summaryItem}>
-                <AppText style={{ color: colors.subtext }}>Balance</AppText>
-                <AppText style={[styles.summaryValue, { color: balance >= 0 ? colors.text : colors.error }]}>${balance.toFixed(2)}</AppText>
-            </View>
-            <View style={styles.summaryItem}>
-                <AppText style={{ color: colors.subtext }}>Income</AppText>
-                <AppText style={[styles.summaryValue, { color: '#34C759' }]}>+${income.toFixed(2)}</AppText>
-            </View>
-            <View style={styles.summaryItem}>
-                <AppText style={{ color: colors.subtext }}>Expenses</AppText>
-                <AppText style={[styles.summaryValue, { color: '#FF3B30' }]}>-${expenses.toFixed(2)}</AppText>
-            </View>
+    <ScreenLayout title="FINANCE HISTORY" showBack={true}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.subtext} />}
+      >
+        <PeriodSelector month={month} year={year} onPrev={prevMonth} onNext={nextMonth} />
+
+        <FinanceSummaryCard balance={balance} income={totalIncome} expenses={totalExpenses} />
+
+        <View style={styles.sectionHeader}>
+          <AppText bold style={[styles.sectionTitle, { color: colors.subtext }]}>ALL TRANSACTIONS</AppText>
         </View>
 
-        <AppText style={[styles.sectionTitle, { color: colors.subtext, marginTop: 30, marginBottom: 10 }]}>HISTORY</AppText>
-        <View style={[styles.slab, { borderColor: colors.border }]}>
-            {entries.length === 0 ? (
-                <View style={styles.emptyState}>
-                    <SystemManagementCell title="No History" icon={IconWallet} onPress={() => {}} isLast />
-                </View>
-            ) : (
-                entries.map((entry, index) => (
-                    <SystemManagementCell 
-                        key={entry.id}
-                        title={entry.type} 
-                        icon={entry.type === 'INCOME' ? IconTrendingUp : IconTrendingDown} 
-                        status={`$${entry.value || entry.amount || 0}`} 
-                        meta={entry.date || 'No Date'}
-                        onPress={() => navigation.navigate('FinanceEntry', { entry })} 
-                        isLast={index === entries.length - 1} 
-                    />
-                ))
-            )}
-        </View>
+        {allItems.length === 0 ? (
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Icon name={IconWallet} size={32} color={colors.subtext} />
+            <AppText style={[styles.emptyText, { color: colors.subtext }]}>
+              No transactions this month
+            </AppText>
+          </View>
+        ) : (
+          <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            {allItems.map((item, i) => (
+              <TransactionRow
+                key={item.id}
+                description={item.description}
+                amount={item.amount}
+                type={item.type === 'INCOME' ? 'EARNING' : 'EXPENSE'}
+                date={item.date || 'No date'}
+                isLast={i === allItems.length - 1}
+              />
+            ))}
+          </View>
+        )}
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { paddingBottom: 20, paddingHorizontal: 20 },
-  slab: { borderTopWidth: 1, borderBottomWidth: 1, overflow: 'hidden', position: 'relative' },
-  emptyState: { padding: 20 },
-  summaryCard: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderRadius: 16, marginTop: 10 },
-  summaryItem: { alignItems: 'center' },
-  summaryValue: { fontSize: 18, fontWeight: 'bold', marginTop: 4 },
-  sectionTitle: { fontSize: 13, fontWeight: '600', letterSpacing: 1.5, textTransform: 'uppercase' },
+  container: { padding: 20, gap: 16 },
+  sectionHeader: {
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  emptyCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 32,
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptyText: {
+    fontSize: 14,
+  },
+  listCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
 });

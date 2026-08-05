@@ -4,21 +4,31 @@ from .models import Habit, HabitLog
 class HabitLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = HabitLog
-        fields = ['id', 'habit', 'date', 'completed', 'progress']
+        fields = ['id', 'habit', 'date', 'status', 'completed', 'progress']
 class HabitSerializer(serializers.ModelSerializer):
     completed = serializers.SerializerMethodField()
     stats = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
     history = serializers.SerializerMethodField()
 
     class Meta:
         model = Habit
-        fields = ['id', 'name', 'description', 'frequency', 'days_of_week', 'target_value', 'has_target', 'target_type', 'category', 'reminder_time', 'icon', 'completed', 'stats', 'progress', 'history']
-        read_only_fields = ['id', 'completed', 'stats', 'progress', 'history']
+        fields = ['id', 'name', 'description', 'frequency', 'days_of_week', 'target_value', 'has_target', 'target_type', 'category', 'reminder_time', 'icon', 'completed', 'status', 'stats', 'progress', 'history']
+        read_only_fields = ['id', 'completed', 'status', 'stats', 'progress', 'history']
 
     def get_history(self, obj):
         logs = obj.logs.order_by('-date')[:7]
-        return [{'date': log.date.strftime('%Y-%m-%d'), 'completed': log.completed} for log in logs]
+        return [{'date': log.date.strftime('%Y-%m-%d'), 'status': log.status, 'completed': log.completed} for log in logs]
+
+    def get_status(self, obj):
+        request = self.context.get('request')
+        if not request: return 'PENDING'
+        date = request.query_params.get('date')
+        if not date: return 'PENDING'
+        log = obj.logs.filter(date=date).first()
+        if not log: return 'PENDING'
+        return log.status
 
     def get_completed(self, obj):
 # ... (rest of methods)

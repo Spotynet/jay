@@ -7,13 +7,13 @@ import { IconX } from 'tabler-icons-react-native';
 
 interface DeleteConfirmProps {
   visible: boolean;
-  title: string;
-  message: string;
+  title?: string;
+  message?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export default function DeleteConfirm({ visible, title, message, onConfirm, onCancel }: DeleteConfirmProps) {
+export default function DeleteConfirm({ visible, title = 'DELETE', message = 'Are you sure you want to delete this? This action cannot be undone.', onConfirm, onCancel }: DeleteConfirmProps) {
   const { colors } = useTheme();
 
   return (

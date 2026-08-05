@@ -100,7 +100,7 @@ export default function SystemsScreen() {
             <SystemManagementCell title="Events" icon={ENTITY_ICONS.event} status={`${events.length} Today`} meta={nextEventMeta} onPress={() => navigation.navigate('CalendarSettings')} />
             <SystemManagementCell title="Habits" icon={ENTITY_ICONS.habit} status={`${habits.length} Active`} meta={`${activeStreaksCount} active ${activeStreaksCount === 1 ? 'streak' : 'streaks'}`} onPress={() => navigation.navigate('HabitsSettings')} />
             <SystemManagementCell title="Journal" icon={ENTITY_ICONS.journal} status={`${journalEntries.length} Entries`} meta={lastEntryDate ? `Last: ${getRelativeDate(lastEntryDate)}` : 'No entries'} onPress={() => navigation.navigate('JournalSettings')} />
-            <SystemManagementCell title="Workouts" icon={ENTITY_ICONS.workout} status="4 sessions" meta="Next tomorrow" onPress={() => navigation.navigate('WorkoutSettings')} />
+            <SystemManagementCell title="Fitness" icon={ENTITY_ICONS.workout} status="4 sessions" meta="Next tomorrow" onPress={() => navigation.navigate('WorkoutSettings')} />
             <SystemManagementCell title="Finance" icon={ENTITY_ICONS.finance} status="3 Budgets" meta="Review due Friday" onPress={() => navigation.navigate('ManageFinance')} isLast />
         </View>
       </ScrollView>

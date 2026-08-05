@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "ExtraThumb.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/Panels/Panel3/ExtraThumb.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAS1B,OAAO,KAAK,EAAE,eAAe,EAAE,MAAM,gBAAgB,CAAC;AAEtD,wBAAgB,UAAU,CAAC,EACzB,QAAQ,EACR,UAAU,EACV,cAAc,EACd,YAAY,EACZ,mBAAmB,EACnB,mBAAmB,EACnB,WAAW,EACX,GAAG,KAAK,EACT,EAAE,eAAe,qBA6HjB"
+}

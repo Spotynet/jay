@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "ColorPicker.d.ts",
+  "sourceRoot": "",
+  "sources": ["../src/ColorPicker.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAA6D,MAAM,OAAO,CAAC;AASlF,OAAO,KAAK,EAAsB,gBAAgB,EAAE,cAAc,EAAE,MAAM,SAAS,CAAC;AASpF,QAAA,MAAM,WAAW,yFAmKhB,CAAC;AAEF,eAAe,WAAW,CAAC"
+}

@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "Panel2.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../src/components/Panels/Panel2.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAsB,MAAM,OAAO,CAAC;AAW3C,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,aAAa,CAAC;AAI/C,sHAAsH;AACtH,wBAAgB,MAAM,CAAC,EACrB,eAA8B,EAC9B,UAAkB,EAClB,sBAA8B,EAC9B,QAAa,EACb,KAAU,EACV,GAAG,KAAK,EACT,EAAE,WAAW,qBA0Kb"
+}

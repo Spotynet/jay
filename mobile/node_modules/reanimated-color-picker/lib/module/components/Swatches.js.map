@@ -1,0 +1,35 @@
+{
+  "version": 3,
+  "names": [
+    "React",
+    "Pressable",
+    "View",
+    "usePickerContext",
+    "styles",
+    "SWATCHES_COLORS",
+    "Swatches",
+    "colors",
+    "style",
+    "swatchStyle",
+    "setColor",
+    "onGestureChange",
+    "onGestureEnd",
+    "onPress",
+    "swatch",
+    "createElement",
+    "swatchesContainer",
+    "map",
+    "i",
+    "key",
+    "backgroundColor",
+    "accessibilityLabel",
+    "accessibilityRole"
+  ],
+  "sourceRoot": "../../src/components",
+  "sources": ["Swatches.tsx"],
+  "sourcesContent": [
+    "import React from 'react';\nimport { Pressable, View } from 'react-native';\n\nimport usePickerContext from '../AppContext';\nimport { styles } from '../styles';\n\nimport type { SwatchesProps } from '../types';\n\nconst SWATCHES_COLORS = [\n  '#f44336',\n  '#E91E63',\n  '#9C27B0',\n  '#673AB7',\n  '#3F51B5',\n  '#2196F3',\n  '#03A9F4',\n  '#00BCD4',\n  '#009688',\n  '#4CAF50',\n  '#8BC34A',\n  '#CDDC39',\n  '#FFEB3B',\n  '#FFC107',\n  '#FF9800',\n  '#FF5722',\n  '#795548',\n  '#9E9E9E',\n  '#607D8B',\n];\n\nexport function Swatches({ colors = SWATCHES_COLORS, style = {}, swatchStyle = {} }: SwatchesProps) {\n  const { setColor, onGestureChange, onGestureEnd } = usePickerContext();\n\n  const onPress = (swatch: string) => {\n    setColor(swatch);\n    onGestureChange(swatch);\n    onGestureEnd(swatch);\n  };\n\n  return (\n    <View style={[styles.swatchesContainer, style]}>\n      {colors.map((swatch, i) => (\n        <Pressable\n          key={swatch + i}\n          onPress={() => onPress(swatch)}\n          style={[styles.swatch, swatchStyle, { backgroundColor: swatch }]}\n          accessibilityLabel={`Select color: ${swatch}`}\n          accessibilityRole='button'\n        />\n      ))}\n    </View>\n  );\n}\n"
+  ],
+  "mappings": "AAAA,OAAOA,KAAK,MAAM,OAAO;AACzB,SAASC,SAAS,EAAEC,IAAI,QAAQ,cAAc;AAE9C,OAAOC,gBAAgB,MAAM,eAAe;AAC5C,SAASC,MAAM,QAAQ,WAAW;AAIlC,MAAMC,eAAe,GAAG,CACtB,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,EACT,SAAS,CACV;AAED,OAAO,SAASC,QAAQA,CAAC;EAAEC,MAAM,GAAGF,eAAe;EAAEG,KAAK,GAAG,CAAC,CAAC;EAAEC,WAAW,GAAG,CAAC;AAAiB,CAAC,EAAE;EAClG,MAAM;IAAEC,QAAQ;IAAEC,eAAe;IAAEC;EAAa,CAAC,GAAGT,gBAAgB,CAAC,CAAC;EAEtE,MAAMU,OAAO,GAAIC,MAAc,IAAK;IAClCJ,QAAQ,CAACI,MAAM,CAAC;IAChBH,eAAe,CAACG,MAAM,CAAC;IACvBF,YAAY,CAACE,MAAM,CAAC;EACtB,CAAC;EAED,oBACEd,KAAA,CAAAe,aAAA,CAACb,IAAI;IAACM,KAAK,EAAE,CAACJ,MAAM,CAACY,iBAAiB,EAAER,KAAK;EAAE,GAC5CD,MAAM,CAACU,GAAG,CAAC,CAACH,MAAM,EAAEI,CAAC,kBACpBlB,KAAA,CAAAe,aAAA,CAACd,SAAS;IACRkB,GAAG,EAAEL,MAAM,GAAGI,CAAE;IAChBL,OAAO,EAAEA,CAAA,KAAMA,OAAO,CAACC,MAAM,CAAE;IAC/BN,KAAK,EAAE,CAACJ,MAAM,CAACU,MAAM,EAAEL,WAAW,EAAE;MAAEW,eAAe,EAAEN;IAAO,CAAC,CAAE;IACjEO,kBAAkB,EAAE,iBAAiBP,MAAM,EAAG;IAC9CQ,iBAAiB,EAAC;EAAQ,CAC3B,CACF,CACG,CAAC;AAEX",
+  "ignoreList": []
+}

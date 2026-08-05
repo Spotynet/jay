@@ -1,0 +1,104 @@
+{
+  "name": "moti",
+  "description": "The universal React Native animation library, powered by Reanimated 3. 🦉",
+  "version": "0.30.0",
+  "keywords": [
+    "react-native",
+    "ios",
+    "android",
+    "web"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nandorojo/moti.git",
+    "directory": "packages/moti"
+  },
+  "bugs": {
+    "url": "https://github.com/nandorojo/moti/issues"
+  },
+  "homepage": "https://github.com/nandorojo/moti.git#readme",
+  "main": "build/index.js",
+  "react-native": "src/index.tsx",
+  "source": "src/index.tsx",
+  "types": "./index.d.ts",
+  "files": [
+    "src",
+    "build",
+    "!**/__tests__",
+    "interactions",
+    "skeleton",
+    "index.d.ts",
+    "svg",
+    "author"
+  ],
+  "exports": {
+    ".": {
+      "import": "./build/index.js",
+      "require": "./build/index.js",
+      "types": "./index.d.ts"
+    },
+    "./interactions": {
+      "import": "./build/interactions/index.js",
+      "require": "./build/interactions/index.js",
+      "types": "./interactions/index.d.ts"
+    },
+    "./skeleton": {
+      "import": "./build/skeleton/index.js",
+      "require": "./build/skeleton/index.js",
+      "types": "./skeleton/index.d.ts"
+    },
+    "./svg": {
+      "import": "./build/svg/index.js",
+      "require": "./build/svg/index.js",
+      "types": "./svg/index.d.ts"
+    },
+    "./author": {
+      "import": "./build/author/index.js",
+      "require": "./build/author/index.js",
+      "types": "./author/index.d.ts"
+    }
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepare:bob": "bob build",
+    "clean:bob": "del lib",
+    "build": "expo-module build",
+    "clean": "expo-module clean",
+    "test": "expo-module test",
+    "prepare": "yarn expo-module prepare",
+    "prepublishOnly": "expo-module prepublishOnly"
+  },
+  "peerDependencies": {
+    "react-native-reanimated": "*"
+  },
+  "devDependencies": {
+    "@react-navigation/native": "^6.1.18",
+    "expo-linear-gradient": "^10.0.3",
+    "expo-module-scripts": "^3.4.1",
+    "react-native-linear-gradient": "^2.6.2",
+    "react-native-reanimated": "3.11.0",
+    "typescript": "^5.2.0"
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      "commonjs",
+      "module",
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
+    ]
+  },
+  "gitHead": "36d489545d0a4e3b83af8650bdb9881a251fa777",
+  "dependencies": {
+    "framer-motion": "^6.5.1"
+  }
+}

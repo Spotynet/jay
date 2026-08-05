@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "AppContext.d.ts",
+  "sourceRoot": "",
+  "sources": ["../src/AppContext.ts"],
+  "names": [],
+  "mappings": ";AAEA,OAAO,KAAK,EAAE,kBAAkB,EAAE,MAAM,SAAS,CAAC;AAGlD,eAAO,MAAM,qBAAqB,8CAAyB,CAAC;AAE5D,MAAM,CAAC,OAAO,UAAU,gBAAgB,uBAMvC"
+}

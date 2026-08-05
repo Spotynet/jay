@@ -6,4 +6,5 @@ export interface User {
   last_name: string;
   timezone: string;
   onboarding_completed: boolean;
+  is_premium: boolean;
 }

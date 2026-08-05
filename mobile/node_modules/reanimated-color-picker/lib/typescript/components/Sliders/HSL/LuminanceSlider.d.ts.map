@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "LuminanceSlider.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/Sliders/HSL/LuminanceSlider.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAW1B,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,gBAAgB,CAAC;AAIlD,wBAAgB,eAAe,CAAC,EAAE,QAAa,EAAE,KAAU,EAAE,QAAgB,EAAE,OAAe,EAAE,GAAG,KAAK,EAAE,EAAE,WAAW,qBA0ItH"
+}

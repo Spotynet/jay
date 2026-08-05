@@ -1,0 +1,38 @@
+{
+  "version": 3,
+  "names": [
+    "React",
+    "Animated",
+    "useAnimatedStyle",
+    "styles",
+    "enableAndroidHardwareTextures",
+    "Hollow",
+    "width",
+    "height",
+    "borderRadius",
+    "thumbColor",
+    "adaptiveColor",
+    "handleStyle",
+    "innerStyle",
+    "style",
+    "computedStyle",
+    "borderWidth",
+    "adaptiveColorStyle",
+    "borderColor",
+    "value",
+    "adaptiveColorBgStyle",
+    "backgroundColor",
+    "createElement",
+    "View",
+    "handle",
+    "renderToHardwareTextureAndroid",
+    "shadow"
+  ],
+  "sourceRoot": "../../../../src/components/Thumb/BuiltinThumbs",
+  "sources": ["Hollow.tsx"],
+  "sourcesContent": [
+    "import React from 'react';\nimport Animated, { useAnimatedStyle } from 'react-native-reanimated';\n\nimport { styles } from '../../../styles';\nimport { enableAndroidHardwareTextures } from '../../../utils';\n\nimport type { BuiltinThumbsProps } from '../../../types';\n\nexport default function Hollow({\n  width,\n  height,\n  borderRadius,\n  thumbColor,\n  adaptiveColor,\n  handleStyle,\n  innerStyle,\n  style,\n}: BuiltinThumbsProps) {\n  const computedStyle = { width, height, borderRadius, borderWidth: 2 };\n\n  const adaptiveColorStyle = useAnimatedStyle(() => {\n    return { borderColor: thumbColor ?? adaptiveColor.value };\n  }, [adaptiveColor]);\n\n  const adaptiveColorBgStyle = useAnimatedStyle(() => {\n    return { backgroundColor: thumbColor ?? adaptiveColor.value };\n  }, [adaptiveColor]);\n\n  return (\n    <Animated.View\n      style={[styles.handle, style, computedStyle, adaptiveColorStyle, handleStyle]}\n      renderToHardwareTextureAndroid={enableAndroidHardwareTextures}\n    >\n      <Animated.View style={[{ width: 4, height: 4, borderRadius: 2 }, adaptiveColorBgStyle, styles.shadow, innerStyle]} />\n    </Animated.View>\n  );\n}\n"
+  ],
+  "mappings": "AAAA,OAAOA,KAAK,MAAM,OAAO;AACzB,OAAOC,QAAQ,IAAIC,gBAAgB,QAAQ,yBAAyB;AAEpE,SAASC,MAAM,QAAQ,iBAAiB;AACxC,SAASC,6BAA6B,QAAQ,gBAAgB;AAI9D,eAAe,SAASC,MAAMA,CAAC;EAC7BC,KAAK;EACLC,MAAM;EACNC,YAAY;EACZC,UAAU;EACVC,aAAa;EACbC,WAAW;EACXC,UAAU;EACVC;AACkB,CAAC,EAAE;EACrB,MAAMC,aAAa,GAAG;IAAER,KAAK;IAAEC,MAAM;IAAEC,YAAY;IAAEO,WAAW,EAAE;EAAE,CAAC;EAErE,MAAMC,kBAAkB,GAAGd,gBAAgB,CAAC,MAAM;IAChD,OAAO;MAAEe,WAAW,EAAER,UAAU,IAAIC,aAAa,CAACQ;IAAM,CAAC;EAC3D,CAAC,EAAE,CAACR,aAAa,CAAC,CAAC;EAEnB,MAAMS,oBAAoB,GAAGjB,gBAAgB,CAAC,MAAM;IAClD,OAAO;MAAEkB,eAAe,EAAEX,UAAU,IAAIC,aAAa,CAACQ;IAAM,CAAC;EAC/D,CAAC,EAAE,CAACR,aAAa,CAAC,CAAC;EAEnB,oBACEV,KAAA,CAAAqB,aAAA,CAACpB,QAAQ,CAACqB,IAAI;IACZT,KAAK,EAAE,CAACV,MAAM,CAACoB,MAAM,EAAEV,KAAK,EAAEC,aAAa,EAAEE,kBAAkB,EAAEL,WAAW,CAAE;IAC9Ea,8BAA8B,EAAEpB;EAA8B,gBAE9DJ,KAAA,CAAAqB,aAAA,CAACpB,QAAQ,CAACqB,IAAI;IAACT,KAAK,EAAE,CAAC;MAAEP,KAAK,EAAE,CAAC;MAAEC,MAAM,EAAE,CAAC;MAAEC,YAAY,EAAE;IAAE,CAAC,EAAEW,oBAAoB,EAAEhB,MAAM,CAACsB,MAAM,EAAEb,UAAU;EAAE,CAAE,CACvG,CAAC;AAEpB",
+  "ignoreList": []
+}

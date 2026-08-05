@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "Panel4.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../src/components/Panels/Panel4.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAsB,MAAM,OAAO,CAAC;AAU3C,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,aAAa,CAAC;AAI/C,wGAAwG;AACxG,wBAAgB,MAAM,CAAC,EACrB,UAAkB,EAClB,yBAAiC,EACjC,QAAa,EACb,KAAU,EACV,GAAG,KAAK,EACT,EAAE,WAAW,qBA8Ib"
+}

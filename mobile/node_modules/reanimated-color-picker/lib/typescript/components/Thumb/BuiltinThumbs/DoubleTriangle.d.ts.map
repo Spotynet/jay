@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "DoubleTriangle.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/Thumb/BuiltinThumbs/DoubleTriangle.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAO1B,OAAO,KAAK,EAAE,kBAAkB,EAAE,MAAM,gBAAgB,CAAC;AAGzD,MAAM,CAAC,OAAO,UAAU,cAAc,CAAC,EACrC,KAAK,EACL,MAAM,EACN,UAAU,EACV,aAAa,EACb,WAAW,EACX,UAAU,EACV,KAAK,EACL,QAAQ,GACT,EAAE,kBAAkB,qBAgCpB"
+}

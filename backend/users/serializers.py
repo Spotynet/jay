@@ -16,8 +16,9 @@ class UserSerializer(serializers.ModelSerializer):
             'last_name',
             'timezone',
             'onboarding_completed',
+            'is_premium',
         )
-        read_only_fields = ('id', 'username', 'email', 'onboarding_completed')
+        read_only_fields = ('id', 'username', 'email', 'onboarding_completed', 'is_premium')
 
 
 class RegisterSerializer(serializers.Serializer):

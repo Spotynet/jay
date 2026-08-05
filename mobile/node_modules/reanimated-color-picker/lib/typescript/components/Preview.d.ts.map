@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "Preview.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../src/components/Preview.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAA8B,MAAM,OAAO,CAAC;AAUnD,OAAO,KAAK,EAAE,YAAY,EAAE,MAAM,UAAU,CAAC;AAI7C,wBAAgB,OAAO,CAAC,EACtB,KAAU,EACV,SAAc,EACd,WAAmB,EACnB,gBAAwB,EACxB,QAAgB,EAChB,qBAA6B,GAC9B,EAAE,YAAY,qBA0Dd"
+}

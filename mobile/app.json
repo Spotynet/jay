@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "JAY",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -28,7 +28,15 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/jay1.png"
+      "favicon": "./assets/jay1.png",
+      "name": "JAY",
+      "shortName": "JAY",
+      "description": "Just A Day — one day at a time",
+      "backgroundColor": "#000000",
+      "themeColor": "#000000",
+      "display": "standalone",
+      "orientation": "portrait",
+      "icon": "./assets/jay1.png"
     },
     "extra": {
       "eas": {

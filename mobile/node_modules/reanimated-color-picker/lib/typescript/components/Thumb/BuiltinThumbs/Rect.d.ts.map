@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "Rect.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/Thumb/BuiltinThumbs/Rect.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAM1B,OAAO,KAAK,EAAE,kBAAkB,EAAE,MAAM,gBAAgB,CAAC;AAEzD,MAAM,CAAC,OAAO,UAAU,IAAI,CAAC,EAC3B,KAAK,EACL,MAAM,EACN,aAAa,EACb,WAAW,EACX,UAAU,EACV,KAAK,EACL,QAAQ,EACR,UAAU,GACX,EAAE,kBAAkB,qBAmBpB"
+}

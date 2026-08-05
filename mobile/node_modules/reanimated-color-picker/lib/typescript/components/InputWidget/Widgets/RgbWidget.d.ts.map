@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "RgbWidget.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/InputWidget/Widgets/RgbWidget.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAiB,MAAM,OAAO,CAAC;AAOtC,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,gBAAgB,CAAC;AAElD,MAAM,CAAC,OAAO,UAAU,SAAS,CAAC,EAChC,QAAQ,EACR,eAAe,EACf,QAAQ,EACR,eAAe,EACf,eAAe,EACf,UAAU,EACV,UAAU,EACV,eAAe,EACf,UAAU,EACV,mBAAmB,GACpB,EAAE,WAAW,qBAgFb"
+}

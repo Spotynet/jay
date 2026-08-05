@@ -4,7 +4,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { AppText } from '../../../components/ui/AppText';
 import { Icon } from '../../../components/ui/Icon';
 import { 
-  IconChecklist, IconCalendarEvent, IconRepeat, IconBook, IconX, IconBarbell, IconWallet 
+  IconChecklist, IconCalendarEvent, IconRepeat, IconBook, IconX, IconWallet 
 } from 'tabler-icons-react-native';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
@@ -19,7 +19,6 @@ const OPTIONS = [
   { id: 'Task', entityKey: 'tasks', label: 'NEW TASK', sub: 'ORGANIZE YOUR ACTION', icon: IconChecklist },
   { id: 'Event', entityKey: 'events', label: 'NEW EVENT', sub: 'SCHEDULE YOUR TIME', icon: IconCalendarEvent },
   { id: 'Habit', entityKey: 'habits', label: 'NEW HABIT', sub: 'BUILD CONSISTENCY', icon: IconRepeat },
-  { id: 'Workout', entityKey: 'workouts', label: 'NEW WORKOUT', sub: 'TRACK YOUR FITNESS', icon: IconBarbell },
   { id: 'Finance', entityKey: 'finance', label: 'FINANCE ENTRY', sub: 'MANAGE YOUR MONEY', icon: IconWallet },
   { id: 'Journal', entityKey: 'journal', label: 'JOURNAL ENTRY', sub: 'CAPTURE YOUR THOUGHTS', icon: IconBook },
 ];

@@ -1,0 +1,42 @@
+{
+  "version": 3,
+  "names": [
+    "React",
+    "useDerivedValue",
+    "useSharedValue",
+    "colorKit",
+    "WidgetTextInput",
+    "HexWidget",
+    "onChange",
+    "returnedResults",
+    "hueValue",
+    "saturationValue",
+    "brightnessValue",
+    "alphaValue",
+    "inputStyle",
+    "inputTitleStyle",
+    "inputProps",
+    "hexColor",
+    "hex",
+    "value",
+    "onEndEditing",
+    "text",
+    "_colorKit$getFormat",
+    "startsWith",
+    "isHex",
+    "getFormat",
+    "includes",
+    "createElement",
+    "textStyle",
+    "textValue",
+    "title",
+    "textKeyboard"
+  ],
+  "sourceRoot": "../../../../src/components/InputWidget/Widgets",
+  "sources": ["HexWidget.tsx"],
+  "sourcesContent": [
+    "import React from 'react';\nimport { useDerivedValue, useSharedValue } from 'react-native-reanimated';\n\nimport colorKit from '../../../colorKit/index';\nimport WidgetTextInput from './WidgetTextInput';\n\nimport type { WidgetProps } from '../../../types';\n\nexport default function HexWidget({\n  onChange,\n  returnedResults,\n  hueValue,\n  saturationValue,\n  brightnessValue,\n  alphaValue,\n  inputStyle,\n  inputTitleStyle,\n  inputProps,\n}: WidgetProps) {\n  const hexColor = useSharedValue(returnedResults().hex);\n\n  useDerivedValue(() => {\n    [hueValue, saturationValue, brightnessValue, alphaValue]; // track changes on Native\n    hexColor.value = returnedResults().hex;\n  }, [hueValue, saturationValue, brightnessValue, alphaValue]); // track changes on WEB\n\n  const onEndEditing = (text: string) => {\n    text = text.startsWith('#') ? text : '#' + text;\n    const isHex = colorKit.getFormat(text)?.includes('hex');\n    hexColor.value = ''; // force update in case the value of `hexColor` didn't change\n    if (isHex) {\n      onChange(text);\n      return;\n    }\n  };\n\n  return (\n    <WidgetTextInput\n      inputStyle={inputStyle}\n      textStyle={inputTitleStyle}\n      textValue={hexColor}\n      title='HEX'\n      onEndEditing={onEndEditing}\n      inputProps={inputProps}\n      textKeyboard\n    />\n  );\n}\n"
+  ],
+  "mappings": "AAAA,OAAOA,KAAK,MAAM,OAAO;AACzB,SAASC,eAAe,EAAEC,cAAc,QAAQ,yBAAyB;AAEzE,OAAOC,QAAQ,MAAM,yBAAyB;AAC9C,OAAOC,eAAe,MAAM,mBAAmB;AAI/C,eAAe,SAASC,SAASA,CAAC;EAChCC,QAAQ;EACRC,eAAe;EACfC,QAAQ;EACRC,eAAe;EACfC,eAAe;EACfC,UAAU;EACVC,UAAU;EACVC,eAAe;EACfC;AACW,CAAC,EAAE;EACd,MAAMC,QAAQ,GAAGb,cAAc,CAACK,eAAe,CAAC,CAAC,CAACS,GAAG,CAAC;EAEtDf,eAAe,CAAC,MAAM;IACpB,CAACO,QAAQ,EAAEC,eAAe,EAAEC,eAAe,EAAEC,UAAU,CAAC,CAAC,CAAC;IAC1DI,QAAQ,CAACE,KAAK,GAAGV,eAAe,CAAC,CAAC,CAACS,GAAG;EACxC,CAAC,EAAE,CAACR,QAAQ,EAAEC,eAAe,EAAEC,eAAe,EAAEC,UAAU,CAAC,CAAC,CAAC,CAAC;;EAE9D,MAAMO,YAAY,GAAIC,IAAY,IAAK;IAAA,IAAAC,mBAAA;IACrCD,IAAI,GAAGA,IAAI,CAACE,UAAU,CAAC,GAAG,CAAC,GAAGF,IAAI,GAAG,GAAG,GAAGA,IAAI;IAC/C,MAAMG,KAAK,IAAAF,mBAAA,GAAGjB,QAAQ,CAACoB,SAAS,CAACJ,IAAI,CAAC,cAAAC,mBAAA,uBAAxBA,mBAAA,CAA0BI,QAAQ,CAAC,KAAK,CAAC;IACvDT,QAAQ,CAACE,KAAK,GAAG,EAAE,CAAC,CAAC;IACrB,IAAIK,KAAK,EAAE;MACThB,QAAQ,CAACa,IAAI,CAAC;MACd;IACF;EACF,CAAC;EAED,oBACEnB,KAAA,CAAAyB,aAAA,CAACrB,eAAe;IACdQ,UAAU,EAAEA,UAAW;IACvBc,SAAS,EAAEb,eAAgB;IAC3Bc,SAAS,EAAEZ,QAAS;IACpBa,KAAK,EAAC,KAAK;IACXV,YAAY,EAAEA,YAAa;IAC3BJ,UAAU,EAAEA,UAAW;IACvBe,YAAY;EAAA,CACb,CAAC;AAEN",
+  "ignoreList": []
+}

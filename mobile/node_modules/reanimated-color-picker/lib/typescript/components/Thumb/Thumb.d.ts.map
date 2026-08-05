@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "Thumb.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../src/components/Thumb/Thumb.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAQ1B,OAAO,KAAK,EAAsB,UAAU,EAAE,MAAM,aAAa,CAAC;AAElE,MAAM,CAAC,OAAO,UAAU,KAAK,CAAC,EAC5B,WAAW,EACX,UAAU,EACV,KAAK,EACL,UAAU,EACV,WAAW,EAAE,WAAW,EACxB,UAAmB,EACnB,SAAS,EACT,QAAgB,EAChB,aAAa,EACb,OAAO,EACP,WAAW,GACZ,EAAE,UAAU,qBAmFZ"
+}

@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "PreviewText.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../src/components/PreviewText.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAA8B,MAAM,OAAO,CAAC;AAQnD,OAAO,KAAK,EAAE,gBAAgB,EAAE,MAAM,UAAU,CAAC;AAKjD,wBAAgB,WAAW,CAAC,EAAE,KAAU,EAAE,WAAmB,EAAE,EAAE,gBAAgB,qBAqChF"
+}

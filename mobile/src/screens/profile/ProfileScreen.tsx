@@ -6,7 +6,8 @@ import { AppText } from '../../components/ui/AppText';
 import { Icon } from '../../components/ui/Icon';
 import { 
   IconUser, IconShield, IconCalendar, IconBell, IconPalette, IconColorSwatch, 
-  IconDatabase, IconCloud, IconHelp, IconInfoCircle, IconLogout, IconChevronRight 
+  IconDatabase, IconCloud, IconHelp, IconInfoCircle, IconLogout, IconChevronRight,
+  IconChecklist, IconBook, IconBarbell, IconWallet
 } from 'tabler-icons-react-native';
 import ScreenLayout from '../../components/common/ScreenLayout';
 import { useAuth } from '../../context/AuthContext';
@@ -37,7 +38,7 @@ export default function ProfileScreen() {
   const [modalVisible, setModalVisible] = useState(false);
 
   return (
-    <ScreenLayout title="Profile" contentStyle={{ padding: 0 }}>
+    <ScreenLayout title="Profile" showBack contentStyle={{ padding: 0 }}>
       <ColorPickerModal 
         visible={modalVisible} 
         onClose={() => setModalVisible(false)} 
@@ -80,6 +81,23 @@ export default function ProfileScreen() {
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.sectionHeader}>
+            <AppText style={[styles.sectionTitle, { color: colors.subtext }]}>Preferences</AppText>
+          </View>
+          <MenuItem icon={IconChecklist} label="Task & Goals" onPress={() => navigation.navigate('TasksSettings')} />
+          <Divider />
+          <MenuItem icon={IconBook} label="Journal & Habits" onPress={() => navigation.navigate('JournalSettings')} />
+          <Divider />
+          <MenuItem
+            icon={IconBarbell}
+            label="Fitness"
+            rightElement={<AppText style={[styles.comingSoon, { color: colors.subtext }]}>Coming soon</AppText>}
+          />
+          <Divider />
+          <MenuItem icon={IconWallet} label="Finance" onPress={() => navigation.navigate('FinanceSettings')} />
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 0 }]}>
           <MenuItem icon={IconHelp} label="Help" />
           <Divider />
           <MenuItem icon={IconInfoCircle} label="About" />
@@ -101,6 +119,9 @@ const styles = StyleSheet.create({
   menuLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   menuText: { fontSize: 16 },
   divider: { height: 1, marginHorizontal: 16 },
+  sectionHeader: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 },
+  sectionTitle: { fontSize: 11, fontWeight: '600', letterSpacing: 2, textTransform: 'uppercase' },
+  comingSoon: { fontSize: 13, fontWeight: '500' },
   accentCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2 },
   logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16, borderRadius: 16 },
   logoutText: { fontSize: 16, color: '#FF3B30', fontWeight: '600' }

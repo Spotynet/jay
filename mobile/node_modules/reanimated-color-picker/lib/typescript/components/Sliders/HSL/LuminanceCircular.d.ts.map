@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "LuminanceCircular.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/Sliders/HSL/LuminanceCircular.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAsB,MAAM,OAAO,CAAC;AAU3C,OAAO,KAAK,EAAE,sBAAsB,EAAE,MAAM,gBAAgB,CAAC;AAI7D,wBAAgB,iBAAiB,CAAC,EAChC,QAAQ,EACR,QAAa,EACb,KAAU,EACV,cAAmB,EACnB,MAAU,EACV,GAAG,KAAK,EACT,EAAE,sBAAsB,qBA4KxB"
+}

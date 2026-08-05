@@ -5,7 +5,10 @@ from users.models import User
 
 class JournalEntry(TimeStampedModel, OwnedModel):
     date = models.DateField()
-    highlight = models.TextField(max_length=280, help_text="Primary short reflection")
+    highlight = models.TextField(
+        max_length=280, blank=True, default="",
+        help_text="Primary short reflection"
+    )
     notes = models.TextField(blank=True, help_text="Optional longer annotations")
     mood_score = models.IntegerField(
         null=True, blank=True,

@@ -1,0 +1,24 @@
+{
+  "version": 3,
+  "names": [
+    "Circle",
+    "DoubleTriangle",
+    "Hollow",
+    "Line",
+    "Pill",
+    "Plus",
+    "Rect",
+    "Ring",
+    "Solid",
+    "TriangleDown",
+    "TriangleUp",
+    "BuiltinThumbs"
+  ],
+  "sourceRoot": "../../../../src/components/Thumb/BuiltinThumbs",
+  "sources": ["index.ts"],
+  "sourcesContent": [
+    "import Circle from './Circle';\nimport DoubleTriangle from './DoubleTriangle';\nimport Hollow from './Hollow';\nimport Line from './Line';\nimport Pill from './Pill';\nimport Plus from './Plus';\nimport Rect from './Rect';\nimport Ring from './Ring';\nimport Solid from './Solid';\nimport TriangleDown from './TriangleDown';\nimport TriangleUp from './TriangleUp';\n\nconst BuiltinThumbs = {\n  Ring,\n  Solid,\n  Hollow,\n  Line,\n  Pill,\n  Plus,\n  TriangleUp,\n  TriangleDown,\n  DoubleTriangle,\n  Rect,\n  Circle,\n};\n\nexport default BuiltinThumbs;\n"
+  ],
+  "mappings": "AAAA,OAAOA,MAAM,MAAM,UAAU;AAC7B,OAAOC,cAAc,MAAM,kBAAkB;AAC7C,OAAOC,MAAM,MAAM,UAAU;AAC7B,OAAOC,IAAI,MAAM,QAAQ;AACzB,OAAOC,IAAI,MAAM,QAAQ;AACzB,OAAOC,IAAI,MAAM,QAAQ;AACzB,OAAOC,IAAI,MAAM,QAAQ;AACzB,OAAOC,IAAI,MAAM,QAAQ;AACzB,OAAOC,KAAK,MAAM,SAAS;AAC3B,OAAOC,YAAY,MAAM,gBAAgB;AACzC,OAAOC,UAAU,MAAM,cAAc;AAErC,MAAMC,aAAa,GAAG;EACpBJ,IAAI;EACJC,KAAK;EACLN,MAAM;EACNC,IAAI;EACJC,IAAI;EACJC,IAAI;EACJK,UAAU;EACVD,YAAY;EACZR,cAAc;EACdK,IAAI;EACJN;AACF,CAAC;AAED,eAAeW,aAAa",
+  "ignoreList": []
+}

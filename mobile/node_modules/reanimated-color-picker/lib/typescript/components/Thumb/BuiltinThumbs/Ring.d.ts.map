@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "Ring.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/Thumb/BuiltinThumbs/Ring.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAO1B,OAAO,KAAK,EAAE,kBAAkB,EAAE,MAAM,gBAAgB,CAAC;AAEzD,MAAM,CAAC,OAAO,UAAU,IAAI,CAAC,EAC3B,KAAK,EACL,MAAM,EACN,YAAY,EACZ,aAAa,EACb,WAAW,EACX,UAAU,EACV,UAAU,EACV,KAAK,GACN,EAAE,kBAAkB,qBAgCpB"
+}

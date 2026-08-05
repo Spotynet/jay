@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "Swatches.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../src/components/Swatches.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAM1B,OAAO,KAAK,EAAE,aAAa,EAAE,MAAM,UAAU,CAAC;AAwB9C,wBAAgB,QAAQ,CAAC,EAAE,MAAwB,EAAE,KAAU,EAAE,WAAgB,EAAE,EAAE,aAAa,qBAsBjG"
+}

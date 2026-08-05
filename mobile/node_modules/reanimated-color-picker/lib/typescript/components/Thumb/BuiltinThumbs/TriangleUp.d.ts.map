@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "TriangleUp.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/Thumb/BuiltinThumbs/TriangleUp.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAM1B,OAAO,KAAK,EAAE,kBAAkB,EAAE,MAAM,gBAAgB,CAAC;AAGzD,MAAM,CAAC,OAAO,UAAU,UAAU,CAAC,EACjC,KAAK,EACL,MAAM,EACN,UAAU,EACV,aAAa,EACb,WAAW,EACX,UAAU,EACV,KAAK,EACL,QAAQ,GACT,EAAE,kBAAkB,qBAyBpB"
+}

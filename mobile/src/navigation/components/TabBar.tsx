@@ -9,19 +9,19 @@ import Animated, {
 import { Icon } from '../../components/ui/Icon';
 import { 
   IconCalendar, 
-  IconLayoutGrid, 
-  IconSettings, 
-  IconBrain, 
-  IconUser 
+  IconChecklist, 
+  IconBook, 
+  IconBarbell, 
+  IconWallet 
 } from 'tabler-icons-react-native';
 import { useTheme } from '../../context/ThemeContext';
 
 const icons = {
   Today: IconCalendar,
-  Manage: IconLayoutGrid,
-  Jay: null, 
-  Reflect: IconBrain,
-  Profile: IconUser,
+  Plan: IconChecklist,
+  Journal: IconBook,
+  Fitness: IconBarbell,
+  Financial: IconWallet,
 };
 
 export const TabBar = ({ state, descriptors, navigation }) => {
@@ -40,22 +40,6 @@ const TabContent = ({ state, navigation, colors, accentColor }) => (
   <View style={styles.content}>
     {state.routes.map((route, index) => {
       const isFocused = state.index === index;
-      
-      if (index === 2) {
-        return (
-          <TouchableOpacity 
-            key="JAY" 
-            style={styles.centerTab} 
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('Jay')}
-          >
-            <View style={[styles.centerButton, { backgroundColor: colors.background, borderColor: isFocused ? accentColor : colors.subtext }]}>
-              <Text style={[styles.centerButtonText, { color: isFocused ? accentColor : colors.subtext }]}>JAY</Text>
-            </View>
-          </TouchableOpacity>
-        );
-      }
-
       const IconComponent = icons[route.name as keyof typeof icons];
 
       const onPress = () => {
@@ -114,11 +98,9 @@ const styles = StyleSheet.create({
     height: 70,
     borderTopWidth: 1,
     paddingBottom: Platform.OS === 'ios' ? 15 : 0,
-    overflow: 'visible',
   },
   container: {
     flex: 1,
-    overflow: 'visible',
   },
   content: {
     flex: 1,
@@ -126,29 +108,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingHorizontal: 10,
-    overflow: 'visible',
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  centerTab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    top: -30,
-  },
-  centerButton: {
-    width: 65,
-    height: 65,
-    borderRadius: 32.5,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  centerButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
   },
 });

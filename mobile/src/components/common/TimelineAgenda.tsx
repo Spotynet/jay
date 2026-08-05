@@ -1,7 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Text, Dimensions } from 'react-native';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, Text, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { AgendaCard } from './AgendaCard';
+import { IconChevronDown, IconX } from 'tabler-icons-react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 interface AgendaItem {
   id: string;
@@ -24,9 +26,16 @@ interface TimelineAgendaProps {
 const HOUR_HEIGHT = 180;
 const SIDEBAR_WIDTH = 60;
 
+const formatTime = (date: Date): string => {
+  const h = date.getHours();
+  const m = date.getMinutes();
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+};
+
 export const TimelineAgenda = ({ items, onItemPress }: TimelineAgendaProps) => {
-  const { accentColor } = useTheme();
+  const { accentColor, colors, entityColors } = useTheme();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [chipDismissed, setChipDismissed] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -54,6 +63,18 @@ export const TimelineAgenda = ({ items, onItemPress }: TimelineAgendaProps) => {
       if (!slots[hour]) slots[hour] = [];
       slots[hour].push(item);
   });
+
+  // --- Option 1: "Later today" floating chip ---
+  const futureItems = useMemo(() => {
+    return sortedItems.filter(item => item.startTime.getTime() > currentTime.getTime());
+  }, [sortedItems, currentTime]);
+
+  const nextItem = futureItems.length > 0 ? futureItems[0] : null;
+
+  const scrollToItem = (item: AgendaItem & { startTime: Date }) => {
+    const targetY = (item.startTime.getHours() * HOUR_HEIGHT) - 50;
+    scrollViewRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
+  };
 
   return (
     <View style={styles.container}>
@@ -151,6 +172,26 @@ export const TimelineAgenda = ({ items, onItemPress }: TimelineAgendaProps) => {
           <View style={[styles.nowBulb, { backgroundColor: accentColor }]} />
         </View>
       </ScrollView>
+
+      {/* Option 1: "Later today" floating chip */}
+      {futureItems.length > 0 && !chipDismissed && (
+        <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)} style={styles.floatingChipContainer}>
+          <TouchableOpacity
+            style={[styles.floatingChip, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => nextItem && scrollToItem(nextItem)}
+            activeOpacity={0.8}
+          >
+            <IconChevronDown size={14} color={colors.subtext} stroke={2} style={{ marginRight: 2 }} />
+            <Text style={[styles.floatingChipText, { color: colors.subtext }]}>
+              {futureItems.length} later · {formatTime(nextItem!.startTime)}
+            </Text>
+            <View style={[styles.chipDivider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity onPress={() => setChipDismissed(true)} hitSlop={8}>
+              <IconX size={12} color={colors.subtext} stroke={2} />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
     </View>
   );
 };
@@ -159,9 +200,9 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   allDayContainer: { borderBottomWidth: 0.5, borderBottomColor: '#222', paddingVertical: 10 },
   allDayHeader: { marginBottom: 5 },
-  noTimeLabel: { fontSize: 11, fontWeight: '400', color: '#666', letterSpacing: 2, marginLeft: 10 },
+  noTimeLabel: { fontSize: 11, fontWeight: '400', color: '#666', letterSpacing: 2, marginLeft: 20 },
   allDayContent: { flexDirection: 'row', gap: 10 },
-  allDayCard: { width: 300 }, // Restore card width constraint
+  allDayCard: { width: 300 },
   scrollContent: { paddingBottom: 100 },
   hourRow: { flexDirection: 'row', alignItems: 'flex-start' },
   hourRowSmall: { flexDirection: 'row', alignItems: 'center' },
@@ -170,5 +211,33 @@ const styles = StyleSheet.create({
   divider: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 0.5, backgroundColor: '#222', zIndex: -1 },
   flexCard: { zIndex: 100 },
   nowLine: { position: 'absolute', left: SIDEBAR_WIDTH, right: 0, height: 1 },
-  nowBulb: { position: 'absolute', left: -4, top: -4, width: 8, height: 8, borderRadius: 4 }
+  nowBulb: { position: 'absolute', left: -4, top: -4, width: 8, height: 8, borderRadius: 4 },
+
+  // Option 1: "Later today" floating chip
+  floatingChipContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 200,
+  },
+  floatingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 0.5,
+    gap: 4,
+  },
+  floatingChipText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  chipDivider: {
+    width: 1,
+    height: 12,
+    marginHorizontal: 4,
+  },
 });

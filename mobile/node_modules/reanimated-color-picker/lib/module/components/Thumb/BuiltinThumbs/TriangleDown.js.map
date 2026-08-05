@@ -1,0 +1,43 @@
+{
+  "version": 3,
+  "names": [
+    "React",
+    "Animated",
+    "useAnimatedStyle",
+    "styles",
+    "enableAndroidHardwareTextures",
+    "isRtl",
+    "width",
+    "height",
+    "thumbColor",
+    "adaptiveColor",
+    "handleStyle",
+    "innerStyle",
+    "style",
+    "vertical",
+    "computedStyle",
+    "justifyContent",
+    "alignItems",
+    "triangleStyle",
+    "borderBottomWidth",
+    "borderLeftWidth",
+    "borderRightWidth",
+    "transform",
+    "rotate",
+    "adaptiveColorStyle",
+    "borderBottomColor",
+    "value",
+    "createElement",
+    "View",
+    "handle",
+    "renderToHardwareTextureAndroid",
+    "triangle"
+  ],
+  "sourceRoot": "../../../../src/components/Thumb/BuiltinThumbs",
+  "sources": ["TriangleDown.tsx"],
+  "sourcesContent": [
+    "import React from 'react';\nimport Animated, { useAnimatedStyle } from 'react-native-reanimated';\n\nimport { styles } from '../../../styles';\nimport { enableAndroidHardwareTextures, isRtl } from '../../../utils';\n\nimport type { BuiltinThumbsProps } from '../../../types';\nimport type { StyleProp, ViewStyle } from 'react-native';\n\nexport default function ({\n  width,\n  height,\n  thumbColor,\n  adaptiveColor,\n  handleStyle,\n  innerStyle,\n  style,\n  vertical,\n}: BuiltinThumbsProps) {\n  const computedStyle: StyleProp<ViewStyle> = {\n    width,\n    height,\n    ...(vertical\n      ? { justifyContent: 'center', alignItems: isRtl ? 'flex-start' : 'flex-end' }\n      : { justifyContent: 'flex-start' }),\n  };\n  const triangleStyle = {\n    borderBottomWidth: width / 2,\n    borderLeftWidth: width / 4,\n    borderRightWidth: width / 4,\n    transform: [{ rotate: vertical ? '270deg' : '180deg' }],\n  };\n\n  const adaptiveColorStyle = useAnimatedStyle(() => {\n    return { borderBottomColor: thumbColor ?? adaptiveColor.value };\n  }, [adaptiveColor]);\n\n  return (\n    <Animated.View\n      style={[styles.handle, style, computedStyle, handleStyle]}\n      renderToHardwareTextureAndroid={enableAndroidHardwareTextures}\n    >\n      <Animated.View style={[styles.triangle, triangleStyle, adaptiveColorStyle, innerStyle]} />\n    </Animated.View>\n  );\n}\n"
+  ],
+  "mappings": "AAAA,OAAOA,KAAK,MAAM,OAAO;AACzB,OAAOC,QAAQ,IAAIC,gBAAgB,QAAQ,yBAAyB;AAEpE,SAASC,MAAM,QAAQ,iBAAiB;AACxC,SAASC,6BAA6B,EAAEC,KAAK,QAAQ,gBAAgB;AAKrE,eAAe,UAAU;EACvBC,KAAK;EACLC,MAAM;EACNC,UAAU;EACVC,aAAa;EACbC,WAAW;EACXC,UAAU;EACVC,KAAK;EACLC;AACkB,CAAC,EAAE;EACrB,MAAMC,aAAmC,GAAG;IAC1CR,KAAK;IACLC,MAAM;IACN,IAAIM,QAAQ,GACR;MAAEE,cAAc,EAAE,QAAQ;MAAEC,UAAU,EAAEX,KAAK,GAAG,YAAY,GAAG;IAAW,CAAC,GAC3E;MAAEU,cAAc,EAAE;IAAa,CAAC;EACtC,CAAC;EACD,MAAME,aAAa,GAAG;IACpBC,iBAAiB,EAAEZ,KAAK,GAAG,CAAC;IAC5Ba,eAAe,EAAEb,KAAK,GAAG,CAAC;IAC1Bc,gBAAgB,EAAEd,KAAK,GAAG,CAAC;IAC3Be,SAAS,EAAE,CAAC;MAAEC,MAAM,EAAET,QAAQ,GAAG,QAAQ,GAAG;IAAS,CAAC;EACxD,CAAC;EAED,MAAMU,kBAAkB,GAAGrB,gBAAgB,CAAC,MAAM;IAChD,OAAO;MAAEsB,iBAAiB,EAAEhB,UAAU,IAAIC,aAAa,CAACgB;IAAM,CAAC;EACjE,CAAC,EAAE,CAAChB,aAAa,CAAC,CAAC;EAEnB,oBACET,KAAA,CAAA0B,aAAA,CAACzB,QAAQ,CAAC0B,IAAI;IACZf,KAAK,EAAE,CAACT,MAAM,CAACyB,MAAM,EAAEhB,KAAK,EAAEE,aAAa,EAAEJ,WAAW,CAAE;IAC1DmB,8BAA8B,EAAEzB;EAA8B,gBAE9DJ,KAAA,CAAA0B,aAAA,CAACzB,QAAQ,CAAC0B,IAAI;IAACf,KAAK,EAAE,CAACT,MAAM,CAAC2B,QAAQ,EAAEb,aAAa,EAAEM,kBAAkB,EAAEZ,UAAU;EAAE,CAAE,CAC5E,CAAC;AAEpB",
+  "ignoreList": []
+}

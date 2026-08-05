@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "Panel5.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../src/components/Panels/Panel5.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAsB,MAAM,OAAO,CAAC;AAU3C,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,aAAa,CAAC;AAK/C,qFAAqF;AACrF,wBAAgB,MAAM,CAAC,EAAE,QAAa,EAAE,KAAU,EAAE,cAAmB,EAAE,EAAE,WAAW,qBA0FrF"
+}

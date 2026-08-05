@@ -1,0 +1,36 @@
+{
+  "version": 3,
+  "names": [
+    "ColorPicker",
+    "colorKit",
+    "useColorPickerContext",
+    "Panel1",
+    "Panel2",
+    "Panel3",
+    "Panel4",
+    "Panel5",
+    "HueSlider",
+    "HueCircular",
+    "SaturationSlider",
+    "BrightnessSlider",
+    "LuminanceSlider",
+    "LuminanceCircular",
+    "HSLSaturationSlider",
+    "OpacitySlider",
+    "RedSlider",
+    "GreenSlider",
+    "BlueSlider",
+    "Preview",
+    "PreviewText",
+    "InputWidget",
+    "Swatches",
+    "ExtraThumb"
+  ],
+  "sourceRoot": "../src",
+  "sources": ["index.ts"],
+  "sourcesContent": [
+    "import ColorPicker from './ColorPicker';\nexport default ColorPicker;\n\nimport colorKit from './colorKit/index';\nexport { colorKit };\n\nimport useColorPickerContext from './AppContext';\nexport { useColorPickerContext };\n\nexport { Panel1 } from './components/Panels/Panel1';\nexport { Panel2 } from './components/Panels/Panel2';\nexport { Panel3 } from './components/Panels/Panel3/Panel3';\nexport { Panel4 } from './components/Panels/Panel4';\nexport { Panel5 } from './components/Panels/Panel5';\n\nexport { HueSlider } from './components/Sliders/Hue/HueSlider';\nexport { HueCircular } from './components/Sliders/Hue/HueCircular';\n\nexport { SaturationSlider } from './components/Sliders/HSB/SaturationSlider';\nexport { BrightnessSlider } from './components/Sliders/HSB/BrightnessSlider';\n\nexport { LuminanceSlider } from './components/Sliders/HSL/LuminanceSlider';\nexport { LuminanceCircular } from './components/Sliders/HSL/LuminanceCircular';\nexport { HSLSaturationSlider } from './components/Sliders/HSL/HSLSaturationSlider';\n\nexport { OpacitySlider } from './components/Sliders/OpacitySlider';\n\nexport { RedSlider } from './components/Sliders/RGB/RedSlider';\nexport { GreenSlider } from './components/Sliders/RGB/GreenSlider';\nexport { BlueSlider } from './components/Sliders/RGB/BlueSlider';\n\nexport { Preview } from './components/Preview';\nexport { PreviewText } from './components/PreviewText';\nexport { InputWidget } from './components/InputWidget/InputWidget';\nexport { Swatches } from './components/Swatches';\nexport { ExtraThumb } from './components/Panels/Panel3/ExtraThumb';\n\nexport * from './types';\n"
+  ],
+  "mappings": "AAAA,OAAOA,WAAW,MAAM,eAAe;AACvC,eAAeA,WAAW;AAE1B,OAAOC,QAAQ,MAAM,kBAAkB;AACvC,SAASA,QAAQ;AAEjB,OAAOC,qBAAqB,MAAM,cAAc;AAChD,SAASA,qBAAqB;AAE9B,SAASC,MAAM,QAAQ,4BAA4B;AACnD,SAASC,MAAM,QAAQ,4BAA4B;AACnD,SAASC,MAAM,QAAQ,mCAAmC;AAC1D,SAASC,MAAM,QAAQ,4BAA4B;AACnD,SAASC,MAAM,QAAQ,4BAA4B;AAEnD,SAASC,SAAS,QAAQ,oCAAoC;AAC9D,SAASC,WAAW,QAAQ,sCAAsC;AAElE,SAASC,gBAAgB,QAAQ,2CAA2C;AAC5E,SAASC,gBAAgB,QAAQ,2CAA2C;AAE5E,SAASC,eAAe,QAAQ,0CAA0C;AAC1E,SAASC,iBAAiB,QAAQ,4CAA4C;AAC9E,SAASC,mBAAmB,QAAQ,8CAA8C;AAElF,SAASC,aAAa,QAAQ,oCAAoC;AAElE,SAASC,SAAS,QAAQ,oCAAoC;AAC9D,SAASC,WAAW,QAAQ,sCAAsC;AAClE,SAASC,UAAU,QAAQ,qCAAqC;AAEhE,SAASC,OAAO,QAAQ,sBAAsB;AAC9C,SAASC,WAAW,QAAQ,0BAA0B;AACtD,SAASC,WAAW,QAAQ,sCAAsC;AAClE,SAASC,QAAQ,QAAQ,uBAAuB;AAChD,SAASC,UAAU,QAAQ,uCAAuC;AAElE,cAAc,SAAS",
+  "ignoreList": []
+}

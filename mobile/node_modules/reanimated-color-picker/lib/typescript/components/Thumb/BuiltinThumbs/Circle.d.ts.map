@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "Circle.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/Thumb/BuiltinThumbs/Circle.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAM1B,OAAO,KAAK,EAAE,kBAAkB,EAAE,MAAM,gBAAgB,CAAC;AAEzD,MAAM,CAAC,OAAO,UAAU,MAAM,CAAC,EAC7B,KAAK,EACL,MAAM,EACN,YAAY,EACZ,aAAa,EACb,WAAW,EACX,UAAU,EACV,UAAU,EACV,KAAK,GACN,EAAE,kBAAkB,qBAmBpB"
+}

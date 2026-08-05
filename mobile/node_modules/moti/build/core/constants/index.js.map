@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../src/core/constants/index.ts"],"names":[],"mappings":"AAAA,cAAc,cAAc,CAAC;AAC7B,cAAc,gBAAgB,CAAC","sourcesContent":["export * from './color-keys';\nexport * from './package-name';"]}

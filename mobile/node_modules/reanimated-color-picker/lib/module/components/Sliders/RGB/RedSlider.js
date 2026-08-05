@@ -1,0 +1,200 @@
+import React from 'react';
+import { View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
+import colorKit from '../../../colorKit/index';
+import usePickerContext from '../../../AppContext';
+import Thumb from '../../Thumb/Thumb';
+import { clamp, getStyle, isRtl, isWeb, RenderNativeOnly } from '../../../utils';
+export function RedSlider({ gestures = [], style = {}, vertical = false, reverse = false, ...props }) {
+  const { hueValue, saturationValue, brightnessValue, onGestureChange, onGestureEnd, ...ctx } = usePickerContext();
+  const thumbShape = props.thumbShape ?? ctx.thumbShape,
+    thumbSize = props.thumbSize ?? ctx.thumbSize,
+    thumbColor = props.thumbColor ?? ctx.thumbColor,
+    boundedThumb = props.boundedThumb ?? ctx.boundedThumb,
+    renderThumb = props.renderThumb ?? ctx.renderThumb,
+    thumbStyle = props.thumbStyle ?? ctx.thumbStyle ?? {},
+    thumbInnerStyle = props.thumbInnerStyle ?? ctx.thumbInnerStyle ?? {},
+    thumbScaleAnimationValue = props.thumbScaleAnimationValue ?? ctx.thumbScaleAnimationValue,
+    thumbScaleAnimationDuration = props.thumbScaleAnimationDuration ?? ctx.thumbScaleAnimationDuration,
+    sliderThickness = props.sliderThickness ?? ctx.sliderThickness;
+  const borderRadius = getStyle(style, 'borderRadius') ?? 5,
+    getWidth = getStyle(style, 'width'),
+    getHeight = getStyle(style, 'height');
+  const width = useSharedValue(vertical ? sliderThickness : typeof getWidth === 'number' ? getWidth : 0);
+  const height = useSharedValue(!vertical ? sliderThickness : typeof getHeight === 'number' ? getHeight : 0);
+  const handleScale = useSharedValue(1);
+  const rgb = useDerivedValue(() => {
+    return colorKit
+      .runOnUI()
+      .RGB({
+        h: hueValue.value,
+        s: saturationValue.value,
+        v: brightnessValue.value,
+      })
+      .object(false);
+  }, [hueValue, saturationValue, brightnessValue]);
+  const handleStyle = useAnimatedStyle(() => {
+    const length = (vertical ? height.value : width.value) - (boundedThumb ? thumbSize : 0),
+      percent = (rgb.value.r / 255) * length,
+      pos = (reverse ? length - percent : percent) - (boundedThumb ? 0 : thumbSize / 2),
+      posY = vertical ? pos : height.value / 2 - thumbSize / 2,
+      posX = vertical ? width.value / 2 - thumbSize / 2 : pos;
+    return {
+      transform: [
+        {
+          translateY: posY,
+        },
+        {
+          translateX: posX,
+        },
+        {
+          scale: handleScale.value,
+        },
+      ],
+    };
+  }, [rgb, width, height, handleScale]);
+  const imageStyle = useAnimatedStyle(() => {
+    if (isWeb) return {};
+    const imageRotate = vertical ? (reverse ? '90deg' : '270deg') : reverse ? '0deg' : '180deg';
+    const imageTranslateY = ((height.value - width.value) / 2) * ((reverse && isRtl) || (!reverse && !isRtl) ? -1 : 1);
+    return {
+      tintColor: `rgb(255, ${Math.round(rgb.value.g)}, ${Math.round(rgb.value.b)})`,
+      width: vertical ? height.value : '100%',
+      height: vertical ? width.value : '100%',
+      transform: [
+        {
+          rotate: imageRotate,
+        },
+        {
+          translateX: vertical ? ((height.value - width.value) / 2) * (reverse ? 1 : -1) : 0,
+        },
+        {
+          translateY: vertical ? imageTranslateY : 0,
+        },
+      ],
+    };
+  }, [rgb, width, height]);
+  const greenBlue = useAnimatedStyle(() => {
+    const g = Math.round(rgb.value.g);
+    const b = Math.round(rgb.value.b);
+    if (isWeb) {
+      const deg = vertical ? (reverse ? 180 : 0) : reverse ? 90 : 270;
+      return {
+        background: `linear-gradient(${deg}deg, rgb(255, ${g}, ${b}) 0%, rgb(0, ${g}, ${b}) 100%)`,
+      };
+    }
+    return {
+      backgroundColor: `rgb(0, ${g}, ${b})`,
+    };
+  }, [rgb]);
+  const onGestureUpdate = ({ x, y }) => {
+    'worklet';
+
+    const length = (vertical ? height.value : width.value) - (boundedThumb ? thumbSize : 0),
+      pos = clamp((vertical ? y : x) - (boundedThumb ? thumbSize / 2 : 0), length),
+      value = (pos / length) * 255,
+      newRedValue = reverse ? 255 - value : value;
+    if (newRedValue === rgb.value.r) return;
+    const { h, s, v } = colorKit
+      .runOnUI()
+      .HSV({
+        r: newRedValue,
+        g: rgb.value.g,
+        b: rgb.value.b,
+      })
+      .object(false);
+    hueValue.value = h;
+    saturationValue.value = s;
+    brightnessValue.value = v;
+    onGestureChange();
+  };
+  const onGestureBegin = event => {
+    'worklet';
+
+    handleScale.value = withTiming(thumbScaleAnimationValue, {
+      duration: thumbScaleAnimationDuration,
+    });
+    onGestureUpdate(event);
+  };
+  const onGestureFinish = () => {
+    'worklet';
+
+    handleScale.value = withTiming(1, {
+      duration: thumbScaleAnimationDuration,
+    });
+    onGestureEnd();
+  };
+  const pan = Gesture.Pan().onBegin(onGestureBegin).onUpdate(onGestureUpdate).onEnd(onGestureFinish);
+  const tap = Gesture.Tap().onEnd(onGestureFinish);
+  const longPress = Gesture.LongPress().onEnd(onGestureFinish);
+  const composed = Gesture.Simultaneous(Gesture.Exclusive(pan, tap, longPress), ...gestures);
+  const onLayout = ({ nativeEvent: { layout } }) => {
+    if (!vertical)
+      width.value = withTiming(layout.width, {
+        duration: 5,
+      });
+    if (vertical)
+      height.value = withTiming(layout.height, {
+        duration: 5,
+      });
+  };
+  const thicknessStyle = vertical
+    ? {
+        width: sliderThickness,
+      }
+    : {
+        height: sliderThickness,
+      };
+  return /*#__PURE__*/ React.createElement(
+    GestureDetector,
+    {
+      gesture: composed,
+    },
+    /*#__PURE__*/ React.createElement(
+      Animated.View,
+      {
+        onLayout: onLayout,
+        style: [
+          style,
+          {
+            position: 'relative',
+            borderRadius,
+            borderWidth: 0,
+            padding: 0,
+          },
+          thicknessStyle,
+          greenBlue,
+        ],
+      },
+      /*#__PURE__*/ React.createElement(
+        RenderNativeOnly,
+        null,
+        /*#__PURE__*/ React.createElement(
+          View,
+          {
+            style: {
+              flex: 1,
+              borderRadius,
+              overflow: 'hidden',
+            },
+          },
+          /*#__PURE__*/ React.createElement(Animated.Image, {
+            source: require('../../../assets/blackGradient.png'),
+            style: imageStyle,
+          }),
+        ),
+      ),
+      /*#__PURE__*/ React.createElement(Thumb, {
+        thumbShape: thumbShape,
+        thumbSize: thumbSize,
+        thumbColor: thumbColor,
+        renderThumb: renderThumb,
+        innerStyle: thumbInnerStyle,
+        handleStyle: handleStyle,
+        style: thumbStyle,
+        vertical: vertical,
+      }),
+    ),
+  );
+}

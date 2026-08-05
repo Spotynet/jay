@@ -1,0 +1,183 @@
+import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { Text } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { runOnJS, useSharedValue, withTiming } from 'react-native-reanimated';
+import colorKit from './colorKit/index';
+import { PickerContextProvider } from './AppContext';
+import { isWeb } from './utils';
+// @ts-expect-error no global
+if (isWeb && !global.setImmediate) {
+  // @ts-expect-error no global
+  global.setImmediate = setTimeout;
+}
+const ColorPicker = /*#__PURE__*/ forwardRef(
+  (
+    {
+      adaptSpectrum = false,
+      sliderThickness = 25,
+      thumbAnimationDuration = 200,
+      thumbSize = 35,
+      thumbShape = 'ring',
+      boundedThumb = false,
+      thumbScaleAnimationValue = 1.2,
+      thumbScaleAnimationDuration = 100,
+      thumbColor,
+      renderThumb,
+      thumbStyle,
+      thumbInnerStyle,
+      value = '#fff',
+      onChange,
+      onChangeJS,
+      onComplete,
+      onCompleteJS,
+      style = {},
+      children = /*#__PURE__*/ React.createElement(Text, null, 'NO CHILDREN'),
+    },
+    ref,
+  ) => {
+    const initialColor = useRef(colorKit.HSV(value).object(false)).current;
+    // color's channels values.
+    const hueValue = useSharedValue(initialColor.h);
+    const saturationValue = useSharedValue(initialColor.s);
+    const brightnessValue = useSharedValue(initialColor.v);
+    const alphaValue = useSharedValue(initialColor.a);
+    const returnedResults = inputColor => {
+      'worklet';
+
+      const color = inputColor ?? {
+        h: hueValue.value,
+        s: saturationValue.value,
+        v: brightnessValue.value,
+        a: alphaValue.value,
+      };
+      return {
+        get hex() {
+          return colorKit.runOnUI().HEX(color);
+        },
+        get rgb() {
+          return colorKit.runOnUI().RGB(color).string(false);
+        },
+        get rgba() {
+          return colorKit.runOnUI().RGB(color).string(true);
+        },
+        get hsl() {
+          return colorKit.runOnUI().HSL(color).string(false);
+        },
+        get hsla() {
+          return colorKit.runOnUI().HSL(color).string(true);
+        },
+        get hsv() {
+          return colorKit.runOnUI().HSV(color).string(false);
+        },
+        get hsva() {
+          return colorKit.runOnUI().HSV(color).string(true);
+        },
+        get hwb() {
+          return colorKit.runOnUI().HWB(color).string(false);
+        },
+        get hwba() {
+          return colorKit.runOnUI().HWB(color).string(true);
+        },
+      };
+    };
+    const onGestureEnd = color => {
+      'worklet';
+
+      if (!onComplete && !onCompleteJS) return;
+      const colorObject = returnedResults(color);
+      if (onComplete) onComplete(colorObject);
+      if (onCompleteJS) runOnJS(onCompleteJS)(colorObject);
+    };
+    const onGestureChange = color => {
+      'worklet';
+
+      if (!onChange && !onChangeJS) return;
+      const colorObject = returnedResults(color);
+      if (onChange) onChange(colorObject);
+      if (onChangeJS) runOnJS(onChangeJS)(colorObject);
+    };
+    const setColor = (color, duration = thumbAnimationDuration) => {
+      const { h, s, v, a } = colorKit.HSV(color).object(false);
+      hueValue.value = withTiming(h, {
+        duration,
+      });
+      saturationValue.value = withTiming(s, {
+        duration,
+      });
+      brightnessValue.value = withTiming(v, {
+        duration,
+      });
+      alphaValue.value = withTiming(a, {
+        duration,
+      });
+    };
+    useEffect(() => {
+      // Ignore value changes if the current color already matches the new color from the value props.
+      const newColorFormat = colorKit.getFormat(value);
+      const currentColors = returnedResults();
+
+      // null or named color E.g "red"
+      if (!newColorFormat || newColorFormat === 'named') {
+        setColor(value);
+        return;
+      }
+
+      // hex color
+      if (newColorFormat === 'hex3' || newColorFormat === 'hex4' || newColorFormat === 'hex6' || newColorFormat === 'hex8') {
+        if (value !== currentColors.hex) setColor(value);
+        return;
+      }
+
+      // hsl | hsla | rgb | rgba | hsva | hsv | hwba | hwb
+      if (newColorFormat in currentColors) {
+        if (value !== currentColors[newColorFormat]) setColor(value);
+        return;
+      }
+      setColor(value);
+    }, [value]);
+    useImperativeHandle(ref, () => ({
+      setColor,
+    }));
+    const ctxValue = {
+      hueValue,
+      saturationValue,
+      brightnessValue,
+      alphaValue,
+      adaptSpectrum,
+      sliderThickness,
+      thumbSize,
+      thumbShape,
+      boundedThumb,
+      thumbColor,
+      renderThumb,
+      thumbStyle,
+      thumbInnerStyle,
+      thumbScaleAnimationValue,
+      thumbScaleAnimationDuration,
+      value,
+      setColor,
+      returnedResults,
+      onGestureEnd,
+      onGestureChange,
+    };
+    return /*#__PURE__*/ React.createElement(
+      GestureHandlerRootView,
+      {
+        style: [
+          {
+            direction: isWeb ? 'ltr' : undefined,
+          },
+          style,
+        ],
+      },
+      /*#__PURE__*/ React.createElement(
+        PickerContextProvider,
+        {
+          value: ctxValue,
+        },
+        children,
+      ),
+    );
+  },
+);
+export default ColorPicker;

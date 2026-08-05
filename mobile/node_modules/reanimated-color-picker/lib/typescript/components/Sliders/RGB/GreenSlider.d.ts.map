@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "GreenSlider.d.ts",
+  "sourceRoot": "",
+  "sources": ["../../../../src/components/Sliders/RGB/GreenSlider.tsx"],
+  "names": [],
+  "mappings": "AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAU1B,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,gBAAgB,CAAC;AAIrD,wBAAgB,WAAW,CAAC,EAAE,QAAa,EAAE,KAAU,EAAE,QAAgB,EAAE,OAAe,EAAE,GAAG,KAAK,EAAE,EAAE,cAAc,qBAqIrH"
+}
