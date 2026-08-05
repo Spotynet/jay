@@ -1,126 +1,212 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../../components/ui/AppText';
 import { Icon } from '../../components/ui/Icon';
-import { IconEdit } from 'tabler-icons-react-native';
+import { IconPlayerPause } from 'tabler-icons-react-native';
 import { HABIT_ICONS } from '../../constants/habitIcons';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  cancelAnimation,
+  Easing,
+} from 'react-native-reanimated';
 
 interface HabitItemProps {
   name: string;
   iconName: string;
   daysOfWeek: number[];
   history: { date: string; completed: boolean }[];
+  isActive?: boolean;
   onPress: () => void;
+  onLongPress?: () => void;
 }
 
-export const HabitManagementItem = ({ name, iconName, daysOfWeek, history, onPress }: HabitItemProps) => {
-  const { colors, entityColors } = useTheme();
+const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+const PulseDot = ({ color }: { color: string }) => {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(0.5);
+
+  useEffect(() => {
+    scale.value = withRepeat(
+      withTiming(2.2, { duration: 1400, easing: Easing.out(Easing.ease) }),
+      -1,
+      true
+    );
+    opacity.value = withRepeat(
+      withTiming(0, { duration: 1400, easing: Easing.out(Easing.ease) }),
+      -1,
+      true
+    );
+    return () => {
+      cancelAnimation(scale);
+      cancelAnimation(opacity);
+    };
+  }, []);
+
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <View style={styles.pulseWrap}>
+      <View style={[styles.miniDot, { backgroundColor: color }]} />
+      <Animated.View style={[styles.pulseRing, { backgroundColor: color }, ringStyle]} />
+    </View>
+  );
+};
+
+export const HabitManagementItem = ({ name, iconName, daysOfWeek, history, isActive = true, onPress, onLongPress }: HabitItemProps) => {
+  const { colors, isDark, entityColors } = useTheme();
   const habitColor = entityColors.habits;
   const selectedIcon = HABIT_ICONS.find(i => i.name === iconName)?.icon || null;
 
-  const getStreak = () => {
-    // Helper to get YYYY-MM-DD in local time
-    const toDateStr = (date: Date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-
-    const completedDates = new Set(history.filter(h => h.completed).map(h => h.date));
-    const now = new Date();
-    
-    let streak = 0;
-    
-    // 1. Check if today is completed (only if scheduled)
-    const todayIdx = (now.getDay() + 6) % 7;
-    const todayStr = toDateStr(now);
-    
-    if (daysOfWeek.includes(todayIdx)) {
-        if (completedDates.has(todayStr)) {
-            streak = 1;
-        }
-    }
-    
-    // 2. Start checking from yesterday
-    let checkDate = new Date(now);
-    checkDate.setDate(checkDate.getDate() - 1);
-    
-    // Iterate backwards
-    while (true) {
-      const dateStr = toDateStr(checkDate);
-      const dayIdx = (checkDate.getDay() + 6) % 7;
-      
-      if (daysOfWeek.includes(dayIdx)) {
-        if (completedDates.has(dateStr)) {
-            streak++;
-        } else {
-            // Missed a scheduled day. Streak broken.
-            break;
-        }
-      }
-      
-      checkDate.setDate(checkDate.getDate() - 1);
-      // Safety break
-      if (streak > 365) break;
-    }
-    return streak;
-  };
-
-  const streak = getStreak();
-  const summary = daysOfWeek.length === 7 ? 'Daily' : `${daysOfWeek.length} days/week`;
+  const schedule = new Set(daysOfWeek);
+  const recent = history.slice(-7).reverse();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={[styles.iconBox, { backgroundColor: habitColor + '20' }]}>
-            <Icon name={selectedIcon} size={20} color={colors.text} />
-          </View>
-          <View style={styles.content}>
-            <AppText style={[styles.title, { color: colors.text, marginLeft: 12 }]}>{name}</AppText>
-            <AppText style={[styles.summary, { color: colors.subtext, marginLeft: 12 }]}>{summary}</AppText>
-          </View>
+    <TouchableOpacity
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={500}
+      activeOpacity={0.6}
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.surface,
+          shadowColor: '#000',
+          shadowOpacity: isDark ? 0.25 : 0.06,
+          shadowOffset: { width: 0, height: 2 },
+          shadowRadius: 8,
+          elevation: isDark ? 0 : 1,
+        },
+        !isActive && styles.inactive,
+      ]}
+    >
+      <View style={[styles.iconBox, { backgroundColor: habitColor + '1A' }]}>
+        <Icon name={selectedIcon} size={20} color={isActive ? habitColor : colors.subtext} />
+      </View>
+
+      <View style={styles.middle}>
+        <AppText style={[styles.title, { color: isActive ? colors.text : colors.subtext }]} numberOfLines={1}>
+          {name}
+        </AppText>
+
+        <View style={styles.weekRow}>
+          {WEEKDAY_LETTERS.map((letter, i) => (
+            <AppText
+              key={i}
+              style={[
+                styles.weekLetter,
+                { color: schedule.has(i) ? habitColor : (isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)') },
+              ]}
+            >
+              {letter}
+            </AppText>
+          ))}
         </View>
-        
-        <View style={styles.headerRight}>
-            {streak >= 3 && (
-                <View style={[styles.streakChip, { backgroundColor: '#FF950020' }]}>
-                    <Icon name={require('tabler-icons-react-native').IconFlame} size={16} color="#FF9500" />
-                    <AppText style={[styles.streakText, { color: '#FF9500' }]}>{streak}</AppText>
-                </View>
-            )}
-            <TouchableOpacity style={[styles.editBtn, { backgroundColor: colors.surface }]} onPress={onPress}>
-              <Icon name={IconEdit} size={16} color={colors.text} />
-            </TouchableOpacity>
+
+        <View style={styles.heatRow}>
+          {recent.map((h, i) => (
+            <View
+              key={i}
+              style={[
+                styles.heatDot,
+                {
+                  backgroundColor: isActive
+                    ? h.completed
+                      ? habitColor
+                      : (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.14)')
+                    : colors.subtext + '22',
+                },
+              ]}
+            />
+          ))}
         </View>
       </View>
-    </View>
+
+      {isActive ? (
+        <View style={styles.statusWrap}>
+          <PulseDot color={habitColor} />
+        </View>
+      ) : (
+        <Icon name={IconPlayerPause} size={14} color={colors.subtext} />
+      )}
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 2,
-    overflow: 'hidden',
-    position: 'relative',
+    padding: 12,
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  headerRight: { flexDirection: 'row', alignItems: 'center' },
-  iconBox: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  content: { marginLeft: 12, flex: 1, gap: 1 },
-  title: { fontSize: 16, fontWeight: '700' },
-  summary: { fontSize: 13, fontWeight: '400' },
-  editBtn: { padding: 8, borderRadius: 8, marginLeft: 8 },
-  streakChip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 32, padding: 8, borderRadius: 8, marginLeft: 8 },
-  streakText: { fontSize: 12, fontWeight: '700', marginLeft: 4 },
+  inactive: {
+    opacity: 0.5,
+  },
+  iconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  middle: {
+    flex: 1,
+    gap: 5,
+  },
+  title: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  weekRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  weekLetter: {
+    fontSize: 10,
+    fontWeight: '600',
+    width: 12,
+    textAlign: 'center',
+  },
+  heatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  heatDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusWrap: {
+    width: 18,
+    alignItems: 'center',
+  },
+  pulseWrap: {
+    width: 8,
+    height: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  miniDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  pulseRing: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
 });

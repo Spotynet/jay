@@ -14,7 +14,7 @@ class HabitSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Habit
-        fields = ['id', 'name', 'description', 'frequency', 'days_of_week', 'target_value', 'has_target', 'target_type', 'category', 'reminder_time', 'icon', 'completed', 'status', 'stats', 'progress', 'history']
+        fields = ['id', 'name', 'description', 'frequency', 'days_of_week', 'target_value', 'has_target', 'target_type', 'category', 'reminder_time', 'icon', 'is_active', 'completed', 'status', 'stats', 'progress', 'history']
         read_only_fields = ['id', 'completed', 'status', 'stats', 'progress', 'history']
 
     def get_history(self, obj):

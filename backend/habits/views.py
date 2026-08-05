@@ -22,6 +22,9 @@ class HabitViewSet(viewsets.ModelViewSet):
             target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             weekday = target_date.weekday() 
             
+            # Only include active habits for daily tracking
+            queryset = queryset.filter(is_active=True) 
+            
             # Filter habits created on or before the target date
             queryset = queryset.filter(created_at__date__lte=target_date)
             
