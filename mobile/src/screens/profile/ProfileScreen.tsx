@@ -94,7 +94,7 @@ export default function ProfileScreen() {
             rightElement={<AppText style={[styles.comingSoon, { color: colors.subtext }]}>Coming soon</AppText>}
           />
           <Divider />
-          <MenuItem icon={IconWallet} label="Finance" onPress={() => navigation.navigate('FinanceSettings')} />
+          <MenuItem icon={IconWallet} label="Finance" onPress={() => navigation.navigate('Tabs', { screen: 'Financial' })} />
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 0 }]}>

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../../components/ui/AppText';
 import { Icon } from '../../components/ui/Icon';
@@ -68,6 +69,12 @@ export const HabitManagementItem = ({ name, iconName, daysOfWeek, history, isAct
   const schedule = new Set(daysOfWeek);
   const recent = history.slice(-7).reverse();
 
+  const gradientColors = (
+    isDark
+      ? ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0)']
+      : ['rgba(0,0,0,0.04)', 'rgba(0,0,0,0)']
+  ) as [string, string];
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -77,7 +84,7 @@ export const HabitManagementItem = ({ name, iconName, daysOfWeek, history, isAct
       style={[
         styles.container,
         {
-          backgroundColor: colors.surface,
+          backgroundColor: 'transparent',
           shadowColor: '#000',
           shadowOpacity: isDark ? 0.25 : 0.06,
           shadowOffset: { width: 0, height: 2 },
@@ -87,6 +94,13 @@ export const HabitManagementItem = ({ name, iconName, daysOfWeek, history, isAct
         !isActive && styles.inactive,
       ]}
     >
+      <LinearGradient
+        colors={gradientColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <View style={[styles.iconBox, { backgroundColor: habitColor + '1A' }]}>
         <Icon name={selectedIcon} size={20} color={isActive ? habitColor : colors.subtext} />
       </View>
@@ -147,6 +161,7 @@ const styles = StyleSheet.create({
     gap: 12,
     borderRadius: 16,
     padding: 12,
+    overflow: 'hidden',
   },
   inactive: {
     opacity: 0.5,

@@ -1,53 +1,62 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import { AppText } from '../../components/ui/AppText';
-import { Icon } from '../../components/ui/Icon';
+import { View } from 'react-native';
 import ScreenLayout from '../../components/common/ScreenLayout';
-import { FinanceSummaryCard } from '../../components/finance/FinanceSummaryCard';
-import { BudgetProgressCard } from '../../components/finance/BudgetProgressCard';
-import { TransactionRow } from '../../components/finance/TransactionRow';
-import { PeriodSelector } from '../../components/finance/PeriodSelector';
-import { getTransactions, getAccounts, getBudgets, getCategories } from '../../api/finance';
-
-import { IconSettings, IconPlus, IconPencil, IconChartBar, IconArrowRight } from 'tabler-icons-react-native';
+import SegmentedTabs from '../../components/common/SegmentedTabs';
+import { ActionButton } from '../../components/common/ActionButton';
+import TransactionsTab from './TransactionsTab';
+import BudgetTab from './BudgetTab';
+import {
+  getTransactions,
+  getCategories,
+  deleteTransaction,
+  deleteCategory,
+} from '../../api/finance';
+import { IconPlus, IconFolder, IconWallet } from 'tabler-icons-react-native';
+import { CreateNewModal } from '../today/components/CreateNewModal';
 
 export default function FinanceScreen() {
-  const { colors, entityColors } = useTheme();
+  const { entityColors } = useTheme();
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
-
+  const accent = entityColors.finance;
 
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
+  const [activeTab, setActiveTab] = useState('Transactions');
+  const [showCreateMenu, setShowCreateMenu] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [budgets, setBudgets] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [freeSpendBudget, setFreeSpendBudget] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = async () => {
     try {
-      const [tData, aData, bData, cData] = await Promise.all([
+      const [t, c, stored] = await Promise.all([
         getTransactions(),
-        getAccounts(),
-        getBudgets(),
         getCategories(),
+        AsyncStorage.getItem('@jay_free_spend_amount'),
       ]);
-      setTransactions(Array.isArray(tData) ? tData : []);
-      setAccounts(Array.isArray(aData) ? aData : []);
-      setBudgets(Array.isArray(bData) ? bData : []);
-      setCategories(Array.isArray(cData) ? cData : []);
-    } catch (e) {
-      console.error('Failed to fetch finance data', e);
+      setTransactions(Array.isArray(t) ? t : []);
+      setCategories(Array.isArray(c) ? c : []);
+      if (stored != null) {
+        const parsed = parseFloat(stored);
+        if (!isNaN(parsed)) setFreeSpendBudget(parsed);
+      }
+    } catch (err) {
+      console.error('Failed to fetch finance data', err);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    if (isFocused) fetchData();
-  }, [isFocused, fetchData]);
+    if (isFocused) {
+      fetchData();
+    }
+  }, [isFocused, month, year]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -55,254 +64,172 @@ export default function FinanceScreen() {
     setRefreshing(false);
   };
 
-  const filteredTransactions = transactions.filter((t) => {
-    const d = new Date(t.date);
-    return d.getMonth() === month && d.getFullYear() === year;
-  });
-
-  const totalBalance = accounts.reduce((acc, curr) => acc + parseFloat(curr.initial_balance || 0), 0);
-
-  const periodIncome = filteredTransactions
-    .filter((t) => t.type === 'EARNING')
-    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
-
-  const periodExpenses = filteredTransactions
-    .filter((t) => t.type === 'EXPENSE')
-    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
-
-  const periodBalance = totalBalance + periodIncome - periodExpenses;
-
-  const categoryMap = categories.reduce((map: any, c: any) => {
+  const categoryMapObj = categories.reduce((map: any, c: any) => {
     map[c.id] = c;
+    if (Array.isArray(c.children)) {
+      c.children.forEach((ch: any) => {
+        map[ch.id] = ch;
+      });
+    }
     return map;
   }, {});
 
-  const categorySpending = filteredTransactions
+  const filteredTransactions = transactions.filter((t) => {
+    const [ty, tm] = String(t.date).split('-').map(Number);
+    return ty === year && tm === month + 1;
+  });
+
+  const periodIncome = filteredTransactions
+    .filter((t) => t.type === 'EARNING')
+    .reduce((s, t) => s + parseFloat(t.amount || 0), 0);
+  const periodExpenses = filteredTransactions
+    .filter((t) => t.type === 'EXPENSE')
+    .reduce((s, t) => s + parseFloat(t.amount || 0), 0);
+
+  const categoryExpenses = filteredTransactions
     .filter((t) => t.type === 'EXPENSE' && t.category)
-    .reduce((map: any, t) => {
-      const catId = t.category;
-      map[catId] = (map[catId] || 0) + parseFloat(t.amount || 0);
+    .reduce((map: Record<number, number>, t) => {
+      map[t.category] = (map[t.category] || 0) + parseFloat(t.amount || 0);
       return map;
     }, {});
+
+  const defaultCategoryIds = categories.filter((c: any) => c.is_default).map((c: any) => c.id);
+  const freeSpendExpenses = filteredTransactions
+    .filter((t) => t.type === 'EXPENSE' && (!t.category || defaultCategoryIds.includes(t.category)))
+    .reduce((s, t) => s + parseFloat(t.amount || 0), 0);
+
+  const transactionsUpToMonth = transactions.filter((t) => {
+    const [ty, tm] = String(t.date).split('-').map(Number);
+    if (ty < year) return true;
+    if (ty === year && tm <= month + 1) return true;
+    return false;
+  });
+  const runningBalance = transactionsUpToMonth.reduce((s, t) => {
+    const amt = parseFloat(t.amount || 0);
+    return s + (t.type === 'EARNING' ? amt : -amt);
+  }, 0);
 
   const prevMonth = () => {
     if (month === 0) {
       setMonth(11);
       setYear(year - 1);
-    } else {
-      setMonth(month - 1);
-    }
+    } else setMonth(month - 1);
   };
-
   const nextMonth = () => {
     if (month === 11) {
       setMonth(0);
       setYear(year + 1);
-    } else {
-      setMonth(month + 1);
+    } else setMonth(month + 1);
+  };
+
+  const handleDeleteTransaction = async (t: any) => {
+    try {
+      await deleteTransaction(t.id);
+      fetchData();
+    } catch (err) {
+      console.error('Failed to delete transaction', err);
     }
   };
 
-  const recentTransactions = filteredTransactions.slice(0, 10);
+  const handleDeleteCategory = async (c: any) => {
+    try {
+      await deleteCategory(c.id);
+      fetchData();
+    } catch (err) {
+      console.error('Failed to delete category', err);
+    }
+  };
+
+  const handleHeaderPlus = () => {
+    if (activeTab === 'Budget') {
+      setShowCreateMenu(true);
+    } else {
+      navigation.navigate('TransactionEntry');
+    }
+  };
+
+  const periodProps = {
+    month,
+    year,
+    onPrev: prevMonth,
+    onNext: nextMonth,
+  };
 
   return (
     <ScreenLayout
-        title="FINANCIAL"
-        rightOption={{
-          render: () => (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <TouchableOpacity onPress={() => navigation.navigate('FinanceSettings')} style={styles.headerBtn}>
-                <Icon name={IconSettings} size={20} color={colors.text} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.navigate('TransactionEntry')} style={styles.headerBtn}>
-                <Icon name={IconPlus} size={22} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-          ),
-        }}
-        contentStyle={{ paddingHorizontal: 0 }}
+      title="FINANCIAL"
+      contentStyle={{ paddingHorizontal: 0 }}
+      rightOption={{
+        render: () => (
+          <View style={styles.headerBtns}>
+            <ActionButton icon={IconPlus} onPress={handleHeaderPlus} size={40} />
+          </View>
+        ),
+      }}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accent} />}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.subtext} />}
-        >
-          <View style={styles.periodPad}>
-            <PeriodSelector month={month} year={year} onPrev={prevMonth} onNext={nextMonth} />
-          </View>
+        <SegmentedTabs
+          tabs={['Transactions', 'Budget']}
+          active={activeTab}
+          onChange={setActiveTab}
+        />
 
-          <View style={styles.sectionPad}>
-            <FinanceSummaryCard balance={periodBalance} income={periodIncome} expenses={periodExpenses} />
-          </View>
+        {activeTab === 'Transactions' ? (
+          <TransactionsTab
+            filteredTransactions={filteredTransactions}
+            categoryMapObj={categoryMapObj}
+            periodIncome={periodIncome}
+            periodExpenses={periodExpenses}
+            runningBalance={runningBalance}
+            {...periodProps}
+            onDeleteTransaction={handleDeleteTransaction}
+          />
+        ) : (
+          <BudgetTab
+            categories={categories}
+            periodExpenses={periodExpenses}
+            periodIncome={periodIncome}
+            categoryExpenses={categoryExpenses}
+            freeSpendExpenses={freeSpendExpenses}
+            freeSpendBudget={freeSpendBudget}
+            {...periodProps}
+            onDeleteCategory={handleDeleteCategory}
+            onFreeSpendChange={setFreeSpendBudget}
+          />
+        )}
+      </ScrollView>
 
-          {budgets.length > 0 && (
-            <View style={styles.sectionPad}>
-              <View style={styles.sectionHeader}>
-                <View style={styles.sectionTitleRow}>
-                  <Icon name={IconChartBar} size={16} color={entityColors.finance} />
-                  <AppText bold style={[styles.sectionTitle, { color: colors.subtext }]}>BUDGETS</AppText>
-                </View>
-              </View>
-              {budgets.slice(0, 3).map((budget: any) => {
-                const cat = categoryMap[budget.category];
-                const spent = categorySpending[budget.category] || 0;
-                return (
-                  <BudgetProgressCard
-                    key={budget.id}
-                    title={cat?.name || 'Budget'}
-                    spent={spent}
-                    limit={parseFloat(budget.amount)}
-                  />
-                );
-              })}
-            </View>
-          )}
-
-          <View style={styles.sectionPad}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleRow}>
-                <AppText bold style={[styles.sectionTitle, { color: colors.subtext }]}>TRANSACTIONS</AppText>
-                {filteredTransactions.length > 10 && (
-                  <TouchableOpacity onPress={() => navigation.navigate('ManageFinance')} style={styles.seeAllBtn}>
-                    <AppText style={[styles.seeAll, { color: entityColors.finance }]}>See All</AppText>
-                    <Icon name={IconArrowRight} size={14} color={entityColors.finance} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            {recentTransactions.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <AppText style={[styles.emptyText, { color: colors.subtext }]}>
-                  No transactions this month
-                </AppText>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('TransactionEntry')}
-                  style={[styles.emptyButton, { backgroundColor: `${entityColors.finance}14` }]}
-                >
-                  <Icon name={IconPlus} size={16} color={entityColors.finance} />
-                  <AppText bold style={[styles.emptyButtonText, { color: entityColors.finance }]}>
-                    Add Transaction
-                  </AppText>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={[styles.transactionsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                {recentTransactions.map((t, i) => (
-                  <TransactionRow
-                    key={t.id}
-                    description={t.description || categoryMap[t.category]?.name || 'Transaction'}
-                    amount={parseFloat(t.amount)}
-                    type={t.type}
-                    date={t.date}
-                    category={categoryMap[t.category]?.name}
-                    isLast={i === recentTransactions.length - 1}
-                  />
-                ))}
-              </View>
-            )}
-          </View>
-
-          {accounts.length > 0 && (
-            <View style={styles.sectionPad}>
-              <View style={styles.sectionHeader}>
-                <View style={styles.sectionTitleRow}>
-                  <AppText bold style={[styles.sectionTitle, { color: colors.subtext }]}>ACCOUNTS</AppText>
-                </View>
-              </View>
-              <View style={[styles.accountsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                {accounts.map((acc: any, i: number) => (
-                  <View key={acc.id} style={[styles.accountRow, i < accounts.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-                    <AppText style={[styles.accountName, { color: colors.text }]}>{acc.name}</AppText>
-                    <AppText bold style={[styles.accountBalance, { color: colors.text }]}>
-                      ${parseFloat(acc.initial_balance || 0).toFixed(2)}
-                    </AppText>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </ScreenLayout>
+      <CreateNewModal
+        visible={showCreateMenu}
+        onClose={() => setShowCreateMenu(false)}
+        title="Creation Hub"
+        options={[
+          { id: 'Category', label: 'NEW CATEGORY', sub: 'CREATE A GROUP', icon: IconFolder, color: accent },
+          { id: 'Item', label: 'NEW ITEM', sub: 'TRACKED ITEM', icon: IconWallet, color: accent },
+        ]}
+        onSelect={(id) => {
+          setShowCreateMenu(false);
+          if (id === 'Item') navigation.navigate('CategoryItemEntry');
+          else navigation.navigate('CategoryEntry');
+        }}
+      />
+    </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  headerBtn: { padding: 8 },
-  scrollContent: { paddingBottom: 20 },
-  periodPad: { paddingHorizontal: 20 },
-  sectionPad: { paddingHorizontal: 20, marginTop: 24 },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  scroll: {
+    paddingHorizontal: 15,
+    paddingTop: 16,
+    gap: 16,
   },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  seeAllBtn: {
+  headerBtns: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-  },
-  seeAll: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  emptyCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 24,
-    alignItems: 'center',
-    gap: 12,
-  },
-  emptyText: {
-    fontSize: 14,
-  },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-  },
-  emptyButtonText: {
-    fontSize: 13,
-  },
-  transactionsCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  accountsCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  accountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  accountName: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  accountBalance: {
-    fontSize: 15,
   },
 });

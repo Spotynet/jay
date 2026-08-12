@@ -25,11 +25,9 @@ import HabitEntryScreen from '../screens/habits/HabitEntryScreen';
 import TaskEntryScreen from '../screens/tasks/TaskEntryScreen';
 import EventEntryScreen from '../screens/events/EventEntryScreen';
 import ProjectEntryScreen from '../screens/projects/ProjectEntryScreen';
-import FinanceEntryScreen from '../screens/finance/FinanceEntryScreen';
 import TransactionEntryScreen from '../screens/finance/TransactionEntryScreen';
-import AccountEntryScreen from '../screens/finance/AccountEntryScreen';
 import CategoryEntryScreen from '../screens/finance/CategoryEntryScreen';
-import BudgetEntryScreen from '../screens/finance/BudgetEntryScreen';
+import CategoryItemEntryScreen from '../screens/finance/CategoryItemEntryScreen';
 
 // Settings Screens
 import ProfileScreen from '../screens/profile/ProfileScreen';
@@ -41,8 +39,6 @@ import TasksSettingsScreen from '../screens/manage/TasksSettingsScreen';
 import HabitsSettingsScreen from '../screens/manage/HabitsSettingsScreen';
 import CalendarSettingsScreen from '../screens/manage/CalendarSettingsScreen';
 import JournalSettingsScreen from '../screens/manage/JournalSettingsScreen';
-import FinanceSettingsScreen from '../screens/manage/FinanceSettingsScreen';
-import ManageFinanceScreen from '../screens/manage/ManageFinanceScreen';
 
 import { TabBar } from './components/TabBar';
 
@@ -62,11 +58,9 @@ function MainTabs() {
       <MainStack.Screen name="TaskEntry" component={TaskEntryScreen} />
       <MainStack.Screen name="EventEntry" component={EventEntryScreen} />
       <MainStack.Screen name="ProjectEntry" component={ProjectEntryScreen} />
-      <MainStack.Screen name="FinanceEntry" component={FinanceEntryScreen} />
       <MainStack.Screen name="TransactionEntry" component={TransactionEntryScreen} />
-      <MainStack.Screen name="AccountEntry" component={AccountEntryScreen} />
       <MainStack.Screen name="CategoryEntry" component={CategoryEntryScreen} />
-      <MainStack.Screen name="BudgetEntry" component={BudgetEntryScreen} />
+      <MainStack.Screen name="CategoryItemEntry" component={CategoryItemEntryScreen} />
       {/* Settings Screens */}
       <MainStack.Screen name="Profile" component={ProfileScreen} />
       <MainStack.Screen name="Account" component={AccountScreen} />
@@ -77,8 +71,6 @@ function MainTabs() {
       <MainStack.Screen name="HabitsSettings" component={HabitsSettingsScreen} />
       <MainStack.Screen name="CalendarSettings" component={CalendarSettingsScreen} />
       <MainStack.Screen name="JournalSettings" component={JournalSettingsScreen} />
-      <MainStack.Screen name="FinanceSettings" component={FinanceSettingsScreen} />
-      <MainStack.Screen name="ManageFinance" component={ManageFinanceScreen} />
     </MainStack.Navigator>
   );
 }
@@ -90,7 +82,12 @@ function TabNavigator() {
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Today" component={TodayScreen} />
-      <Tab.Screen name="Plan" component={TasksTabScreen} />
+      <Tab.Screen name="Plan" component={() => (
+        <PlaceholderScreen 
+          title="PLAN" 
+          message="Set goals, track progress, and plan your life. Coming soon with a powerful planning experience."
+        />
+      )} />
       <Tab.Screen name="Journal" component={DailyJournalScreen} />
       <Tab.Screen name="Fitness" component={() => (
         <PlaceholderScreen 

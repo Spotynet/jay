@@ -18,19 +18,19 @@ const MONTHS = [
 ];
 
 export function PeriodSelector({ month, year, onPrev, onNext }: PeriodSelectorProps) {
-  const { colors, entityColors } = useTheme();
+  const { colors } = useTheme();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <TouchableOpacity onPress={onPrev} style={styles.arrow} activeOpacity={0.6}>
-        <Icon name={IconChevronLeft} size={20} color={colors.text} />
+    <View style={styles.container}>
+      <TouchableOpacity onPress={onPrev} style={styles.arrow} activeOpacity={0.5} hitSlop={8}>
+        <Icon name={IconChevronLeft} size={18} color={colors.subtext} />
       </TouchableOpacity>
-      <View style={styles.center}>
+      <View style={styles.center} pointerEvents="none">
         <AppText bold style={[styles.month, { color: colors.text }]}>{MONTHS[month]}</AppText>
         <AppText style={[styles.year, { color: colors.subtext }]}>{year}</AppText>
       </View>
-      <TouchableOpacity onPress={onNext} style={styles.arrow} activeOpacity={0.6}>
-        <Icon name={IconChevronRight} size={20} color={colors.text} />
+      <TouchableOpacity onPress={onNext} style={styles.arrow} activeOpacity={0.5} hitSlop={8}>
+        <Icon name={IconChevronRight} size={18} color={colors.subtext} />
       </TouchableOpacity>
     </View>
   );
@@ -41,23 +41,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   arrow: {
-    padding: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
   },
   center: {
-    alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
   },
   month: {
-    fontSize: 17,
+    fontSize: 16,
+    letterSpacing: 0.3,
   },
   year: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
-    marginTop: 1,
+    letterSpacing: 0.5,
   },
 });

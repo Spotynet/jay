@@ -4,26 +4,42 @@ import { useTheme } from '../../../context/ThemeContext';
 import { AppText } from '../../../components/ui/AppText';
 import { Icon } from '../../../components/ui/Icon';
 import { 
-  IconChecklist, IconCalendarEvent, IconRepeat, IconBook, IconX, IconWallet 
+  IconChecklist, IconCalendarEvent, IconRepeat, IconX, IconWallet 
 } from 'tabler-icons-react-native';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
+
+interface CreateModalOption {
+  id: string;
+  label: string;
+  sub: string;
+  icon: any;
+  entityKey?: string;
+  color?: string;
+}
 
 interface CreateModalProps {
   visible: boolean;
   onClose: () => void;
   onSelect: (option: string) => void;
+  title?: string;
+  options?: CreateModalOption[];
 }
 
-const OPTIONS = [
+const DEFAULT_OPTIONS: CreateModalOption[] = [
   { id: 'Task', entityKey: 'tasks', label: 'NEW TASK', sub: 'ORGANIZE YOUR ACTION', icon: IconChecklist },
   { id: 'Event', entityKey: 'events', label: 'NEW EVENT', sub: 'SCHEDULE YOUR TIME', icon: IconCalendarEvent },
   { id: 'Habit', entityKey: 'habits', label: 'NEW HABIT', sub: 'BUILD CONSISTENCY', icon: IconRepeat },
   { id: 'Finance', entityKey: 'finance', label: 'FINANCE ENTRY', sub: 'MANAGE YOUR MONEY', icon: IconWallet },
-  { id: 'Journal', entityKey: 'journal', label: 'JOURNAL ENTRY', sub: 'CAPTURE YOUR THOUGHTS', icon: IconBook },
 ];
 
-export const CreateNewModal = ({ visible, onClose, onSelect }: CreateModalProps) => {
+export const CreateNewModal = ({
+  visible,
+  onClose,
+  onSelect,
+  title = 'CREATION HUB',
+  options = DEFAULT_OPTIONS,
+}: CreateModalProps) => {
   const { colors, entityColors } = useTheme();
 
   return (
@@ -36,15 +52,20 @@ export const CreateNewModal = ({ visible, onClose, onSelect }: CreateModalProps)
           style={[styles.container, { backgroundColor: colors.background, borderColor: colors.border }]}
         >
           <View style={styles.header}>
-            <AppText style={[styles.title, { color: colors.text }]}>CREATION HUB</AppText>
+            <AppText style={[styles.title, { color: colors.text }]}>{title}</AppText>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Icon name={IconX} size={20} color={colors.subtext} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
-            {OPTIONS.map((item) => {
-              const entityColor = entityColors[item.entityKey as keyof typeof entityColors] || colors.accent;
+            {options.map((item) => {
+              const entityColor =
+                item.color ||
+                (item.entityKey
+                  ? entityColors[item.entityKey as keyof typeof entityColors]
+                  : colors.accent) ||
+                colors.accent;
               return (
                 <TouchableOpacity 
                   key={item.id} 

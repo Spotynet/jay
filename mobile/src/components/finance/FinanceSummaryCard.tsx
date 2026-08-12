@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../ui/AppText';
 import { Icon } from '../ui/Icon';
@@ -20,109 +21,91 @@ const formatMoney = (amount: number) =>
   }).format(amount);
 
 export function FinanceSummaryCard({ balance, income, expenses }: FinanceSummaryCardProps) {
-  const { colors, entityColors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <View style={styles.balanceSection}>
-        <View style={[styles.balanceIconWrap, { backgroundColor: `${entityColors.finance}14` }]}>
-          <Icon name={IconWallet} size={20} color={entityColors.finance} />
+    <LinearGradient
+      colors={
+        isDark
+          ? ['rgba(255,255,255,0.07)', 'rgba(255,255,255,0)']
+          : ['rgba(0,0,0,0.05)', 'rgba(0,0,0,0)']
+      }
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={[styles.card, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}
+    >
+      <View style={styles.balanceRow}>
+        <View style={[styles.iconWrap, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }]}>
+          <Icon name={IconWallet} size={18} color={colors.subtext} />
         </View>
-        <View>
-          <AppText style={[styles.balanceLabel, { color: colors.subtext }]}>Total Balance</AppText>
+        <View style={styles.balanceText}>
+          <AppText style={[styles.balanceLabel, { color: colors.subtext }]}>Balance</AppText>
           <AppText bold style={[styles.balanceValue, { color: balance >= 0 ? colors.text : colors.error }]}>
             {formatMoney(balance)}
           </AppText>
         </View>
       </View>
 
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
       <View style={styles.statsRow}>
-        <View style={styles.statItem}>
-          <View style={[styles.statIconWrap, { backgroundColor: 'rgba(52, 199, 89, 0.12)' }]}>
-            <Icon name={IconTrendingUp} size={16} color="#34C759" />
-          </View>
-          <View>
-            <AppText style={[styles.statLabel, { color: colors.subtext }]}>Income</AppText>
-            <AppText bold style={[styles.statValue, { color: '#34C759' }]}>
-              {formatMoney(income)}
-            </AppText>
-          </View>
+        <View style={[styles.statItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
+          <Icon name={IconTrendingUp} size={15} color="#34C759" />
+          <AppText bold style={[styles.statValue, { color: colors.text }]}>{formatMoney(income)}</AppText>
         </View>
-
-        <View style={styles.statItem}>
-          <View style={[styles.statIconWrap, { backgroundColor: 'rgba(255, 59, 48, 0.12)' }]}>
-            <Icon name={IconTrendingDown} size={16} color="#FF3B30" />
-          </View>
-          <View>
-            <AppText style={[styles.statLabel, { color: colors.subtext }]}>Expenses</AppText>
-            <AppText bold style={[styles.statValue, { color: '#FF3B30' }]}>
-              {formatMoney(expenses)}
-            </AppText>
-          </View>
+        <View style={[styles.statItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }]}>
+          <Icon name={IconTrendingDown} size={15} color="#FF3B30" />
+          <AppText bold style={[styles.statValue, { color: colors.text }]}>{formatMoney(expenses)}</AppText>
         </View>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
+    borderRadius: 12,
     borderWidth: 1,
-    padding: 20,
+    padding: 18,
+    gap: 16,
+    overflow: 'hidden',
   },
-  balanceSection: {
+  balanceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 12,
   },
-  balanceIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  balanceText: {
+    gap: 1,
+  },
   balanceLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   balanceValue: {
-    fontSize: 28,
-    marginTop: 2,
-  },
-  divider: {
-    height: 1,
-    marginVertical: 16,
+    fontSize: 24,
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 10,
   },
-  statIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    justifyContent: 'center',
+  statItem: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    gap: 8,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   statValue: {
-    fontSize: 16,
-    marginTop: 1,
+    fontSize: 14,
   },
 });

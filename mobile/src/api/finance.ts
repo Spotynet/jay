@@ -19,56 +19,6 @@ async function apiCall<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-// ─── Finance Entries ────────────────────────────────────────
-export async function getFinanceEntries() {
-  return apiCall<any[]>(`${getApiUrl()}/api/finance/entries/`);
-}
-
-export async function createFinanceEntry(data: any) {
-  return apiCall<any>(`${getApiUrl()}/api/finance/entries/`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function updateFinanceEntry(id: string, data: any) {
-  return apiCall<any>(`${getApiUrl()}/api/finance/entries/${id}/`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function deleteFinanceEntry(id: string) {
-  return apiCall<void>(`${getApiUrl()}/api/finance/entries/${id}/`, {
-    method: 'DELETE',
-  });
-}
-
-// ─── Accounts ───────────────────────────────────────────────
-export async function getAccounts() {
-  return apiCall<any[]>(`${getApiUrl()}/api/finance/accounts/`);
-}
-
-export async function createAccount(data: any) {
-  return apiCall<any>(`${getApiUrl()}/api/finance/accounts/`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function updateAccount(id: string, data: any) {
-  return apiCall<any>(`${getApiUrl()}/api/finance/accounts/${id}/`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function deleteAccount(id: string) {
-  return apiCall<void>(`${getApiUrl()}/api/finance/accounts/${id}/`, {
-    method: 'DELETE',
-  });
-}
-
 // ─── Categories ─────────────────────────────────────────────
 export async function getCategories() {
   return apiCall<any[]>(`${getApiUrl()}/api/finance/categories/`);
@@ -90,31 +40,6 @@ export async function updateCategory(id: string, data: any) {
 
 export async function deleteCategory(id: string) {
   return apiCall<void>(`${getApiUrl()}/api/finance/categories/${id}/`, {
-    method: 'DELETE',
-  });
-}
-
-// ─── Budgets ────────────────────────────────────────────────
-export async function getBudgets() {
-  return apiCall<any[]>(`${getApiUrl()}/api/finance/budgets/`);
-}
-
-export async function createBudget(data: any) {
-  return apiCall<any>(`${getApiUrl()}/api/finance/budgets/`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function updateBudget(id: string, data: any) {
-  return apiCall<any>(`${getApiUrl()}/api/finance/budgets/${id}/`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function deleteBudget(id: string) {
-  return apiCall<void>(`${getApiUrl()}/api/finance/budgets/${id}/`, {
     method: 'DELETE',
   });
 }

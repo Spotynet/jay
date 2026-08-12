@@ -1,10 +1,10 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, StyleSheet, ActivityIndicator, ViewStyle, StyleProp } from 'react-native';
 import { AppText } from '../../../components/ui/AppText';
 import { useTheme } from '../../../context/ThemeContext';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
-export const AuthButton = ({ title, onPress, loading }: { title: string, onPress: () => void, loading?: boolean }) => {
+export const AuthButton = ({ title, onPress, loading, style }: { title: string, onPress: () => void, loading?: boolean, style?: StyleProp<ViewStyle> }) => {
   const { colors } = useTheme();
   const scale = useSharedValue(1);
 
@@ -13,7 +13,7 @@ export const AuthButton = ({ title, onPress, loading }: { title: string, onPress
   }));
 
   return (
-    <Animated.View style={animatedStyle}>
+    <Animated.View style={[animatedStyle, style]}>
       <TouchableOpacity 
         onPressIn={() => scale.value = withSpring(0.97)}
         onPressOut={() => scale.value = withSpring(1)}

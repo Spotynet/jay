@@ -100,7 +100,7 @@ export default function TodayScreen() {
     } else if (option === 'Event') {
       navigation.navigate('EventEntry');
     } else if (option === 'Finance') {
-      navigation.navigate('FinanceEntry');
+      navigation.navigate('TransactionEntry');
     }
   };
 

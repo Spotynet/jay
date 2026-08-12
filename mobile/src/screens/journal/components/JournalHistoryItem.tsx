@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../../context/ThemeContext';
 import { AppText } from '../../../components/ui/AppText';
 import { Icon } from '../../../components/ui/Icon';
@@ -18,7 +19,7 @@ interface JournalHistoryItemProps {
 }
 
 export const JournalHistoryItem = ({ entry, onPress }: JournalHistoryItemProps) => {
-  const { colors, entityColors } = useTheme();
+  const { colors, isDark, entityColors } = useTheme();
   const journalColor = entityColors.journal;
   
   const dateObj = new Date(entry.date + 'T00:00:00');
@@ -27,11 +28,17 @@ export const JournalHistoryItem = ({ entry, onPress }: JournalHistoryItemProps) 
   const monthName = dateObj.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
 
   return (
-    <TouchableOpacity 
-      style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]} 
+    <TouchableOpacity
+      style={[styles.container, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}
       onPress={onPress}
       activeOpacity={0.7}
     >
+      <LinearGradient
+        colors={isDark ? ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0)'] : ['rgba(0,0,0,0.04)', 'rgba(0,0,0,0)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       <View style={styles.content}>
         <View style={styles.dateBlock}>
           <AppText style={[styles.dayName, { color: journalColor }]}>{dayName}</AppText>

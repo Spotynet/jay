@@ -312,7 +312,7 @@ export default function DailyJournalScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={journalColor} />}
       >
-        <SectionCard title="FEELINGS" accentColor={entityColors.journal}>
+        <SectionCard title="FEELINGS">
           <FeelingsSection
             moodScore={moodScore}
             energyScore={energyScore}
@@ -324,7 +324,7 @@ export default function DailyJournalScreen() {
         {habits.length > 0 && (
           <SectionCard
             title="HABITS"
-            accentColor={entityColors.habits}
+
             cardStyle={{ padding: 0, overflow: 'hidden' }}
             accessory={
               <TouchableOpacity

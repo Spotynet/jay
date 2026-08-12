@@ -1,25 +1,36 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TextInput, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import ScreenLayout from '../../components/common/ScreenLayout';
-import { AppText } from '../../components/ui/AppText';
+import FormScreen from '../../components/common/FormScreen';
 import { Icon } from '../../components/ui/Icon';
+import Box from '../../components/ui/Box';
+import Label from '../../components/ui/Label';
+import Input from '../../components/ui/Input';
+import IconCircle from '../../components/ui/IconCircle';
+import ColorSwatchPicker, { DEFAULT_COLOR_PALETTE } from '../../components/ui/ColorSwatchPicker';
 import { createCategory, updateCategory, deleteCategory } from '../../api/finance';
-import { AuthButton } from '../auth/components/AuthButton';
-import { IconTag, IconTrendingUp, IconTrendingDown, IconTrash } from 'tabler-icons-react-native';
+import { IconTrash } from 'tabler-icons-react-native';
 import DeleteConfirm from '../../components/ui/DeleteConfirm';
+import { IconPickerModal } from '../habits/components/IconPickerModal';
+import { FINANCE_ICONS } from '../../constants/financeIcons';
 
 export default function CategoryEntryScreen() {
-  const { colors, entityColors } = useTheme();
+  const { colors } = useTheme();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const category = route.params?.category;
 
   const [name, setName] = useState(category?.name || '');
-  const [type, setType] = useState<'EXPENSE' | 'EARNING'>(category?.type || 'EXPENSE');
+  const [iconName, setIconName] = useState(category?.icon || 'Wallet');
+  const [color, setColor] = useState(category?.color || DEFAULT_COLOR_PALETTE[5]);
+  const [description, setDescription] = useState(category?.description || '');
+  const [showIconPicker, setShowIconPicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const selectedIcon =
+    FINANCE_ICONS.find((i) => i.name === iconName)?.icon || FINANCE_ICONS[0].icon;
 
   const saveCategory = async () => {
     if (!name.trim()) {
@@ -29,7 +40,15 @@ export default function CategoryEntryScreen() {
 
     setLoading(true);
     try {
-      const data = { name: name.trim(), type };
+      const data = {
+        name: name.trim(),
+        type: category?.type || 'EXPENSE',
+        budget: category?.budget != null ? parseFloat(category.budget) : 0,
+        parent: null,
+        icon: iconName,
+        color,
+        description: description.trim(),
+      };
       if (category) {
         await updateCategory(category.id, data);
       } else {
@@ -60,7 +79,7 @@ export default function CategoryEntryScreen() {
   };
 
   return (
-    <ScreenLayout
+    <FormScreen
       title={category ? 'EDIT CATEGORY' : 'NEW CATEGORY'}
       showBack={true}
       rightOption={
@@ -74,125 +93,66 @@ export default function CategoryEntryScreen() {
             }
           : undefined
       }
+      submitTitle={category ? 'Update Category' : 'Create Category'}
+      onSubmit={saveCategory}
+      loading={loading}
+      scrollContentStyle={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <AppText style={[styles.sectionLabel, { color: colors.subtext }]}>CATEGORY DETAILS</AppText>
+      <IconPickerModal
+        visible={showIconPicker}
+        onClose={() => setShowIconPicker(false)}
+        onSelect={setIconName}
+        icons={FINANCE_ICONS}
+      />
 
-          <View style={[styles.iconSection, { backgroundColor: `${entityColors.finance}14` }]}>
-            <Icon name={IconTag} size={32} color={entityColors.finance} />
-          </View>
+      <View style={styles.nameRow}>
+        <IconCircle
+          icon={selectedIcon}
+          accentColor={color}
+          onPress={() => setShowIconPicker(true)}
+        />
+        <Input
+          style={styles.nameInput}
+          placeholder="Category name"
+          value={name}
+          onChangeText={setName}
+        />
+      </View>
 
-          <TextInput
-            style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}
-            placeholder="Category name"
-            placeholderTextColor={colors.subtext}
-            value={name}
-            onChangeText={setName}
-          />
+      <Label>COLOR</Label>
+      <Box>
+        <ColorSwatchPicker value={color} onChange={setColor} />
+      </Box>
 
-          <View>
-            <AppText style={[styles.fieldLabel, { color: colors.subtext }]}>TYPE</AppText>
-            <View style={styles.typeRow}>
-              {([
-                { value: 'EXPENSE', label: 'Expense', icon: IconTrendingDown, color: '#FF3B30' },
-                { value: 'EARNING', label: 'Income', icon: IconTrendingUp, color: '#34C759' },
-              ] as const).map((opt) => {
-                const isSelected = type === opt.value;
-                return (
-                  <TouchableOpacity
-                    key={opt.value}
-                    onPress={() => setType(opt.value)}
-                    activeOpacity={0.8}
-                    style={[
-                      styles.typeOption,
-                      {
-                        backgroundColor: isSelected ? `${opt.color}12` : colors.surfaceElevated,
-                        borderColor: isSelected ? opt.color : colors.border,
-                      },
-                    ]}
-                  >
-                    <View style={[styles.typeIconWrap, { backgroundColor: isSelected ? `${opt.color}18` : colors.surface }]}>
-                      <Icon name={opt.icon} size={18} color={isSelected ? opt.color : colors.subtext} />
-                    </View>
-                    <AppText bold style={[styles.typeLabel, { color: isSelected ? opt.color : colors.text }]}>
-                      {opt.label}
-                    </AppText>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        </View>
+      <Label>DESCRIPTION</Label>
+      <Box>
+        <Input
+          variant="plain"
+          style={styles.descInput}
+          placeholder="What belongs in this category? (optional)"
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          textAlignVertical="top"
+        />
+      </Box>
 
-        <AuthButton title={category ? 'Update Category' : 'Create Category'} onPress={saveCategory} loading={loading} />
-
-        <DeleteConfirm visible={showDeleteConfirm} onCancel={() => setShowDeleteConfirm(false)} onConfirm={handleDelete} />
-      </ScrollView>
-    </ScreenLayout>
+      <DeleteConfirm visible={showDeleteConfirm} onCancel={() => setShowDeleteConfirm(false)} onConfirm={handleDelete} />
+    </FormScreen>
   );
 }
 
 const styles = StyleSheet.create({
   headerBtn: { padding: 8 },
-  container: { paddingVertical: 20, gap: 16 },
-  section: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    gap: 16,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-  },
-  iconSection: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-  },
-  input: {
-    height: 56,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  fieldLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
-  typeRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  typeOption: {
+  container: { gap: 16, paddingVertical: 20, alignItems: 'center' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%' },
+  nameInput: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
   },
-  typeIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  typeLabel: {
+  descInput: {
+    minHeight: 90,
+    padding: 0,
     fontSize: 15,
+    fontWeight: '400',
   },
 });

@@ -11,9 +11,15 @@ interface IconPickerModalProps {
   visible: boolean;
   onClose: () => void;
   onSelect: (iconName: string) => void;
+  icons?: typeof HABIT_ICONS;
 }
 
-export const IconPickerModal = ({ visible, onClose, onSelect }: IconPickerModalProps) => {
+export const IconPickerModal = ({
+  visible,
+  onClose,
+  onSelect,
+  icons = HABIT_ICONS,
+}: IconPickerModalProps) => {
   const { colors } = useTheme();
 
   return (
@@ -27,7 +33,7 @@ export const IconPickerModal = ({ visible, onClose, onSelect }: IconPickerModalP
         >
           <AppText style={[styles.title, { color: colors.text }]}>SELECT ICON</AppText>
           <FlatList
-            data={HABIT_ICONS}
+            data={icons}
             numColumns={5}
             keyExtractor={(item) => item.name}
             renderItem={({ item }) => (

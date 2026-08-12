@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, StyleSheet, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useRoute, useIsFocused } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import ScreenLayout from '../../components/common/ScreenLayout';
+import FormScreen from '../../components/common/FormScreen';
 import { AppText } from '../../components/ui/AppText';
 import { createProject, updateProject, deleteProject } from '../../api/projects';
 import { getAreas } from '../../api/planning';
@@ -80,8 +80,8 @@ export default function ProjectEntryScreen() {
   };
 
   return (
-    <ScreenLayout 
-      title={existingProject ? 'EDIT PROJECT' : 'NEW PROJECT'} 
+    <FormScreen
+      title={existingProject ? 'EDIT PROJECT' : 'NEW PROJECT'}
       showBack={true}
       rightOption={existingProject ? {
         icon: () => (
@@ -90,11 +90,13 @@ export default function ProjectEntryScreen() {
           </TouchableOpacity>
         )
       } : undefined}
+      submitTitle="Save Project"
+      onSubmit={handleSave}
+      loading={saving}
+      submitStyle={{ backgroundColor: accentColor }}
     >
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Name */}
-        <View style={styles.field}>
-          <AppText style={[styles.label, { color: colors.subtext }]}>NAME</AppText>
+      <View style={styles.field}>
+        <AppText style={[styles.label, { color: colors.subtext }]}>NAME</AppText>
           <TextInput
             style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
             value={name}
@@ -182,16 +184,6 @@ export default function ProjectEntryScreen() {
           </View>
         )}
 
-        {/* Save Button */}
-        <TouchableOpacity 
-          style={[styles.saveButton, { backgroundColor: accentColor }]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          <AppText style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save Project'}</AppText>
-        </TouchableOpacity>
-      </ScrollView>
-
       <DeleteConfirm
         visible={deleteModalVisible}
         title="Delete Project"
@@ -199,7 +191,7 @@ export default function ProjectEntryScreen() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteModalVisible(false)}
       />
-    </ScreenLayout>
+    </FormScreen>
   );
 }
 
@@ -217,7 +209,5 @@ const styles = StyleSheet.create({
   areaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   areaChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1 },
   areaText: { fontSize: 14, fontWeight: '500' },
-  saveButton: { borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 16 },
-  saveButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   deleteText: { fontSize: 14, fontWeight: '600' },
 });

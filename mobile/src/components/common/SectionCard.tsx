@@ -20,8 +20,8 @@ export default function SectionCard({ children, title, accessory, accentColor, s
     accentColor
       ? [accentColor + '14', accentColor + '04']
       : isDark
-        ? ['rgba(255,255,255,0.06)', 'rgba(255,255,255,0)']
-        : ['rgba(255,255,255,0.4)', 'rgba(255,255,255,0.8)']
+        ? ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0)']
+        : ['rgba(0,0,0,0.04)', 'rgba(0,0,0,0)']
   ) as [string, string];
 
   return (
@@ -32,7 +32,16 @@ export default function SectionCard({ children, title, accessory, accentColor, s
           {accessory}
         </View>
       )}
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)' }, cardStyle]}>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: accentColor ? colors.surface : 'transparent',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+          },
+          cardStyle,
+        ]}
+      >
         <LinearGradient
           colors={gradientColors}
           start={{ x: 0, y: 0 }}
@@ -61,7 +70,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   card: {
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     overflow: 'hidden',
     borderWidth: 1,
