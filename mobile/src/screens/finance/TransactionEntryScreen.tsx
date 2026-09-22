@@ -12,7 +12,8 @@ import AppDatePicker from '../../components/common/AppDatePicker';
 import { AppText } from '../../components/ui/AppText';
 import { Icon } from '../../components/ui/Icon';
 import { createTransaction, updateTransaction, deleteTransaction, getCategories } from '../../api/finance';
-import { IconTrendingDown, IconTrendingUp, IconCalendar, IconTrash } from 'tabler-icons-react-native';
+import { toLocalDateString, parseLocalDate } from '../../utils/date';
+import { IconTrendingDown, IconTrendingUp, IconCalendar, IconTrash, IconCash } from 'tabler-icons-react-native';
 import DeleteConfirm from '../../components/ui/DeleteConfirm';
 
 const normalizeAmount = (value: string) => {
@@ -29,12 +30,15 @@ export default function TransactionEntryScreen() {
   const [amount, setAmount] = useState(transaction?.amount != null ? Number(transaction.amount).toFixed(2) : '0.00');
   const [type, setType] = useState<'EXPENSE' | 'EARNING'>(transaction?.type || 'EXPENSE');
   const [category, setCategory] = useState<any>(transaction?.category || null);
-  const [date, setDate] = useState(transaction?.date ? new Date(transaction.date) : new Date());
+  const [date, setDate] = useState(transaction?.date ? parseLocalDate(transaction.date) : new Date());
   const [description, setDescription] = useState(transaction?.description || '');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isFreeExpense, setIsFreeExpense] = useState(
+    transaction?.type === 'EXPENSE' && !transaction?.category
+  );
 
   const [categories, setCategories] = useState<any[]>([]);
 
@@ -49,7 +53,7 @@ export default function TransactionEntryScreen() {
         return children;
       });
       if (transaction?.category && !category) {
-        const match = flat.find((x: any) => x.id === transaction.category);
+        const match = flat.find((x: any) => x.id === (transaction.subcategory || transaction.category));
         if (match) setCategory(match);
       }
     };
@@ -62,7 +66,8 @@ export default function TransactionEntryScreen() {
   });
 
   const pickerItems = filteredCategories.flatMap((c: any) => {
-    const children = Array.isArray(c.children) ? c.children : [];
+    if (c.is_active === false) return [];
+    const children = Array.isArray(c.children) ? c.children.filter((ch: any) => ch.is_active !== false) : [];
     if (children.length === 0) return [c];
     return children;
   });
@@ -73,7 +78,7 @@ export default function TransactionEntryScreen() {
       Alert.alert('Error', 'Please enter an amount');
       return;
     }
-    if (type === 'EXPENSE' && !category) {
+    if (type === 'EXPENSE' && !isFreeExpense && !category) {
       Alert.alert('Error', 'Please select a category');
       return;
     }
@@ -83,8 +88,9 @@ export default function TransactionEntryScreen() {
       const data = {
         amount: numericValue,
         type,
-        category: category?.id || null,
-        date: date.toISOString().split('T')[0],
+        category: isFreeExpense ? null : (category?.parent || category?.id || null),
+        subcategory: isFreeExpense ? null : (category?.parent ? category.id : null),
+        date: toLocalDateString(date),
         description,
       };
 
@@ -137,7 +143,6 @@ export default function TransactionEntryScreen() {
       loading={loading}
       scrollContentStyle={styles.container}
     >
-      {/* Type Selection */}
       <Label>TYPE</Label>
       <View style={styles.typeRow}>
         {([
@@ -169,11 +174,9 @@ export default function TransactionEntryScreen() {
         })}
       </View>
 
-      {/* Amount */}
       <Label>AMOUNT</Label>
       <AmountInput value={amount} onChangeValue={setAmount} />
 
-      {/* Description */}
       <Label>DESCRIPTION</Label>
       <Input
         placeholder="What was this for?"
@@ -181,28 +184,52 @@ export default function TransactionEntryScreen() {
         onChangeText={setDescription}
       />
 
-      {/* Category */}
       {type === 'EXPENSE' && (
         <>
-          <Label>CATEGORY</Label>
-          <SelectPicker
-            value={category ? { id: category.id, label: category.name } : null}
-            options={pickerItems.map((c: any) => ({
-              id: c.id,
-              label: c.name,
-            }))}
-            onSelect={(opt) => {
-              const match = pickerItems.find((c: any) => c.id === opt.id);
-              if (match) setCategory(match);
+          <Label>FREE EXPENSE</Label>
+          <TouchableOpacity
+            onPress={() => {
+              const next = !isFreeExpense;
+              setIsFreeExpense(next);
+              if (next) setCategory(null);
             }}
-            placeholder="Select category"
-            isOpen={showCategoryPicker}
-            onToggle={() => setShowCategoryPicker(!showCategoryPicker)}
-          />
+            activeOpacity={0.8}
+            style={[
+              styles.freeExpenseRow,
+              {
+                backgroundColor: isFreeExpense ? `${entityColors.finance}12` : colors.surfaceElevated,
+                borderColor: isFreeExpense ? entityColors.finance : colors.border,
+              },
+            ]}
+          >
+            <View style={[styles.freeExpenseCheck, { backgroundColor: isFreeExpense ? entityColors.finance : colors.surface, borderColor: isFreeExpense ? entityColors.finance : colors.border }]}>
+              {isFreeExpense && <AppText bold style={{ color: '#FFF', fontSize: 12 }}>✓</AppText>}
+            </View>
+            <View style={{ flex: 1 }}>
+              <AppText style={{ color: colors.text, fontSize: 14 }}>Free expense</AppText>
+              <AppText style={{ color: colors.subtext, fontSize: 11 }}>Not assigned to any budget category</AppText>
+            </View>
+            <Icon name={IconCash} size={18} color={isFreeExpense ? entityColors.finance : colors.subtext} />
+          </TouchableOpacity>
         </>
       )}
 
-      {/* Date */}
+      <Label>CATEGORY</Label>
+      <SelectPicker
+        value={category ? { id: category.id, label: category.name } : null}
+        options={pickerItems.map((c: any) => ({
+          id: c.id,
+          label: c.name,
+        }))}
+        onSelect={(opt) => {
+          const match = pickerItems.find((c: any) => c.id === opt.id);
+          if (match) setCategory(match);
+        }}
+        placeholder={isFreeExpense ? 'Not needed for free expense' : 'Select category'}
+        isOpen={showCategoryPicker}
+        onToggle={() => !isFreeExpense && setShowCategoryPicker(!showCategoryPicker)}
+      />
+
       <Label>DATE</Label>
       <Box>
         <TouchableOpacity
@@ -226,42 +253,13 @@ export default function TransactionEntryScreen() {
 const styles = StyleSheet.create({
   headerBtn: { padding: 8 },
   container: { gap: 16, paddingVertical: 20, alignItems: 'center' },
-  typeRow: {
-    flexDirection: 'row',
-    gap: 8,
-    width: '100%',
-  },
-  typeOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  typeIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  typeLabel: {
-    fontSize: 15,
-  },
-  pickerField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  pickerCopy: {
-    flex: 1,
-  },
-  fieldValue: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
+  typeRow: { flexDirection: 'row', gap: 8, width: '100%' },
+  typeOption: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 16, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1 },
+  typeIconWrap: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  typeLabel: { fontSize: 15 },
+  pickerField: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' },
+  pickerCopy: { flex: 1 },
+  fieldValue: { fontSize: 16, fontWeight: '500' },
+  freeExpenseRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, borderWidth: 1 },
+  freeExpenseCheck: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
 });

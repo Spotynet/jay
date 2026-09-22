@@ -12,6 +12,7 @@ import { getProjects } from '../../api/projects';
 import { getAllTasks, toggleTaskCompletion } from '../../api/tasks';
 import { getEventsForDate } from '../../api/events';
 import { ActionButton } from '../../components/common/ActionButton';
+import { toLocalDateString } from '../../utils/date';
 
 export default function TasksTabScreen() {
   const { colors, entityColors } = useTheme();
@@ -24,7 +25,7 @@ export default function TasksTabScreen() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalDateString(new Date());
 
   const fetchData = async () => {
     try {

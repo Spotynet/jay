@@ -3,7 +3,7 @@ import { View, StyleSheet, Modal, TouchableWithoutFeedback, ScrollView, Touchabl
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../ui/AppText';
 import { Icon } from '../ui/Icon';
-import { IconX, IconEdit, IconCheck, IconMapPin, IconClock } from 'tabler-icons-react-native';
+import { IconX, IconEdit, IconCheck, IconMapPin, IconClock, IconCash } from 'tabler-icons-react-native';
 
 interface DetailsModalProps {
   visible: boolean;
@@ -60,7 +60,7 @@ export const DetailsModal = ({ visible, onClose, item, onEdit, onToggle }: Detai
                   {item.timeRange && !item.durationMinutes && (
                     <View style={styles.detailRow}>
                       <View style={[styles.iconContainer, { backgroundColor: colors.surfaceElevated }]}>
-                        <Icon name={IconClock} size={16} color={accentColor} />
+                        <Icon name={item.type === 'finance' ? IconCash : IconClock} size={16} color={accentColor} />
                       </View>
                       <AppText style={[styles.value, { color: colors.text }]}>{item.timeRange}</AppText>
                     </View>
@@ -75,10 +75,12 @@ export const DetailsModal = ({ visible, onClose, item, onEdit, onToggle }: Detai
                   )}
                 </View>
               </ScrollView>
-
-              <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.surfaceElevated }]} onPress={onEdit}>
-                <AppText style={[styles.editText, { color: colors.text }]}>Edit Details</AppText>
-              </TouchableOpacity>
+              
+              {item.type !== 'finance' && (
+                <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.surfaceElevated }]} onPress={onEdit}>
+                    <AppText style={[styles.editText, { color: colors.text }]}>Edit Details</AppText>
+                </TouchableOpacity>
+              )}
             </View>
           </TouchableWithoutFeedback>
         </View>

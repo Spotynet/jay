@@ -1,6 +1,7 @@
-from rest_framework import viewsets, permissions
+from django.db import models
+from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework.decorators import action
 from .models import Transaction, Category
 from .serializers import TransactionSerializer, CategorySerializer
 
@@ -11,7 +12,10 @@ class CategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Category.objects.filter(user=self.request.user, parent__isnull=True).prefetch_related('children')
+        user = self.request.user
+        if self.action == 'list':
+            return Category.objects.filter(user=user, parent__isnull=True).prefetch_related('children', 'children__due_dates')
+        return Category.objects.filter(user=user)
 
     def list(self, request, *args, **kwargs):
         if not Category.objects.filter(user=request.user, is_default=True).exists():
@@ -25,7 +29,22 @@ class CategoryViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        # Set order to max + 1
+        parent = serializer.validated_data.get('parent')
+        user = self.request.user
+        max_order = Category.objects.filter(user=user, parent=parent).aggregate(models.Max('order'))['order__max']
+        serializer.save(user=user, order=(max_order + 1) if max_order is not None else 0)
+
+    @action(detail=False, methods=['post'])
+    def reorder(self, request):
+        ordered_ids = request.data.get('ordered_ids', [])
+        parent_id = request.data.get('parent')
+        
+        # Update order field for each category
+        for index, cat_id in enumerate(ordered_ids):
+            Category.objects.filter(id=cat_id, user=request.user).update(order=index)
+            
+        return Response({'status': 'reordered'})
 
     def destroy(self, request, *args, **kwargs):
         category = self.get_object()

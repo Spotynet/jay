@@ -10,6 +10,7 @@ import AppDatePicker from '../../components/common/AppDatePicker';
 import { AppTimePicker } from '../../components/common/AppTimePicker';
 import { IconEdit } from 'tabler-icons-react-native';
 import { createEvent, updateEvent } from '../../api/events';
+import { toLocalDateString, parseLocalDate } from '../../utils/date';
 
 export default function EventEntryScreen() {
   const { colors } = useTheme();
@@ -20,7 +21,7 @@ export default function EventEntryScreen() {
   const [name, setName] = useState(event?.name || '');
   const [description, setDescription] = useState(event?.description || '');
   const [location, setLocation] = useState(event?.location || '');
-  const [date, setDate] = useState(event?.date ? new Date(event.date) : new Date());
+  const [date, setDate] = useState(event?.date ? parseLocalDate(event.date) : new Date());
   const [startTime, setStartTime] = useState(event?.start_time ? new Date(`1970-01-01T${event.start_time}`) : new Date());
   
   const [hours, setHours] = useState(event?.duration ? parseInt(event.duration.split(':')[0]) : 1);
@@ -37,7 +38,7 @@ export default function EventEntryScreen() {
       const data = {
         name,
         description,
-        date: date.toISOString().split('T')[0],
+        date: toLocalDateString(date),
         start_time: startTime.toTimeString().slice(0, 5),
         duration: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`,
         location

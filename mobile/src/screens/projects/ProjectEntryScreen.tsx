@@ -8,6 +8,7 @@ import { AppText } from '../../components/ui/AppText';
 import { createProject, updateProject, deleteProject } from '../../api/projects';
 import { getAreas } from '../../api/planning';
 import DeleteConfirm from '../../components/ui/DeleteConfirm';
+import { toLocalDateString } from '../../utils/date';
 
 const STATUS_OPTIONS = ['ACTIVE', 'COMPLETED', 'ARCHIVED'] as const;
 
@@ -36,7 +37,7 @@ export default function ProjectEntryScreen() {
   }, [isFocused]);
 
   const formatDate = (date: Date) => {
-    return date.toISOString().split('T')[0];
+    return toLocalDateString(date);
   };
 
   const handleSave = async () => {

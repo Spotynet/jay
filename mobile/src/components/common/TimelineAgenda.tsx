@@ -13,6 +13,7 @@ interface AgendaItem {
   location?: string;
   isActive: boolean;
   isCompleted?: boolean;
+  isOverdue?: boolean;
   onToggle?: () => void;
   startTime: Date | null;
   durationMinutes?: number;
@@ -83,21 +84,28 @@ export const TimelineAgenda = ({ items, onItemPress }: TimelineAgendaProps) => {
             <View style={styles.allDayHeader}>
                 <Text style={styles.noTimeLabel} numberOfLines={1}>No time</Text>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.allDayContent}>
-                {allDayItems.map(item => (
-                    <View key={item.id} style={styles.allDayCard}>
-                        <AgendaCard
-                            title={item.title}
-                            type={item.type as any}
-                            timeRange={item.timeRange}
-                            location={item.location}
-                            isActive={item.isActive}
-                            isCompleted={item.isCompleted}
-                            onToggle={item.onToggle}
-                            onPress={() => onItemPress && onItemPress(item)}
-                        />
-                    </View>
-                ))}
+            <ScrollView 
+              style={styles.allDayScroll}
+              nestedScrollEnabled 
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.allDayGrid}>
+                  {allDayItems.map(item => (
+                      <View key={item.id} style={styles.allDayCard}>
+                          <AgendaCard
+                              title={item.title}
+                              type={item.type as any}
+                              timeRange={item.timeRange}
+                              location={item.location}
+                              isActive={item.isActive}
+                              isCompleted={item.isCompleted}
+                              isOverdue={item.isOverdue}
+                              onToggle={item.onToggle}
+                              onPress={() => onItemPress && onItemPress(item)}
+                          />
+                      </View>
+                  ))}
+              </View>
             </ScrollView>
         </View>
       )}
@@ -198,11 +206,12 @@ export const TimelineAgenda = ({ items, onItemPress }: TimelineAgendaProps) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  allDayContainer: { borderBottomWidth: 0.5, borderBottomColor: '#222', paddingVertical: 10 },
+  allDayContainer: { borderBottomWidth: 0.5, borderBottomColor: '#222', paddingVertical: 10, maxHeight: 220 },
   allDayHeader: { marginBottom: 5 },
   noTimeLabel: { fontSize: 11, fontWeight: '400', color: '#666', letterSpacing: 2, marginLeft: 20 },
-  allDayContent: { flexDirection: 'row', gap: 10 },
-  allDayCard: { width: 300 },
+  allDayScroll: { flex: 1 },
+  allDayGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 8 },
+  allDayCard: { width: '47%' },
   scrollContent: { paddingBottom: 100 },
   hourRow: { flexDirection: 'row', alignItems: 'flex-start' },
   hourRowSmall: { flexDirection: 'row', alignItems: 'center' },

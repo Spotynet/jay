@@ -44,6 +44,13 @@ export async function deleteCategory(id: string) {
   });
 }
 
+export async function reorderCategories(ordered_ids: number[], parent: number | null) {
+  return apiCall<any>(`${getApiUrl()}/api/finance/categories/reorder/`, {
+    method: 'POST',
+    body: JSON.stringify({ ordered_ids, parent }),
+  });
+}
+
 // ─── Transactions ───────────────────────────────────────────
 export async function getTransactions() {
   return apiCall<any[]>(`${getApiUrl()}/api/finance/transactions/`);

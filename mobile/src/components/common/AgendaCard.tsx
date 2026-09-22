@@ -3,32 +3,36 @@ import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../ui/AppText';
 import { Icon } from '../ui/Icon';
-import { IconMapPin, IconClock, IconCheck } from 'tabler-icons-react-native';
+import { IconMapPin, IconClock, IconCheck, IconCash } from 'tabler-icons-react-native';
 import { ENTITY_ICONS } from '../../constants/entityIcons';
 
 interface AgendaCardProps {
   title: string;
-  type: 'event' | 'task' | 'habit' | 'journal';
+  type: 'event' | 'task' | 'habit' | 'journal' | 'finance';
   timeRange: string;
   location?: string;
   isActive?: boolean;
   isCompleted?: boolean;
+  isOverdue?: boolean;
   onToggle?: () => void;
   onPress?: () => void;
   startTime?: Date;
   durationMinutes?: number;
   verticalAlign?: 'center' | 'flex-start';
+  icon?: any;
 }
 
-export const AgendaCard = ({ title, type, timeRange, location, isActive, isCompleted, onToggle, onPress, startTime, durationMinutes, verticalAlign = 'flex-start' }: AgendaCardProps) => {
+export const AgendaCard = ({ title, type, timeRange, location, isActive, isCompleted, onToggle, onPress, startTime, durationMinutes, verticalAlign = 'flex-start', icon }: AgendaCardProps) => {
   const { colors, accentColor, entityColors } = useTheme();
   
-  // Pluralize type to match keys in entityColors (tasks, habits, events, journals)
-  const entityKey = (type === 'journal' ? 'journal' : type + 's') as keyof typeof entityColors;
+  // Pluralize type to match keys in entityColors (tasks, habits, events, journals, finance)
+  const entityKey = (type === 'journal' || type === 'finance' ? type : type + 's') as keyof typeof entityColors;
   const entityColor = entityColors[entityKey] || accentColor;
   
   const isPast = startTime && startTime.getTime() < new Date().getTime();
   const showCompletedStyle = isCompleted || (type === 'event' && isPast);
+
+  const showTime = timeRange && (type === 'event' || type === 'finance' || type === 'journal' || ((type === 'task' || type === 'habit') && timeRange !== ''));
 
   return (
     <TouchableOpacity style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={onPress} activeOpacity={0.8}>
@@ -46,7 +50,7 @@ export const AgendaCard = ({ title, type, timeRange, location, isActive, isCompl
       <View style={[styles.cardContent, { justifyContent: verticalAlign }]}>
         
         <View style={styles.headerRow}>
-          <Icon name={ENTITY_ICONS[type]} size={15} color={showCompletedStyle ? colors.subtext : entityColor} />
+          <Icon name={icon || ENTITY_ICONS[type]} size={15} color={showCompletedStyle ? colors.subtext : entityColor} />
           <Text style={[styles.title, { flex: 1, color: colors.text }, showCompletedStyle && { color: colors.subtext, textDecorationLine: 'line-through' }]} numberOfLines={1} ellipsizeMode="tail">{title}</Text>
           {(type === 'task' || type === 'habit') && (
             <TouchableOpacity style={[styles.checkbox, showCompletedStyle && { borderColor: entityColor, backgroundColor: entityColor }]} onPress={onToggle}>
@@ -55,9 +59,9 @@ export const AgendaCard = ({ title, type, timeRange, location, isActive, isCompl
           )}
         </View>
 
-        {type === 'event' && (
+        {showTime && (
             <View style={[styles.infoRow, { paddingLeft: 0 }]}>
-                <Icon name={IconClock} size={15} color={colors.subtext} style={{ marginRight: 4 }} />
+                <Icon name={type === 'finance' ? IconCash : IconClock} size={15} color={colors.subtext} style={{ marginRight: 4 }} />
                 <Text style={[styles.infoText, { color: colors.subtext }]}>{timeRange}</Text>
             </View>
         )}

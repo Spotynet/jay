@@ -9,6 +9,7 @@ import { FinanceSummaryCard } from '../../components/finance/FinanceSummaryCard'
 import { TransactionRow } from '../../components/finance/TransactionRow';
 import { PeriodSelector } from '../../components/finance/PeriodSelector';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { parseLocalDate } from '../../utils/date';
 
 interface TransactionsTabProps {
   filteredTransactions: any[];
@@ -39,7 +40,7 @@ export default function TransactionsTab({
   const navigation = useNavigation<any>();
 
   const sorted = [...filteredTransactions].sort((a, b) => {
-    const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+    const dateDiff = parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime();
     if (dateDiff !== 0) return dateDiff;
     return (b.id || 0) - (a.id || 0);
   });
@@ -62,23 +63,24 @@ export default function TransactionsTab({
           }
         >
           {sorted.map((t, i) => {
-            const catObj = categoryMapObj[t.category];
-            const catLabel = catObj
-              ? catObj.parent
-                ? `${categoryMapObj[catObj.parent]?.name || ''} > ${catObj.name}`
-                : catObj.name
-              : undefined;
+            const subCat = t.subcategory ? categoryMapObj[t.subcategory] : null;
+            const parentCat = t.category ? categoryMapObj[t.category] : null;
+            const subName = subCat?.name || '';
+            const parentName = parentCat?.name || '';
+            const freeLabel = !subCat ? (t.type === 'EXPENSE' ? 'Free expense' : '') : '';
             return (
               <Animated.View key={`t-${t.id}`} entering={FadeInDown.duration(280).delay(i * 25)}>
                 <SwipeDelete onDelete={() => onDeleteTransaction(t)}>
                   <TransactionRow
-                    description={t.description || catLabel || 'Transaction'}
+                    description={t.description || subName || freeLabel || 'Transaction'}
                     amount={parseFloat(t.amount)}
                     type={t.type}
                     date={t.date}
-                    category={catLabel}
+                    parentCategory={parentName}
+                    iconName={subCat?.icon}
+                    iconColor={subCat?.color}
                     isLast={i === sorted.length - 1}
-                    onPress={() => navigation.navigate('TransactionEntry', { transaction: t })}
+                    onPress={() => navigation.navigate('TransactionDetail', { transaction: t, categoryMapObj })}
                   />
                 </SwipeDelete>
               </Animated.View>

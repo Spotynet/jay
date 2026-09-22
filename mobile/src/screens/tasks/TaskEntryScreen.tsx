@@ -10,6 +10,7 @@ import AppDatePicker from '../../components/common/AppDatePicker';
 import { AppTimePicker } from '../../components/common/AppTimePicker';
 import { IconEdit } from 'tabler-icons-react-native';
 import { createTask, updateTask } from '../../api/tasks';
+import { toLocalDateString, parseLocalDate } from '../../utils/date';
 
 export default function TaskEntryScreen() {
   const { colors, accentColor } = useTheme();
@@ -20,7 +21,7 @@ export default function TaskEntryScreen() {
 
   const [name, setName] = useState(task?.name || '');
   const [description, setDescription] = useState(task?.description || '');
-  const [date, setDate] = useState(task?.due_date ? new Date(task.due_date) : new Date());
+  const [date, setDate] = useState(task?.due_date ? parseLocalDate(task.due_date) : new Date());
   const [time, setTime] = useState(task?.due_time ? new Date(`1970-01-01T${task.due_time}`) : new Date());
   const [hasTime, setHasTime] = useState(!!task?.due_time);
   
@@ -39,7 +40,7 @@ export default function TaskEntryScreen() {
       const data = {
         name,
         description,
-        due_date: date.toISOString().split('T')[0],
+        due_date: toLocalDateString(date),
         due_time: hasTime ? time.toTimeString().slice(0, 5) : null,
         duration: hasDuration ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00` : null,
         status: task?.status || 'PENDING',

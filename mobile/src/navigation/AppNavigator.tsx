@@ -28,6 +28,7 @@ import ProjectEntryScreen from '../screens/projects/ProjectEntryScreen';
 import TransactionEntryScreen from '../screens/finance/TransactionEntryScreen';
 import CategoryEntryScreen from '../screens/finance/CategoryEntryScreen';
 import CategoryItemEntryScreen from '../screens/finance/CategoryItemEntryScreen';
+import TransactionDetailScreen from '../screens/finance/TransactionDetailScreen';
 
 // Settings Screens
 import ProfileScreen from '../screens/profile/ProfileScreen';
@@ -61,6 +62,7 @@ function MainTabs() {
       <MainStack.Screen name="TransactionEntry" component={TransactionEntryScreen} />
       <MainStack.Screen name="CategoryEntry" component={CategoryEntryScreen} />
       <MainStack.Screen name="CategoryItemEntry" component={CategoryItemEntryScreen} />
+      <MainStack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
       {/* Settings Screens */}
       <MainStack.Screen name="Profile" component={ProfileScreen} />
       <MainStack.Screen name="Account" component={AccountScreen} />

@@ -10,6 +10,7 @@ import AppDatePicker from '../../components/common/AppDatePicker';
 import { IconEdit, IconTrash, IconPlus, IconX } from 'tabler-icons-react-native';
 import { createJournalEntry, updateJournalEntry, deleteJournalEntry, getJournalSettings } from '../../api/journal';
 import { SettingsRow } from '../../components/common/SettingsRow';
+import { toLocalDateString } from '../../utils/date';
 import { MoodEnergyRating } from './components/MoodEnergyRating';
 import DeleteConfirm from '../../components/ui/DeleteConfirm';
 
@@ -55,7 +56,7 @@ export default function JournalEntryScreen() {
     setLoading(true);
     try {
       const data = {
-        date: date.toISOString().split('T')[0],
+        date: toLocalDateString(date),
         highlight,
         notes,
         mood_score: hasMood ? moodScore : null,

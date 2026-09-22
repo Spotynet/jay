@@ -9,6 +9,7 @@ import { getAllHabits } from '../../api/habits';
 import { getJournalEntries } from '../../api/journal';
 import { getEventsForDate } from '../../api/events';
 import { getAllTasks } from '../../api/tasks';
+import { toLocalDateString, parseLocalDate } from '../../utils/date';
 
 export default function SystemsScreen() {
   const navigation = useNavigation<any>();
@@ -21,7 +22,7 @@ export default function SystemsScreen() {
 
   useEffect(() => {
     if (isFocused) {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = toLocalDateString(new Date());
         getAllHabits().then(setHabits).catch(console.error);
         getJournalEntries().then(setJournalEntries).catch(console.error);
         getEventsForDate(todayStr).then(setEvents).catch(console.error);
@@ -68,7 +69,7 @@ export default function SystemsScreen() {
   const activeStreaksCount = habits.filter(h => getStreak(h.days_of_week || [], h.history || []) >= 3).length;
 
   const lastEntryDate = journalEntries.length > 0 
-    ? new Date(journalEntries.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date + 'T00:00:00')
+    ? parseLocalDate(journalEntries.sort((a,b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime())[0].date)
     : null;
 
   const getRelativeDate = (date: Date) => {
