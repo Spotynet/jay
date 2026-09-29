@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useIsFocused, useRoute } from '@react-navigation/native';
-import { IconPlus, IconUser, IconFlame, IconCoin } from 'tabler-icons-react-native';
+import { IconPlus, IconUser } from 'tabler-icons-react-native';
 import ScreenLayout from '../../components/common/ScreenLayout';
 import { AppText } from '../../components/ui/AppText';
 import { getJournalEntries, getJournalSettings } from '../../api/journal';
 import { getHabitsForDate, getHabitById, toggleHabitCompletion } from '../../api/habits';
 import { getTasksForDate, getTaskById, toggleTaskCompletion } from '../../api/tasks';
+import { getProjects } from '../../api/projects';
 import { getEventsForDate, getEventById } from '../../api/events';
 import { getCategories, getTransactions } from '../../api/finance';
 import { ActionButton } from '../../components/common/ActionButton';
@@ -17,7 +18,19 @@ import { CreateNewModal } from './components/CreateNewModal';
 import { FINANCE_ICONS } from '../../constants/financeIcons';
 import { getJournalTimelineState, JournalSettings } from '../../utils/journalScheduling';
 import { DetailsModal } from '../../components/common/DetailsModal';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { toLocalDateString, parseLocalDate } from '../../utils/date';
+
+function durationMinutesFromField(value: string | null | undefined): number | undefined {
+  if (!value) return undefined;
+  const parts = String(value).split(':');
+  if (parts.length < 2) return undefined;
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return undefined;
+  const total = hours * 60 + minutes;
+  return total > 0 ? total : undefined;
+}
 
 export default function TodayScreen() {
   const { colors, entityColors } = useTheme();
@@ -28,11 +41,13 @@ export default function TodayScreen() {
   const [journalSettings, setJournalSettings] = useState<JournalSettings | null>(null);
   const [habits, setHabits] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [detailsVisible, setDetailsVisible] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const isFocused = useIsFocused();
   const navigation = useNavigation<any>();
@@ -109,21 +124,25 @@ export default function TodayScreen() {
     }
 
     try {
-        const [habitData, taskData, eventData, categoryData, transactionData] = await Promise.all([
+        const [habitData, taskData, eventData, categoryData, transactionData, projectData] = await Promise.all([
             getHabitsForDate(dateStr),
             getTasksForDate(dateStr),
             getEventsForDate(dateStr),
             getCategories().catch(() => []),
-            getTransactions().catch(() => [])
+            getTransactions().catch(() => []),
+            getProjects().catch(() => []),
         ]);
         
         setHabits(habitData);
         setTasks(taskData);
+        setProjects(Array.isArray(projectData) ? projectData : []);
         setEvents(eventData);
         setCategories(categoryData);
         setTransactions(transactionData);
+        setError(null);
     } catch (e) {
         console.error('Critical timeline fetch failed:', e);
+        setError("Couldn't load today.");
     }
   };
 
@@ -139,7 +158,7 @@ export default function TodayScreen() {
     } else if (option === 'Habit') {
       navigation.navigate('HabitEntry');
     } else if (option === 'Task') {
-      navigation.navigate('TaskEntry');
+      navigation.navigate('TaskEntry', { date: dateStr });
     } else if (option === 'Event') {
       navigation.navigate('EventEntry');
     } else if (option === 'Finance') {
@@ -147,6 +166,7 @@ export default function TodayScreen() {
     }
   };
 
+  const isToday = toLocalDateString(selectedDate) === toLocalDateString(new Date());
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }).toUpperCase();
   };
@@ -225,7 +245,7 @@ export default function TodayScreen() {
 
   return (
     <ScreenLayout 
-      title={formatDate(selectedDate)}
+      title={isToday ? 'Today' : formatDate(selectedDate)}
       rightOption={{ 
         render: () => (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -238,35 +258,34 @@ export default function TodayScreen() {
       showPicker={showPicker}
       contentStyle={{ paddingHorizontal: 0 }}
     >
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 0 }}>
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <View style={[styles.summaryPill, { backgroundColor: `${entityColors.habits}12` }]}>
-              <IconFlame size={14} color={entityColors.habits} />
-              <AppText style={[styles.summaryCount, { color: entityColors.habits }]}>
-                {habits.filter((h: any) => h.completed).length}/{habits.length}
-              </AppText>
-              <AppText style={[styles.summaryLabel, { color: colors.subtext }]}>Habits</AppText>
-            </View>
-            <View style={[styles.summaryPill, { backgroundColor: `${entityColors.finance}12` }]}>
-              <IconCoin size={14} color={entityColors.finance} />
-              <AppText style={[styles.summaryCount, { color: entityColors.finance }]}>
-                {budgetDueDates.length}
-              </AppText>
-              <AppText style={[styles.summaryLabel, { color: colors.subtext }]}>Due</AppText>
-            </View>
-          </View>
+      <View style={{ flex: 1 }}>
+        <View style={{ paddingHorizontal: 16 }}>
+          <ErrorMessage message={error} />
+        </View>
+        <View style={styles.summaryLine}>
+          <AppText style={[styles.summaryPart, { color: entityColors.tasks }]}>
+            {tasks.filter((t: any) => t.status !== 'COMPLETED').length} {tasks.filter((t: any) => t.status !== 'COMPLETED').length === 1 ? 'task' : 'tasks'}
+          </AppText>
+          <AppText style={[styles.summaryDot, { color: colors.subtext }]}>·</AppText>
+          <AppText style={[styles.summaryPart, { color: entityColors.habits }]}>
+            {habits.filter((h: any) => !h.completed).length} {habits.filter((h: any) => !h.completed).length === 1 ? 'habit' : 'habits'}
+          </AppText>
+          <AppText style={[styles.summaryDot, { color: colors.subtext }]}>·</AppText>
+          <AppText style={[styles.summaryPart, { color: entityColors.finance }]}>
+            {budgetDueDates.length} due
+          </AppText>
         </View>
 
         <View style={{ flex: 1 }}>
-        <TimelineAgenda 
+        <TimelineAgenda
+            now={isToday ? new Date() : null} 
             items={[
                 ...events.map((e: any) => ({
                       id: `e-${e.id}`,
                       title: e.name,
                       location: e.location,
                       startTime: new Date(`${dateStr}T${e.start_time}`),
-                      durationMinutes: 30,
+                      durationMinutes: durationMinutesFromField(e.duration),
                       type: 'event',
                       timeRange: e.start_time,
                       isActive: true
@@ -274,14 +293,21 @@ export default function TodayScreen() {
                 ...tasks.map((t: any) => ({
                       id: `t-${t.id}`,
                       title: t.name,
+                      projectName: projects.find((p) => p.id === t.project)?.name,
                       startTime: t.due_time ? new Date(`${dateStr}T${t.due_time}`) : null,
-                      durationMinutes: 15,
+                      durationMinutes: durationMinutesFromField(t.duration),
                       type: 'task',
                       timeRange: t.due_time || '',
                       isActive: false,
                       isCompleted: t.status === 'COMPLETED',
                       onToggle: async () => {
-                          await toggleTaskCompletion(t.id);
+                          try {
+                            await toggleTaskCompletion(t.id);
+                            fetchEntries();
+                          } catch (e) {
+                            await fetchEntries();
+                            setError("Couldn't update this task.");
+                          }
                           fetchEntries();
                       }
                   })),
@@ -289,13 +315,18 @@ export default function TodayScreen() {
                     id: `h-${h.id}`,
                     title: h.name,
                     startTime: h.reminder_time ? new Date(`${dateStr}T${h.reminder_time}`) : null,
-                    durationMinutes: 15,
                     type: 'habit',
                     timeRange: h.reminder_time || '',
                     isActive: false,
                     isCompleted: h.completed,
                     onToggle: async () => {
-                      await toggleHabitCompletion(h.id, dateStr);
+                      try {
+                        await toggleHabitCompletion(h.id, dateStr);
+                        fetchEntries();
+                      } catch (e) {
+                        await fetchEntries();
+                        setError("Couldn't update this habit.");
+                      }
                       fetchEntries();
                     }
                 })),
@@ -307,7 +338,6 @@ export default function TodayScreen() {
                     id: 'journal',
                     title: journalState.timelineState === 'completed' ? 'Journal Completed' : 'Journal',
                     startTime: journalState.scheduledTime ? new Date(`${dateStr}T${journalState.scheduledTime}`) : new Date(`${dateStr}T09:00:00`),
-                    durationMinutes: 15,
                     type: 'journal',
                     timeRange: journalState.scheduledTime ? journalState.scheduledTime.substring(0,5) : '09:00',
                     isActive: journalState.timelineState !== 'completed',
@@ -326,7 +356,7 @@ export default function TodayScreen() {
             }}
         />
         </View>
-      </ScrollView>
+      </View>
 
       <DetailsModal 
         visible={detailsVisible}
@@ -371,9 +401,7 @@ export default function TodayScreen() {
 
 const styles = StyleSheet.create({
   contentContainer: { flex: 1 },
-  summaryCard: { paddingHorizontal: 16, paddingVertical: 10 },
-  summaryRow: { flexDirection: 'row', gap: 8 },
-  summaryPill: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10 },
-  summaryCount: { fontSize: 13, fontWeight: '700' },
-  summaryLabel: { fontSize: 11, fontWeight: '500' },
+  summaryLine: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingBottom: 8 },
+  summaryPart: { fontSize: 11, fontWeight: '600' },
+  summaryDot: { fontSize: 11 },
 });

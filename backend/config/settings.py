@@ -167,3 +167,15 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': False,
     'UPDATE_LAST_LOGIN': True,
 }
+
+# The dev server logs every request at INFO on stderr, which PM2 treats as an error.
+# Keep 4xx and 5xx. Drop successful access lines.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'loggers': {
+        'django.server': {
+            'level': 'WARNING',
+        },
+    },
+}

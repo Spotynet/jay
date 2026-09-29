@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ViewStyle
 import { useTheme } from '../../context/ThemeContext';
 import ScreenLayout from './ScreenLayout';
 import { AuthButton } from '../../screens/auth/components/AuthButton';
+import { ErrorMessage } from '../ui/ErrorMessage';
 
 interface FormScreenProps {
   children: React.ReactNode;
@@ -12,6 +13,7 @@ interface FormScreenProps {
   submitTitle: string;
   onSubmit: () => void;
   loading?: boolean;
+  error?: string | null;
   submitStyle?: StyleProp<ViewStyle>;
   scrollStyle?: StyleProp<ViewStyle>;
   scrollContentStyle?: StyleProp<ViewStyle>;
@@ -31,6 +33,7 @@ export default function FormScreen({
   submitTitle,
   onSubmit,
   loading,
+  error,
   submitStyle,
   scrollStyle,
   scrollContentStyle,
@@ -51,6 +54,7 @@ export default function FormScreen({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
+            <ErrorMessage message={error ?? null} />
             {children}
           </ScrollView>
           <View style={[styles.footer, { backgroundColor: colors.background }]}>
@@ -65,6 +69,7 @@ export default function FormScreen({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
+            <ErrorMessage message={error ?? null} />
             {children}
           </ScrollView>
           <View style={[styles.footer, { backgroundColor: colors.background }]}>

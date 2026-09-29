@@ -1,59 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, TextInput, TouchableOpacity, Platform } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { useNavigation, useRoute, useIsFocused } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import FormScreen from '../../components/common/FormScreen';
 import { AppText } from '../../components/ui/AppText';
+import ColorSwatchPicker from '../../components/ui/ColorSwatchPicker';
 import { createProject, updateProject, deleteProject } from '../../api/projects';
-import { getAreas } from '../../api/planning';
 import DeleteConfirm from '../../components/ui/DeleteConfirm';
-import { toLocalDateString } from '../../utils/date';
-
-const STATUS_OPTIONS = ['ACTIVE', 'COMPLETED', 'ARCHIVED'] as const;
+import { toLocalDateString, parseLocalDate } from '../../utils/date';
 
 export default function ProjectEntryScreen() {
   const { colors, accentColor } = useTheme();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const isFocused = useIsFocused();
 
   const existingProject = route.params?.project;
 
   const [name, setName] = useState(existingProject?.name || '');
   const [description, setDescription] = useState(existingProject?.description || '');
-  const [status, setStatus] = useState<string>(existingProject?.status || 'ACTIVE');
-  const [dueDate, setDueDate] = useState<Date | null>(existingProject?.due_date ? new Date(existingProject.due_date + 'T00:00:00') : null);
+  const [color, setColor] = useState(existingProject?.color || '');
+  const [dueDate, setDueDate] = useState<Date | null>(existingProject?.due_date ? parseLocalDate(existingProject.due_date) : null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [areaId, setAreaId] = useState<number | null>(existingProject?.area || null);
-  const [areas, setAreas] = useState<any[]>([]);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (isFocused) {
-      getAreas().then(setAreas).catch(() => {});
-    }
-  }, [isFocused]);
-
-  const formatDate = (date: Date) => {
-    return toLocalDateString(date);
-  };
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Project name is required');
+      setError('Enter a project name.');
       return;
     }
+    setError(null);
 
     setSaving(true);
     try {
       const projectData = {
         name: name.trim(),
         description: description.trim(),
-        status,
-        due_date: dueDate ? formatDate(dueDate) : undefined,
-        area: areaId || undefined,
+        status: existingProject?.status || 'ACTIVE',
+        due_date: dueDate ? toLocalDateString(dueDate) : null,
+        color,
       };
 
       if (existingProject) {
@@ -62,21 +49,41 @@ export default function ProjectEntryScreen() {
         await createProject(projectData);
       }
       navigation.goBack();
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save project');
+    } catch (e) {
+      setError("Couldn't save this project.");
     } finally {
       setSaving(false);
     }
   };
 
+  const setStatusAndLeave = async (nextStatus: 'COMPLETED' | 'ARCHIVED') => {
+    if (!existingProject || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await updateProject(existingProject.id, {
+        name: name.trim() || existingProject.name,
+        description: description.trim(),
+        status: nextStatus,
+        due_date: dueDate ? toLocalDateString(dueDate) : null,
+        color,
+      });
+      navigation.goBack();
+    } catch (e) {
+      setError(nextStatus === 'COMPLETED' ? "Couldn't complete this project." : "Couldn't archive this project.");
+    } finally {
+      setSaving(false);
+    }
+  };
   const handleDelete = async () => {
     if (!existingProject) return;
     try {
       await deleteProject(existingProject.id);
       setDeleteModalVisible(false);
       navigation.goBack();
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to delete project');
+    } catch (e) {
+      setDeleteModalVisible(false);
+      setError("Couldn't delete this project.");
     }
   };
 
@@ -85,110 +92,94 @@ export default function ProjectEntryScreen() {
       title={existingProject ? 'EDIT PROJECT' : 'NEW PROJECT'}
       showBack={true}
       rightOption={existingProject ? {
-        icon: () => (
+        render: () => (
           <TouchableOpacity onPress={() => setDeleteModalVisible(true)}>
             <AppText style={[styles.deleteText, { color: colors.error }]}>Delete</AppText>
           </TouchableOpacity>
-        )
+        ),
       } : undefined}
       submitTitle="Save Project"
       onSubmit={handleSave}
       loading={saving}
+      error={error}
       submitStyle={{ backgroundColor: accentColor }}
     >
       <View style={styles.field}>
         <AppText style={[styles.label, { color: colors.subtext }]}>NAME</AppText>
-          <TextInput
-            style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-            value={name}
-            onChangeText={setName}
-            placeholder="Project name"
-            placeholderTextColor={colors.subtext}
-          />
-        </View>
+        <TextInput
+          style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+          value={name}
+          onChangeText={setName}
+          placeholder="Project name"
+          placeholderTextColor={colors.subtext}
+        />
+      </View>
 
-        {/* Description */}
-        <View style={styles.field}>
-          <AppText style={[styles.label, { color: colors.subtext }]}>DESCRIPTION</AppText>
-          <TextInput
-            style={[styles.input, styles.textArea, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Optional description"
-            placeholderTextColor={colors.subtext}
-            multiline
-            numberOfLines={3}
-          />
-        </View>
+      <View style={styles.field}>
+        <AppText style={[styles.label, { color: colors.subtext }]}>DESCRIPTION</AppText>
+        <TextInput
+          style={[styles.input, styles.textArea, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+          value={description}
+          onChangeText={setDescription}
+          placeholder="Optional description"
+          placeholderTextColor={colors.subtext}
+          multiline
+          numberOfLines={3}
+        />
+      </View>
 
-        {/* Status */}
+      {existingProject && (
         <View style={styles.field}>
-          <AppText style={[styles.label, { color: colors.subtext }]}>STATUS</AppText>
+          <AppText style={[styles.label, { color: colors.subtext }]}>PROJECT</AppText>
           <View style={styles.statusRow}>
-            {STATUS_OPTIONS.map((s) => (
-              <TouchableOpacity
-                key={s}
-                style={[styles.statusChip, { backgroundColor: status === s ? accentColor : colors.surface, borderColor: status === s ? accentColor : colors.border }]}
-                onPress={() => setStatus(s)}
-              >
-                <AppText style={[styles.statusText, { color: status === s ? '#FFFFFF' : colors.text }]}>{s}</AppText>
-              </TouchableOpacity>
-            ))}
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => setStatusAndLeave('COMPLETED')}
+            >
+              <AppText style={[styles.statusText, { color: colors.text }]}>Complete</AppText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => setStatusAndLeave('ARCHIVED')}
+            >
+              <AppText style={[styles.statusText, { color: colors.text }]}>Archive</AppText>
+            </TouchableOpacity>
           </View>
         </View>
+      )}
 
-        {/* Due Date */}
-        <View style={styles.field}>
-          <AppText style={[styles.label, { color: colors.subtext }]}>DUE DATE</AppText>
-          <TouchableOpacity 
-            style={[styles.dateButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <AppText style={[styles.dateText, { color: dueDate ? colors.text : colors.subtext }]}>
-              {dueDate ? dueDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Select date'}
-            </AppText>
-          </TouchableOpacity>
-          {showDatePicker && (
-            <DateTimePicker
-              value={dueDate || new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(event, selectedDate) => {
-                setShowDatePicker(Platform.OS === 'ios');
-                if (selectedDate) setDueDate(selectedDate);
-              }}
-            />
-          )}
-        </View>
+      <View style={styles.field}>
+        <AppText style={[styles.label, { color: colors.subtext }]}>COLOR</AppText>
+        <ColorSwatchPicker value={color || '#007AFF'} onChange={setColor} />
+      </View>
 
-        {/* Area */}
-        {areas.length > 0 && (
-          <View style={styles.field}>
-            <AppText style={[styles.label, { color: colors.subtext }]}>AREA</AppText>
-            <View style={styles.areaRow}>
-              <TouchableOpacity
-                style={[styles.areaChip, { backgroundColor: !areaId ? accentColor : colors.surface, borderColor: !areaId ? accentColor : colors.border }]}
-                onPress={() => setAreaId(null)}
-              >
-                <AppText style={[styles.areaText, { color: !areaId ? '#FFFFFF' : colors.text }]}>None</AppText>
-              </TouchableOpacity>
-              {areas.map((area) => (
-                <TouchableOpacity
-                  key={area.id}
-                  style={[styles.areaChip, { backgroundColor: areaId === area.id ? (area.color || accentColor) : colors.surface, borderColor: areaId === area.id ? (area.color || accentColor) : colors.border }]}
-                  onPress={() => setAreaId(area.id)}
-                >
-                  <AppText style={[styles.areaText, { color: areaId === area.id ? '#FFFFFF' : colors.text }]}>{area.name}</AppText>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+      <View style={styles.field}>
+        <AppText style={[styles.label, { color: colors.subtext }]}>DUE DATE</AppText>
+        <TouchableOpacity
+          style={[styles.dateButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <AppText style={[styles.dateText, { color: dueDate ? colors.text : colors.subtext }]}>
+            {dueDate ? dueDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Select date'}
+          </AppText>
+        </TouchableOpacity>
+        {showDatePicker && (
+          <DateTimePicker
+            value={dueDate || new Date()}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(_event, selectedDate) => {
+              setShowDatePicker(Platform.OS === 'ios');
+              if (selectedDate) setDueDate(selectedDate);
+            }}
+          />
         )}
+      </View>
 
       <DeleteConfirm
         visible={deleteModalVisible}
         title="Delete Project"
-        message={`Are you sure you want to delete "${existingProject?.name}"?`}
+        message={`Are you sure you want to delete "${existingProject?.name}"? Its tasks will move to Inbox.`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteModalVisible(false)}
       />
@@ -197,18 +188,14 @@ export default function ProjectEntryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingBottom: 40 },
   field: { marginBottom: 24 },
   label: { fontSize: 11, fontWeight: '600', letterSpacing: 1.5, marginBottom: 8 },
   input: { borderRadius: 12, borderWidth: 1, padding: 16, fontSize: 16 },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
   statusRow: { flexDirection: 'row', gap: 8 },
-  statusChip: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  actionButton: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
   statusText: { fontSize: 13, fontWeight: '600' },
   dateButton: { borderRadius: 12, borderWidth: 1, padding: 16 },
   dateText: { fontSize: 16 },
-  areaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  areaChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1 },
-  areaText: { fontSize: 14, fontWeight: '500' },
   deleteText: { fontSize: 14, fontWeight: '600' },
 });

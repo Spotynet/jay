@@ -8,7 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 
 // Tab Screens
 import TodayScreen from '../screens/today/TodayScreen';
-import TasksTabScreen from '../screens/tasks/TasksTabScreen';
+import PlanScreen from '../screens/planning/PlanScreen';
 import DailyJournalScreen from '../screens/journal/DailyJournalScreen';
 import PlaceholderScreen from '../screens/common/PlaceholderScreen';
 import FinanceScreen from '../screens/finance/FinanceScreen';
@@ -20,11 +20,11 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 
 // Modal Screens
 import JournalEntryScreen from '../screens/journal/JournalEntryScreen';
-import JournalDetailScreen from '../screens/journal/JournalDetailScreen';
 import HabitEntryScreen from '../screens/habits/HabitEntryScreen';
 import TaskEntryScreen from '../screens/tasks/TaskEntryScreen';
 import EventEntryScreen from '../screens/events/EventEntryScreen';
 import ProjectEntryScreen from '../screens/projects/ProjectEntryScreen';
+import ProjectTasksScreen from '../screens/planning/ProjectTasksScreen';
 import TransactionEntryScreen from '../screens/finance/TransactionEntryScreen';
 import CategoryEntryScreen from '../screens/finance/CategoryEntryScreen';
 import CategoryItemEntryScreen from '../screens/finance/CategoryItemEntryScreen';
@@ -54,11 +54,11 @@ function MainTabs() {
       <MainStack.Screen name="Tabs" component={TabNavigator} />
       {/* Entry Screens */}
       <MainStack.Screen name="JournalEntry" component={JournalEntryScreen} />
-      <MainStack.Screen name="JournalDetail" component={JournalDetailScreen} />
       <MainStack.Screen name="HabitEntry" component={HabitEntryScreen} />
       <MainStack.Screen name="TaskEntry" component={TaskEntryScreen} />
       <MainStack.Screen name="EventEntry" component={EventEntryScreen} />
       <MainStack.Screen name="ProjectEntry" component={ProjectEntryScreen} />
+      <MainStack.Screen name="ProjectTasks" component={ProjectTasksScreen} />
       <MainStack.Screen name="TransactionEntry" component={TransactionEntryScreen} />
       <MainStack.Screen name="CategoryEntry" component={CategoryEntryScreen} />
       <MainStack.Screen name="CategoryItemEntry" component={CategoryItemEntryScreen} />
@@ -84,12 +84,7 @@ function TabNavigator() {
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Today" component={TodayScreen} />
-      <Tab.Screen name="Plan" component={() => (
-        <PlaceholderScreen 
-          title="PLAN" 
-          message="Set goals, track progress, and plan your life. Coming soon with a powerful planning experience."
-        />
-      )} />
+      <Tab.Screen name="Plan" component={PlanScreen} />
       <Tab.Screen name="Journal" component={DailyJournalScreen} />
       <Tab.Screen name="Fitness" component={() => (
         <PlaceholderScreen 

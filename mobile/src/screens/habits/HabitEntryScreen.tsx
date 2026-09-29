@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../../components/ui/AppText';
 import { Icon } from '../../components/ui/Icon';
@@ -17,6 +17,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppTimePicker } from '../../components/common/AppTimePicker';
 import { IconTrash, IconEdit } from 'tabler-icons-react-native';
 import DeleteConfirm from '../../components/ui/DeleteConfirm';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
 export default function HabitEntryScreen() {
   const { colors, entityColors } = useTheme();
@@ -36,6 +37,7 @@ export default function HabitEntryScreen() {
   const [iconName, setIconName] = useState(habit?.icon || 'Activity');
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedDays, setSelectedDays] = useState<number[]>(habit?.days_of_week || [0, 1, 2, 3, 4, 5, 6]);
 
   const days = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -67,6 +69,11 @@ export default function HabitEntryScreen() {
   const selectedIcon = HABIT_ICONS.find(i => i.name === iconName)?.icon || HABIT_ICONS[0].icon;
 
   const saveHabit = async () => {
+    if (!name.trim()) {
+      setError('Enter a habit name.');
+      return;
+    }
+    setError(null);
     setLoading(true);
     try {
       const data = {
@@ -85,16 +92,20 @@ export default function HabitEntryScreen() {
       else await createHabit(data);
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', 'Failed to save habit');
+      setError("Couldn't save this habit.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    if (habit) {
-        await deleteHabit(habit.id);
-        navigation.goBack();
+    if (!habit) return;
+    try {
+      await deleteHabit(habit.id);
+      navigation.goBack();
+    } catch (e) {
+      setDeleteModalVisible(false);
+      setError("Couldn't delete this habit.");
     }
   };
 
@@ -122,6 +133,7 @@ export default function HabitEntryScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.container}>
+        <ErrorMessage message={error} />
         <View style={styles.nameRow}>
           <IconCircle
             icon={selectedIcon}

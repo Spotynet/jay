@@ -3,7 +3,7 @@ import { View, StyleSheet, Modal, TouchableWithoutFeedback, ScrollView, Touchabl
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../ui/AppText';
 import { Icon } from '../ui/Icon';
-import { IconX, IconEdit, IconCheck, IconMapPin, IconClock, IconCash } from 'tabler-icons-react-native';
+import { IconX, IconCheck, IconMapPin, IconClock, IconCash, IconFolder } from 'tabler-icons-react-native';
 
 interface DetailsModalProps {
   visible: boolean;
@@ -65,6 +65,14 @@ export const DetailsModal = ({ visible, onClose, item, onEdit, onToggle }: Detai
                       <AppText style={[styles.value, { color: colors.text }]}>{item.timeRange}</AppText>
                     </View>
                   )}
+                  {item.projectName ? (
+                    <View style={styles.detailRow}>
+                      <View style={[styles.iconContainer, { backgroundColor: colors.surfaceElevated }]}>
+                        <Icon name={IconFolder} size={16} color={accentColor} />
+                      </View>
+                      <AppText style={[styles.value, { color: colors.text }]}>{item.projectName}</AppText>
+                    </View>
+                  ) : null}
                   {item.location && (
                     <View style={styles.detailRow}>
                       <View style={[styles.iconContainer, { backgroundColor: colors.surfaceElevated }]}>

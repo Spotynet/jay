@@ -9,5 +9,5 @@ class CustomRatingInline(admin.TabularInline):
 class JournalEntryAdmin(admin.ModelAdmin):
     list_display = ('user', 'date', 'mood_score', 'energy_score')
     list_filter = ('date', 'mood_score', 'energy_score', 'user')
-    search_fields = ('highlight', 'notes')
+    search_fields = ('user__username',)
     inlines = [CustomRatingInline]

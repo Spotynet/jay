@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import FormScreen from '../../components/common/FormScreen';
@@ -27,6 +27,7 @@ export default function CategoryEntryScreen() {
   const [description, setDescription] = useState(category?.description || '');
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const selectedIcon =
@@ -34,9 +35,10 @@ export default function CategoryEntryScreen() {
 
   const saveCategory = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter a category name');
+      setError('Enter a category name.');
       return;
     }
+    setError(null);
 
     setLoading(true);
     try {
@@ -54,10 +56,9 @@ export default function CategoryEntryScreen() {
       } else {
         await createCategory(data);
       }
-      Alert.alert('Success', 'Category saved');
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', 'Failed to save category');
+      setError("Couldn't save this category.");
     } finally {
       setLoading(false);
     }
@@ -68,10 +69,10 @@ export default function CategoryEntryScreen() {
     setLoading(true);
     try {
       await deleteCategory(category.id);
-      Alert.alert('Deleted', 'Category removed');
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', 'Failed to delete');
+      setShowDeleteConfirm(false);
+      setError("Couldn't delete this category.");
     } finally {
       setLoading(false);
       setShowDeleteConfirm(false);
@@ -96,6 +97,7 @@ export default function CategoryEntryScreen() {
       submitTitle={category ? 'Update Category' : 'Create Category'}
       onSubmit={saveCategory}
       loading={loading}
+      error={error}
       scrollContentStyle={styles.container}
     >
       <IconPickerModal

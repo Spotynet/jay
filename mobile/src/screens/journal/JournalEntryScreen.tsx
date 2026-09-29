@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../../components/ui/AppText';
 import { Icon } from '../../components/ui/Icon';
@@ -13,6 +13,7 @@ import { SettingsRow } from '../../components/common/SettingsRow';
 import { toLocalDateString } from '../../utils/date';
 import { MoodEnergyRating } from './components/MoodEnergyRating';
 import DeleteConfirm from '../../components/ui/DeleteConfirm';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
 export default function JournalEntryScreen() {
   const { colors, entityColors } = useTheme();
@@ -27,8 +28,6 @@ export default function JournalEntryScreen() {
     paramDate ? new Date(paramDate + 'T00:00:00') : 
     new Date()
   );
-  const [highlight, setHighlight] = useState(entry?.highlight || '');
-  const [notes, setNotes] = useState(entry?.notes || '');
   const [moodScore, setMoodScore] = useState(entry?.mood_score || 5);
   const [hasMood, setHasMood] = useState(!!entry?.mood_score);
   const [energyScore, setEnergyScore] = useState(entry?.energy_score || 5);
@@ -49,6 +48,7 @@ export default function JournalEntryScreen() {
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [newTagLabel, setNewTagLabel] = useState('');
 
@@ -57,8 +57,6 @@ export default function JournalEntryScreen() {
     try {
       const data = {
         date: toLocalDateString(date),
-        highlight,
-        notes,
         mood_score: hasMood ? moodScore : null,
         energy_score: hasEnergy ? energyScore : null,
         custom_ratings: hasCustom ? customRatings : []
@@ -71,8 +69,10 @@ export default function JournalEntryScreen() {
       }
       navigation.goBack();
     } catch (e: any) {
-      const errorMsg = e.message || 'Failed to save entry';
-      Alert.alert('Error', errorMsg);
+      const detail = typeof e?.message === 'string' && e.message.length < 140 && !e.message.includes('<')
+        ? e.message
+        : null;
+      setError(detail || "Couldn't save this entry.");
     } finally {
       setLoading(false);
     }
@@ -83,7 +83,8 @@ export default function JournalEntryScreen() {
       await deleteJournalEntry(entry.id);
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', 'Failed to delete entry');
+      setDeleteModalVisible(false);
+      setError("Couldn't delete this entry.");
     }
   };
 
@@ -91,9 +92,10 @@ export default function JournalEntryScreen() {
     if (newTagLabel.trim()) {
       const label = newTagLabel.trim().toLowerCase();
       if (customRatings.find(r => r.label === label)) {
-        Alert.alert('Error', 'This tag already exists');
+        setError('This tag already exists.');
         return;
       }
+      setError(null);
       setCustomRatings([...customRatings, { label, score: 5 }]);
       setNewTagLabel('');
     }
@@ -130,6 +132,7 @@ export default function JournalEntryScreen() {
         keyboardVerticalOffset={100}
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <ErrorMessage message={error} />
           <TouchableOpacity 
             style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => setShowDatePicker(true)}
@@ -142,31 +145,6 @@ export default function JournalEntryScreen() {
               <Icon name={IconEdit} size={18} color={colors.subtext} />
             </View>
           </TouchableOpacity>
-
-          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <AppText style={styles.subtitleLabel}>HIGHLIGHT OF THE DAY</AppText>
-            <TextInput
-              style={[styles.textInput, { color: colors.text }]}
-              placeholder="What made today special?"
-              placeholderTextColor={colors.subtext}
-              multiline
-              maxLength={280}
-              value={highlight}
-              onChangeText={setHighlight}
-            />
-          </View>
-
-          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <AppText style={styles.subtitleLabel}>NOTES & ANNOTATIONS</AppText>
-            <TextInput
-              style={[styles.textInput, { color: colors.text, minHeight: 80 }]}
-              placeholder="Any other details..."
-              placeholderTextColor={colors.subtext}
-              multiline
-              value={notes}
-              onChangeText={setNotes}
-            />
-          </View>
 
           <SettingsRow
             label="MOOD"

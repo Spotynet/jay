@@ -13,6 +13,7 @@ class Task(TimeStampedModel, OwnedModel):
     due_time = models.TimeField(null=True, blank=True)
     duration = models.DurationField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
+    order = models.PositiveIntegerField(default=0)
     parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='subtasks')
     project = models.ForeignKey('planning.Project', null=True, blank=True, on_delete=models.SET_NULL, related_name='tasks')
 

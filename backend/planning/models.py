@@ -33,6 +33,7 @@ class Project(TimeStampedModel, OwnedModel):
     description = models.TextField(blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='ACTIVE')
     due_date = models.DateField(null=True, blank=True)
+    color = models.CharField(max_length=7, blank=True)
     area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True, related_name="projects")
 
     def __str__(self):

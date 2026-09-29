@@ -1,9 +1,10 @@
-from rest_framework import viewsets, permissions, status
+from django.db.models import Max
+from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Task
 from .serializers import TaskSerializer
-from datetime import datetime
+
 
 class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
@@ -14,7 +15,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         date_str = self.request.query_params.get('date')
         if date_str:
             queryset = queryset.filter(due_date=date_str)
-        return queryset.order_by('due_date')
+        return queryset.order_by('order', 'due_date')
 
     @action(detail=True, methods=['post'])
     def toggle_completion(self, request, pk=None):
@@ -24,4 +25,18 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Response({'status': task.status})
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        parent = serializer.validated_data.get('parent')
+        project = serializer.validated_data.get('project')
+        if parent is not None and not project:
+            project = parent.project
+        siblings = Task.objects.filter(
+            user=self.request.user,
+            parent=parent,
+            project=project,
+        )
+        last = siblings.aggregate(Max('order'))['order__max'] or 0
+        serializer.save(
+            user=self.request.user,
+            project=project,
+            order=last + 1,
+        )

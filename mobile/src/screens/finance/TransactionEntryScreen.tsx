@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import FormScreen from '../../components/common/FormScreen';
@@ -36,6 +36,7 @@ export default function TransactionEntryScreen() {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isFreeExpense, setIsFreeExpense] = useState(
     transaction?.type === 'EXPENSE' && !transaction?.category
   );
@@ -75,13 +76,14 @@ export default function TransactionEntryScreen() {
   const saveTransaction = async () => {
     const numericValue = normalizeAmount(amount);
     if (numericValue <= 0) {
-      Alert.alert('Error', 'Please enter an amount');
+      setError('Enter an amount.');
       return;
     }
     if (type === 'EXPENSE' && !isFreeExpense && !category) {
-      Alert.alert('Error', 'Please select a category');
+      setError('Select a category.');
       return;
     }
+    setError(null);
 
     setLoading(true);
     try {
@@ -99,10 +101,9 @@ export default function TransactionEntryScreen() {
       } else {
         await createTransaction(data);
       }
-      Alert.alert('Success', 'Transaction saved');
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', 'Failed to save transaction');
+      setError("Couldn't save this transaction.");
     } finally {
       setLoading(false);
     }
@@ -113,10 +114,10 @@ export default function TransactionEntryScreen() {
     setLoading(true);
     try {
       await deleteTransaction(transaction.id);
-      Alert.alert('Deleted', 'Transaction removed');
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', 'Failed to delete');
+      setShowDeleteConfirm(false);
+      setError("Couldn't delete this transaction.");
     } finally {
       setLoading(false);
       setShowDeleteConfirm(false);
@@ -141,6 +142,7 @@ export default function TransactionEntryScreen() {
       submitTitle={transaction ? 'Update Transaction' : 'Save Transaction'}
       onSubmit={saveTransaction}
       loading={loading}
+      error={error}
       scrollContentStyle={styles.container}
     >
       <Label>TYPE</Label>

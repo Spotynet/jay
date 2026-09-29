@@ -15,7 +15,7 @@ class JournalEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = JournalEntry
         fields = [
-            'id', 'date', 'highlight', 'notes', 
+            'id', 'date',
             'mood_score', 'energy_score', 'custom_ratings',
             'created_at', 'updated_at'
         ]

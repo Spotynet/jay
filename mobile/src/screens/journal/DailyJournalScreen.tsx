@@ -13,6 +13,7 @@ import { HabitRow } from './components/HabitRow';
 import { getJournalEntries, createJournalEntry, updateJournalEntry } from '../../api/journal';
 import { getHabitsForDate, setHabitStatus, incrementHabitProgress, decrementHabitProgress } from '../../api/habits';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { LinearGradient } from 'expo-linear-gradient';
 
 function formatDateStr(date: Date) {
@@ -56,6 +57,7 @@ export default function DailyJournalScreen() {
   const [moodScore, setMoodScore] = useState<number | null>(null);
   const [energyScore, setEnergyScore] = useState<number | null>(null);
   const [habits, setHabits] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const dateStr = formatDateStr(selectedDate);
 
@@ -84,8 +86,8 @@ export default function DailyJournalScreen() {
   const fetchData = async () => {
     try {
       const [journalData, habitsData] = await Promise.all([
-        getJournalEntries(dateStr).catch(() => []),
-        getHabitsForDate(dateStr).catch(() => []),
+        getJournalEntries(dateStr),
+        getHabitsForDate(dateStr),
       ]);
 
       if (journalData.length > 0) {
@@ -100,8 +102,10 @@ export default function DailyJournalScreen() {
       }
 
       setHabits(habitsData);
+      setError(null);
     } catch (e) {
       console.error('Failed to fetch journal data:', e);
+      setError("Couldn't load your journal.");
     }
   };
 
@@ -125,8 +129,6 @@ export default function DailyJournalScreen() {
         setSaving(true);
         const data = {
           date: dateStrRef.current,
-          highlight: journalEntryRef.current?.highlight || '',
-          notes: journalEntryRef.current?.notes || '',
           mood_score: mood,
           energy_score: energy,
           custom_ratings: journalEntryRef.current?.custom_ratings || [],
@@ -139,8 +141,10 @@ export default function DailyJournalScreen() {
           setJournalEntry(newEntry);
           journalEntryRef.current = newEntry;
         }
+        setError(null);
       } catch (e) {
         console.error('Auto-save failed:', e);
+        setError("Couldn't save your journal.");
       } finally {
         setSaving(false);
       }
@@ -162,17 +166,20 @@ export default function DailyJournalScreen() {
 
   const handleSetStatus = async (habitId: number, date: string, status: 'PENDING' | 'COMPLETED' | 'SKIPPED' | 'FAILED') => {
     setHabits(habits.map(h => h.id === habitId ? { ...h, status, completed: status === 'COMPLETED' } : h));
-    try { await setHabitStatus(habitId, date, status); fetchData(); } catch { fetchData(); }
+    try { await setHabitStatus(habitId, date, status); fetchData(); }
+    catch { await fetchData(); setError("Couldn't update this habit."); }
   };
 
   const handleIncrementHabit = async (habitId: number, date: string) => {
     setHabits(habits.map(h => h.id === habitId ? { ...h, progress: Math.min(h.progress + 1, h.target_value), completed: h.progress + 1 >= h.target_value } : h));
-    try { await incrementHabitProgress(habitId, date); fetchData(); } catch { fetchData(); }
+    try { await incrementHabitProgress(habitId, date); fetchData(); }
+    catch { await fetchData(); setError("Couldn't update this habit."); }
   };
 
   const handleDecrementHabit = async (habitId: number, date: string) => {
     setHabits(habits.map(h => h.id === habitId ? { ...h, progress: Math.max(h.progress - 1, 0), completed: h.progress - 1 >= h.target_value } : h));
-    try { await decrementHabitProgress(habitId, date); fetchData(); } catch { fetchData(); }
+    try { await decrementHabitProgress(habitId, date); fetchData(); }
+    catch { await fetchData(); setError("Couldn't update this habit."); }
   };
 
   const isToday = isSameDay(selectedDate, new Date());
@@ -236,6 +243,10 @@ export default function DailyJournalScreen() {
           <View style={[styles.saveIndicator, { backgroundColor: journalColor }]} />
         </Animated.View>
       )}
+
+      <View style={{ paddingHorizontal: 16 }}>
+        <ErrorMessage message={error} />
+      </View>
 
       {/* Date Hero */}
       <View style={styles.dateHero}>

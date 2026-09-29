@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../../components/ui/AppText';
 import { Icon } from '../../components/ui/Icon';
 import ScreenLayout from '../../components/common/ScreenLayout';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { AuthButton } from '../auth/components/AuthButton';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AppDatePicker from '../../components/common/AppDatePicker';
@@ -30,9 +31,15 @@ export default function EventEntryScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const saveEvent = async () => {
     if (loading) return;
+    if (!name.trim()) {
+      setError('Enter an event name.');
+      return;
+    }
+    setError(null);
     setLoading(true);
     try {
       const data = {
@@ -45,10 +52,9 @@ export default function EventEntryScreen() {
       };
       if (event) await updateEvent(event.id, data);
       else await createEvent(data);
-      Alert.alert('Success', 'Event saved!');
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', 'Failed to save event');
+      setError("Couldn't save this event.");
     } finally {
       setLoading(false);
     }
@@ -57,6 +63,7 @@ export default function EventEntryScreen() {
   return (
     <ScreenLayout title={event ? "Edit Event" : "New Event"} showBack={true}>
       <ScrollView contentContainerStyle={styles.container}>
+        <ErrorMessage message={error} />
         <TextInput
           style={[styles.timePicker, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border, fontSize: 16, width: '100%' }]}
           placeholder="Event Name"

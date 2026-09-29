@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import FormScreen from '../../components/common/FormScreen';
@@ -48,6 +48,7 @@ export default function CategoryItemEntryScreen() {
   const [showSplitOptions, setShowSplitOptions] = useState(false);
   const [showParentPicker, setShowParentPicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
@@ -100,7 +101,7 @@ export default function CategoryItemEntryScreen() {
   const splitDueDates = () => {
     const total = parseFloat(budget) || 0;
     if (total <= 0) {
-      Alert.alert('Budget Required', 'Please set a budget amount before splitting.');
+      setError('Enter a budget amount before splitting.');
       return;
     }
     setShowSplitOptions(!showSplitOptions);
@@ -147,13 +148,14 @@ export default function CategoryItemEntryScreen() {
 
   const saveItem = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter an item name');
+      setError('Enter an item name.');
       return;
     }
     if (!parentId) {
-      Alert.alert('Error', 'Please select a category');
+      setError('Select a category.');
       return;
     }
+    setError(null);
 
     setLoading(true);
     try {
@@ -180,11 +182,12 @@ export default function CategoryItemEntryScreen() {
       } else {
         await createCategory(data);
       }
-      Alert.alert('Success', 'Item saved');
       navigation.goBack();
     } catch (e: any) {
-      const msg = e?.message || 'Failed to save item';
-      Alert.alert('Error', msg);
+      const detail = typeof e?.message === 'string' && e.message.length < 140 && !e.message.includes('<')
+        ? e.message
+        : null;
+      setError(detail || "Couldn't save this item.");
     } finally {
       setLoading(false);
     }
@@ -195,10 +198,10 @@ export default function CategoryItemEntryScreen() {
     setLoading(true);
     try {
       await deleteCategory(item.id);
-      Alert.alert('Deleted', 'Item removed');
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', 'Failed to delete');
+      setShowDeleteConfirm(false);
+      setError("Couldn't delete this item.");
     } finally {
       setLoading(false);
       setShowDeleteConfirm(false);
@@ -223,6 +226,7 @@ export default function CategoryItemEntryScreen() {
       submitTitle={item ? 'Update Item' : 'Add Item'}
       onSubmit={saveItem}
       loading={loading}
+      error={error}
       scrollContentStyle={styles.container}
     >
       <Label>CATEGORY</Label>

@@ -8,6 +8,7 @@ import SegmentedTabs from '../../components/common/SegmentedTabs';
 import { ActionButton } from '../../components/common/ActionButton';
 import TransactionsTab from './TransactionsTab';
 import BudgetTab from './BudgetTab';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import {
   getTransactions,
   getCategories,
@@ -34,6 +35,7 @@ export default function FinanceScreen() {
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -44,8 +46,10 @@ export default function FinanceScreen() {
       setTransactions(Array.isArray(t) ? t : []);
       setCategories(Array.isArray(c) ? c : []);
       setHasUnsavedChanges(false);
+      setError(null);
     } catch (err) {
       console.error('Failed to fetch finance data', err);
+      setError("Couldn't load your finances.");
     }
   };
 
@@ -186,18 +190,22 @@ export default function FinanceScreen() {
   const handleDeleteTransaction = async (t: any) => {
     try {
       await deleteTransaction(t.id);
+      setError(null);
       fetchData();
     } catch (err) {
       console.error('Failed to delete transaction', err);
+      setError("Couldn't delete this transaction.");
     }
   };
 
   const handleDeleteCategory = async (c: any) => {
     try {
       await deleteCategory(c.id);
+      setError(null);
       fetchData();
     } catch (err) {
       console.error('Failed to delete category', err);
+      setError("Couldn't delete this category.");
     }
   };
 
@@ -279,6 +287,7 @@ export default function FinanceScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={!isReorderMode ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accent} /> : undefined}
       >
+        <ErrorMessage message={error} />
         {!isReorderMode && (
           <SegmentedTabs
             tabs={['Transactions', 'Budget']}

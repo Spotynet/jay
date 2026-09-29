@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Switch, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { IconChevronLeft, IconBell, IconCheck, IconChevronRight, IconList } from 'tabler-icons-react-native';
@@ -7,6 +7,8 @@ import { AppText } from '../../components/ui/AppText';
 import { Icon } from '../../components/ui/Icon';
 import { AppTimePicker } from '../../components/common/AppTimePicker';
 import { getJournalSettings, updateJournalSettings } from '../../api/journal';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { syncJournalReminder } from '../../utils/journalReminder';
 
 const DEFAULT_SETTINGS = {
   reminder_enabled: false,
@@ -25,6 +27,7 @@ export default function JournalSettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<any>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -34,8 +37,10 @@ export default function JournalSettingsScreen() {
     try {
       const data = await getJournalSettings();
       setSettings(data);
+      setError(null);
     } catch (e) {
       console.error(e);
+      setError("Couldn't load journal settings.");
       setSettings(DEFAULT_SETTINGS);
     } finally {
       setLoading(false);
@@ -50,11 +55,16 @@ export default function JournalSettingsScreen() {
       next.reminder_time = `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`;
     }
     setSettings(next);
+    setError(null);
     try {
       await updateJournalSettings(next);
+      const scheduled = await syncJournalReminder(next);
+      if (next.reminder_enabled && scheduled === 'denied') {
+        setError('Allow notifications to get the journal reminder.');
+      }
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Failed to update settings');
+      setError("Couldn't update journal settings.");
     }
   };
 
@@ -80,6 +90,7 @@ export default function JournalSettingsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ErrorMessage message={error} />
         {/* Reminder Section */}
         <View style={styles.section}>
           <View style={styles.sectionLabelRow}>

@@ -8,7 +8,6 @@ export interface JournalSettings {
 export interface JournalEntry {
   id: number;
   date: string;
-  highlight: string;
 }
 
 export type TimelineState = 'none' | 'placeholder' | 'completed';

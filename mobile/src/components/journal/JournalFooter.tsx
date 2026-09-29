@@ -25,7 +25,7 @@ export const JournalFooter = ({ entry, onAdd, onPress }: JournalFooterProps) => 
           <View style={styles.textContainer}>
             <AppText style={[styles.title, { color: colors.text }]}>Daily Reflection</AppText>
             <AppText style={[styles.summary, { color: colors.subtext }]} numberOfLines={1}>
-              {entry.highlight}
+              Check in
             </AppText>
           </View>
           <Icon name={IconEdit} size={18} color={colors.subtext} />

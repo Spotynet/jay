@@ -11,10 +11,12 @@ async function getAuthHeaders() {
 export async function createTask(task: {
   name: string;
   description: string;
-  due_date: string;
-  due_time?: string;
+  due_date: string | null;
+  due_time?: string | null;
+  duration?: string | null;
   status: string;
   parent?: number;
+  project?: number | null;
 }) {
   const res = await fetch(`${getApiUrl()}/api/tasks/tasks/`, {
     method: 'POST',

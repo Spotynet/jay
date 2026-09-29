@@ -53,7 +53,8 @@
     "plugins": [
       "@react-native-community/datetimepicker",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "expo-notifications"
     ]
   }
 }

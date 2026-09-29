@@ -10,8 +10,6 @@ async function getAuthHeaders() {
 
 export async function createJournalEntry(entry: {
   date: string;
-  highlight: string;
-  notes?: string;
   mood_score?: number | null;
   energy_score?: number | null;
   custom_ratings?: { label: string, score: number }[];
@@ -30,8 +28,6 @@ export async function createJournalEntry(entry: {
 
 export async function updateJournalEntry(id: number, entry: {
   date: string;
-  highlight: string;
-  notes?: string;
   mood_score?: number | null;
   energy_score?: number | null;
   custom_ratings?: { label: string, score: number }[];

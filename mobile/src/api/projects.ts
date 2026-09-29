@@ -28,7 +28,8 @@ export async function createProject(project: {
   name: string;
   description?: string;
   status?: string;
-  due_date?: string;
+  due_date?: string | null;
+  color?: string;
   area?: number;
 }) {
   const res = await fetch(`${getApiUrl()}/api/planning/projects/`, {
