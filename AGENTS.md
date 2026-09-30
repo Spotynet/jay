@@ -81,6 +81,6 @@ never inside the scrollable content.
 
 - Backend is Django in `backend/` (virtualenv at `backend/venv`). Frontend is Expo in `mobile/`. `dev.sh` starts both with PM2: API on port 3012, Expo web on port 3011. The Cloud Agent start script starts local PostgreSQL 16, runs `manage.py migrate`, and launches those servers without PM2. Logs: `/tmp/jay-api.log` and `/tmp/jay-expo.log`.
 - The committed `backend/.env` sets `DATABASE_URL` to a shared remote database. Export `DATABASE_URL=postgres://jay:jay@127.0.0.1:5432/jay` before any `manage.py` command. django-environ does not overwrite variables that are already set, so the local URL is used.
-- Start Expo with `EXPO_PUBLIC_API_URL=http://127.0.0.1:3012` so the web app calls the local API. The committed `mobile/.env` points at the remote API.
+- Expo inlines env files, and those files override `process.env`. A shell export of `EXPO_PUBLIC_API_URL` does not change the URL the app uses. The start script writes `mobile/.env.development.local` with `EXPO_PUBLIC_API_URL=http://127.0.0.1:3012`, which overrides the remote URL in the committed `mobile/.env`.
 - Metro is started with `CI=1`, so it does not watch for file changes. Restart the Expo process after frontend edits.
 - `python manage.py test` currently runs 0 tests. A working API check is `POST /api/users/register/` followed by `POST /api/habits/habits/`.
