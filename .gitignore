@@ -1,0 +1,17 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+backend/venv/
+backend/__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Node / Expo
+mobile/node_modules/
+mobile/.expo/
+
+# Local database data
+postgres_data/

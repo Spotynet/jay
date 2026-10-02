@@ -1,0 +1,30 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/app
+    ports:
+      - "127.0.0.1:13012:3012"
+
+  mobile:
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile.dev
+    env_file:
+      - ./mobile/.env
+    volumes:
+      - ./mobile:/app
+      - mobile_node_modules:/app/node_modules
+    ports:
+      - "127.0.0.1:13011:3011"
+    stdin_open: true
+    tty: true
+    depends_on:
+      - api
+
+volumes:
+  mobile_node_modules:
