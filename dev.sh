@@ -35,7 +35,7 @@ echo "🐍 Starting Django backend ($BACKEND_NAME) on port $BACKEND_PORT..."
 pm2 start "$BACKEND_DIR/venv/bin/python" \
   --name "$BACKEND_NAME" \
   --cwd "$BACKEND_DIR" \
-  -- manage.py runserver 0.0.0.0:$BACKEND_PORT
+  -- manage.py runserver 127.0.0.1:$BACKEND_PORT
 
 # -------------------------
 # Start frontend (Expo Web)
@@ -44,7 +44,7 @@ echo "🎨 Starting Expo frontend ($FRONTEND_NAME) on port $FRONTEND_PORT..."
 pm2 start bash \
   --name "$FRONTEND_NAME" \
   --cwd "$FRONTEND_DIR" \
-  -- -c "npx expo start --web --port $FRONTEND_PORT --host lan"
+  -- -c "npx expo start --web --port $FRONTEND_PORT --host localhost"
 
 # -------------------------
 # Save PM2 state
