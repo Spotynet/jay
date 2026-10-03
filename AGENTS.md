@@ -76,3 +76,11 @@ never inside the scrollable content.
   `borderRadius: 12`, and a subtle border (`rgba(255,255,255,0.08)` dark /
   `rgba(0,0,0,0.06)` light). This is the default for `SectionCard` and common `Card`.
 - Use `accentColor` on `SectionCard` only when a card is intentionally entity-tinted.
+
+## Cursor Cloud specific instructions
+
+- Backend is Django in `backend/` (virtualenv at `backend/venv`). Frontend is Expo in `mobile/`. `dev.sh` starts both with PM2: API on port 3012, Expo web on port 3011. The Cloud Agent start script starts local PostgreSQL 16, runs `manage.py migrate`, and launches those servers without PM2. Logs: `/tmp/jay-api.log` and `/tmp/jay-expo.log`.
+- The committed `backend/.env` sets `DATABASE_URL` to a shared remote database. Export `DATABASE_URL=postgres://jay:jay@127.0.0.1:5432/jay` before any `manage.py` command. django-environ does not overwrite variables that are already set, so the local URL is used.
+- The mobile app reads `EXPO_PUBLIC_API_URL` from `mobile/.env` (`https://jay-api-dev.spotynet.com`). Expo inlines env files and later files override `process.env`, so do not add `mobile/.env.development.local` and do not export a different `EXPO_PUBLIC_API_URL` when starting Expo.
+- Metro is started with `CI=1`, so it does not watch for file changes. Restart the Expo process after frontend edits.
+- `python manage.py test` currently runs 0 tests. A working API check is `POST /api/users/register/` followed by `POST /api/habits/habits/`.
