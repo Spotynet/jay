@@ -1,0 +1,52 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    env_file:
+      - ./backend/.env
+    environment:
+      # Overridden by ./dev.sh / ./deploy.sh when those scripts export them
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,jay-api-dev.spotynet.com,jay-dev.spotynet.com}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-https://jay-api-dev.spotynet.com,https://jay-dev.spotynet.com}
+    volumes:
+      - ./backend:/app
+    expose:
+      - "3012"
+    restart: unless-stopped
+
+  mobile:
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile.dev
+    env_file:
+      - ./mobile/.env
+    environment:
+      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-https://jay-api-dev.spotynet.com}
+    volumes:
+      - ./mobile:/app
+      - mobile_node_modules:/app/node_modules
+    expose:
+      - "3011"
+    stdin_open: true
+    tty: true
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "127.0.0.1:3010:80"
+    environment:
+      JAY_WEB_HOST: ${JAY_WEB_HOST:-jay-dev.spotynet.com}
+      JAY_API_HOST: ${JAY_API_HOST:-jay-api-dev.spotynet.com}
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      - mobile
+      - api
+    restart: unless-stopped
+
+volumes:
+  mobile_node_modules:
