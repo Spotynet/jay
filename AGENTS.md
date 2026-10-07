@@ -76,3 +76,12 @@ never inside the scrollable content.
   `borderRadius: 12`, and a subtle border (`rgba(255,255,255,0.08)` dark /
   `rgba(0,0,0,0.06)` light). This is the default for `SectionCard` and common `Card`.
 - Use `accentColor` on `SectionCard` only when a card is intentionally entity-tinted.
+
+## Cursor Cloud specific instructions
+
+- Backend is Django (`backend/`) on port **3012**. Web UI is Expo (`mobile/`) on port **3011** (`npx expo start --web --port 3011 --host localhost`).
+- Use local Postgres: `DATABASE_URL=postgres://jay:jay@127.0.0.1:5432/jay`. Export it before `manage.py`. The checked-in `backend/.env` `DATABASE_URL` is a shared RDS instance; a shell `DATABASE_URL` wins because django-environ does not override existing variables.
+- Keep `mobile/.env.local` as `EXPO_PUBLIC_API_URL=http://127.0.0.1:3012`. Expo inlines `EXPO_PUBLIC_*` from dotenv files, and `.env.local` overrides `mobile/.env` (which points at the shared dev API). Restart Expo after changing it.
+- Schema updates: `cd backend && DATABASE_URL=postgres://jay:jay@127.0.0.1:5432/jay .venv/bin/python manage.py migrate`.
+- `python manage.py test` currently collects 0 tests (app `tests.py` files are stubs). There is no frontend lint script. `npx tsc --noEmit` in `mobile/` fails on existing type errors.
+- `dev.sh` expects PM2 and is not how this Cloud Agent VM starts services. Django logs from the environment start command go to `/tmp/jay-django.log`. Expo stays in the foreground on port 3011.
