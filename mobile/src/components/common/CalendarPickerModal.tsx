@@ -1,11 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, Pressable, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, Modal, Pressable, ScrollView, useWindowDimensions } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../ui/AppText';
 import { Icon } from '../ui/Icon';
 import { IconChevronLeft, IconChevronRight } from 'tabler-icons-react-native';
-import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -14,6 +13,12 @@ const MONTHS = [
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+const SHEET_MAX_WIDTH = 480;
+const GRID_PADDING = 12;
+const WEEKDAY_BLOCK = 32;
+// Handle, month navigation, and footer stay outside the scrolling grid.
+const SHEET_CHROME = 188;
+
 interface CalendarPickerModalProps {
   visible: boolean;
   onClose: () => void;
@@ -21,15 +26,13 @@ interface CalendarPickerModalProps {
   onSelect: (date: Date) => void;
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CALENDAR_WIDTH = SCREEN_WIDTH - 48;
-const CELL_SIZE = CALENDAR_WIDTH / 7;
-
 export default function CalendarPickerModal({ visible, onClose, selectedDate, onSelect }: CalendarPickerModalProps) {
-  const { colors, isDark, accentColor } = useTheme();
+  const { colors, accentColor } = useTheme();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const today = new Date();
   const [displayMonth, setDisplayMonth] = useState(selectedDate.getMonth());
   const [displayYear, setDisplayYear] = useState(selectedDate.getFullYear());
+  const [gridWidth, setGridWidth] = useState(0);
 
   useEffect(() => {
     if (visible) {
@@ -38,8 +41,18 @@ export default function CalendarPickerModal({ visible, onClose, selectedDate, on
     }
   }, [visible, selectedDate]);
 
+  const fallbackGridWidth = Math.min(windowWidth, SHEET_MAX_WIDTH) - GRID_PADDING * 2;
+  const measuredWidth = gridWidth > 0 ? gridWidth : fallbackGridWidth;
+  const cellSize = Math.max(1, Math.floor(measuredWidth / 7));
+  const markerSize = Math.max(28, Math.min(42, cellSize - 6));
+  const markerRadius = Math.round(markerSize * (14 / 42));
+
   const daysInMonth = new Date(displayYear, displayMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(displayYear, displayMonth, 1).getDay();
+  const rowCount = Math.ceil((firstDayOfWeek + daysInMonth) / 7);
+  const gridBlockHeight = WEEKDAY_BLOCK + rowCount * cellSize;
+  const scrollMaxHeight = Math.max(96, Math.floor(windowHeight * 0.85 - SHEET_CHROME));
+  const scrollHeight = Math.min(gridBlockHeight, scrollMaxHeight);
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const emptyDays = Array.from({ length: firstDayOfWeek }, (_, i) => i);
 
@@ -80,19 +93,20 @@ export default function CalendarPickerModal({ visible, onClose, selectedDate, on
     onClose();
   };
 
+  const cellStyle = { width: cellSize, height: cellSize, flexShrink: 0 as const };
+  const markerStyle = { width: markerSize, height: markerSize, borderRadius: markerRadius };
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose} onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true}>
-        <Pressable>
+        <Pressable style={styles.sheetHost}>
           <Animated.View
             entering={FadeInDown.duration(300).springify()}
             exiting={FadeOut.duration(200)}
             style={[styles.container, { backgroundColor: colors.surface }]}
           >
-            {/* Handle bar */}
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
-            {/* Month Navigation */}
             <View style={styles.monthNav}>
               <TouchableOpacity onPress={prevMonth} style={[styles.navBtn, { backgroundColor: colors.surfaceElevated }]} activeOpacity={0.7}>
                 <Icon name={IconChevronLeft} size={20} color={colors.text} />
@@ -106,47 +120,61 @@ export default function CalendarPickerModal({ visible, onClose, selectedDate, on
               </TouchableOpacity>
             </View>
 
-            {/* Weekday Headers */}
-            <View style={styles.weekdayRow}>
-              {WEEKDAYS.map((day) => (
-                <View key={day} style={styles.weekdayCell}>
-                  <AppText style={[styles.weekdayText, { color: colors.subtext }]}>{day}</AppText>
+            <ScrollView
+              style={[styles.scroll, { height: scrollHeight }]}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <View style={styles.gridPad}>
+                <View
+                  style={styles.gridMeasure}
+                  onLayout={(event) => {
+                    const next = Math.floor(event.nativeEvent.layout.width);
+                    setGridWidth((prev) => (prev === next ? prev : next));
+                  }}
+                >
+                  <View style={styles.weekdayRow}>
+                    {WEEKDAYS.map((day) => (
+                      <View key={day} style={[styles.weekdayCell, { width: cellSize }]}>
+                        <AppText style={[styles.weekdayText, { color: colors.subtext }]}>{day}</AppText>
+                      </View>
+                    ))}
+                  </View>
+
+                  <View style={[styles.grid, { height: rowCount * cellSize, width: cellSize * 7 }]}>
+                    {emptyDays.map((_, i) => (
+                      <View key={`empty-${i}`} style={cellStyle} />
+                    ))}
+                    {daysArray.map((day) => {
+                      const selected = isSelected(day);
+                      const todayMark = isToday(day);
+                      return (
+                        <TouchableOpacity
+                          key={day}
+                          onPress={() => handleDayPress(day)}
+                          activeOpacity={0.7}
+                          style={[styles.dayCell, cellStyle]}
+                        >
+                          {selected ? (
+                            <View style={[styles.marker, markerStyle, { backgroundColor: accentColor }]}>
+                              <AppText bold style={[styles.selectedDayText, { color: '#FFFFFF' }]}>{day}</AppText>
+                            </View>
+                          ) : todayMark ? (
+                            <View style={[styles.marker, styles.todayDay, markerStyle, { borderColor: accentColor }]}>
+                              <AppText bold style={[styles.todayDayText, { color: accentColor }]}>{day}</AppText>
+                            </View>
+                          ) : (
+                            <AppText style={[styles.dayText, { color: colors.text }]}>{day}</AppText>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
-              ))}
-            </View>
+              </View>
+            </ScrollView>
 
-            {/* Calendar Grid */}
-            <View style={styles.grid}>
-              {emptyDays.map((_, i) => (
-                <View key={`empty-${i}`} style={styles.dayCell} />
-              ))}
-              {daysArray.map((day) => {
-                const selected = isSelected(day);
-                const todayMark = isToday(day);
-                return (
-                  <TouchableOpacity
-                    key={day}
-                    onPress={() => handleDayPress(day)}
-                    activeOpacity={0.7}
-                    style={styles.dayCell}
-                  >
-                    {selected ? (
-                      <View style={[styles.selectedDay, { backgroundColor: accentColor }]}>
-                        <AppText bold style={[styles.selectedDayText, { color: '#FFFFFF' }]}>{day}</AppText>
-                      </View>
-                    ) : todayMark ? (
-                      <View style={[styles.todayDay, { borderColor: accentColor }]}>
-                        <AppText bold style={[styles.todayDayText, { color: accentColor }]}>{day}</AppText>
-                      </View>
-                    ) : (
-                      <AppText style={[styles.dayText, { color: colors.text }]}>{day}</AppText>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Footer */}
             <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
               <TouchableOpacity onPress={goToToday} style={[styles.todayBtn, { backgroundColor: accentColor }]} activeOpacity={0.7}>
                 <AppText bold style={[styles.todayBtnText, { color: '#FFFFFF' }]}>Today</AppText>
@@ -162,14 +190,23 @@ export default function CalendarPickerModal({ visible, onClose, selectedDate, on
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  sheetHost: {
+    width: '100%',
+    maxWidth: SHEET_MAX_WIDTH,
+    alignSelf: 'center',
   },
   container: {
+    width: '100%',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingBottom: 0,
-    maxHeight: '85%',
+    overflow: 'hidden',
   },
   handle: {
     width: 40,
@@ -203,13 +240,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 2,
   },
+  scroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+    width: '100%',
+  },
+  scrollContent: {
+    width: '100%',
+  },
+  gridPad: {
+    width: '100%',
+    paddingHorizontal: GRID_PADDING,
+  },
+  gridMeasure: {
+    width: '100%',
+  },
   weekdayRow: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
+    height: 24,
     marginBottom: 8,
   },
   weekdayCell: {
-    width: CELL_SIZE,
+    flexShrink: 0,
     alignItems: 'center',
   },
   weekdayText: {
@@ -221,11 +273,8 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 12,
   },
   dayCell: {
-    width: CELL_SIZE,
-    height: CELL_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -233,10 +282,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  selectedDay: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+  marker: {
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -244,12 +290,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   todayDay: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
     borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   todayDayText: {
     fontSize: 16,

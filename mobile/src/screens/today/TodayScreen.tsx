@@ -1,25 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useIsFocused, useRoute } from '@react-navigation/native';
 import { IconPlus, IconUser } from 'tabler-icons-react-native';
 import ScreenLayout from '../../components/common/ScreenLayout';
-import { AppText } from '../../components/ui/AppText';
 import { getJournalEntries, getJournalSettings } from '../../api/journal';
-import { getHabitsForDate, getHabitById, toggleHabitCompletion } from '../../api/habits';
-import { getTasksForDate, getTaskById, toggleTaskCompletion } from '../../api/tasks';
+import { getHabitsForDate, toggleHabitCompletion } from '../../api/habits';
+import { getTasksForDate, toggleTaskCompletion } from '../../api/tasks';
 import { getProjects } from '../../api/projects';
-import { getEventsForDate, getEventById } from '../../api/events';
+import { getEventsForDate } from '../../api/events';
 import { getCategories, getTransactions } from '../../api/finance';
 import { ActionButton } from '../../components/common/ActionButton';
 import CalendarPickerModal from '../../components/common/CalendarPickerModal';
 import { TimelineAgenda } from '../../components/common/TimelineAgenda';
 import { CreateNewModal } from './components/CreateNewModal';
+import { DayMetricStrip, DayMetric } from '../../components/timeline/DayMetricStrip';
 import { FINANCE_ICONS } from '../../constants/financeIcons';
 import { getJournalTimelineState, JournalSettings } from '../../utils/journalScheduling';
-import { DetailsModal } from '../../components/common/DetailsModal';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { toLocalDateString, parseLocalDate } from '../../utils/date';
+import { AgendaItem } from '../../utils/timelineLayout';
+import { resolveAgendaEditorTarget } from '../../utils/agendaNavigation';
+import {
+  ItemDetailsModal,
+  ItemDetailsPayload,
+} from '../../components/itemDetails/ItemDetailsModal';
 
 function durationMinutesFromField(value: string | null | undefined): number | undefined {
   if (!value) return undefined;
@@ -33,7 +38,7 @@ function durationMinutesFromField(value: string | null | undefined): number | un
 }
 
 export default function TodayScreen() {
-  const { colors, entityColors } = useTheme();
+  const { entityColors } = useTheme();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -45,9 +50,10 @@ export default function TodayScreen() {
   const [events, setEvents] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [detailsVisible, setDetailsVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [detailsPayload, setDetailsPayload] = useState<ItemDetailsPayload | null>(null);
+  const [detailsVisible, setDetailsVisible] = useState(false);
+  const [pendingHour, setPendingHour] = useState<{ hour: number; minute: number } | null>(null);
   
   const isFocused = useIsFocused();
   const navigation = useNavigation<any>();
@@ -150,20 +156,31 @@ export default function TodayScreen() {
     if (isFocused) fetchEntries();
   }, [selectedDate, isFocused]);
 
+  const timeParam = pendingHour
+    ? `${String(pendingHour.hour).padStart(2, '0')}:${String(pendingHour.minute).padStart(2, '0')}`
+    : undefined;
+
   const handleOptionPress = (option: string) => {
     setModalVisible(false);
     const dateStr = toLocalDateString(selectedDate);
+    const time = timeParam;
+    setPendingHour(null);
     if (option === 'Journal') {
       navigation.navigate('JournalEntry', { entry: entries[0], date: dateStr });
     } else if (option === 'Habit') {
       navigation.navigate('HabitEntry');
     } else if (option === 'Task') {
-      navigation.navigate('TaskEntry', { date: dateStr });
+      navigation.navigate('TaskEntry', { date: dateStr, time });
     } else if (option === 'Event') {
-      navigation.navigate('EventEntry');
+      navigation.navigate('EventEntry', { date: dateStr, time });
     } else if (option === 'Finance') {
       navigation.navigate('TransactionEntry');
     }
+  };
+
+  const handleAddAtHour = (hour: number, minute = 0) => {
+    setPendingHour({ hour, minute });
+    setModalVisible(true);
   };
 
   const isToday = toLocalDateString(selectedDate) === toLocalDateString(new Date());
@@ -243,6 +260,146 @@ export default function TodayScreen() {
     ('0' + (selectedDate.getMonth() + 1)).slice(-2) + '-' + 
     ('0' + selectedDate.getDate()).slice(-2);
 
+  const doneTasks = tasks.filter((t: any) => t.status === 'COMPLETED').length;
+  const doneHabits = habits.filter((h: any) => h.completed).length;
+
+  const metrics: DayMetric[] = useMemo(
+    () => [
+      {
+        id: 'tasks',
+        label: 'tasks',
+        value: doneTasks,
+        max: Math.max(tasks.length, 1),
+        color: entityColors.tasks,
+      },
+      {
+        id: 'habits',
+        label: 'habits',
+        value: doneHabits,
+        max: Math.max(habits.length, 1),
+        color: entityColors.habits,
+      },
+      {
+        id: 'events',
+        label: 'events',
+        value: events.length,
+        max: Math.max(events.length, 1),
+        color: entityColors.events,
+      },
+      {
+        id: 'due',
+        label: 'due',
+        value: budgetDueDates.length,
+        max: Math.max(budgetDueDates.length, 1),
+        color: entityColors.finance,
+      },
+    ],
+    [
+      doneTasks,
+      tasks.length,
+      doneHabits,
+      habits.length,
+      events.length,
+      budgetDueDates.length,
+      entityColors,
+    ],
+  );
+
+  const agendaItems: AgendaItem[] = useMemo(() => {
+    const journalItems: AgendaItem[] = journalSettings
+      ? (() => {
+          const journalState = getJournalTimelineState(selectedDate, journalSettings, entries[0]);
+          if (!journalState.shouldAppearInTimeline) return [];
+          return [
+            {
+              id: 'journal',
+              title: journalState.timelineState === 'completed' ? 'Journal Completed' : 'Journal',
+              startTime: journalState.scheduledTime
+                ? new Date(`${dateStr}T${journalState.scheduledTime}`)
+                : new Date(`${dateStr}T09:00:00`),
+              type: 'journal',
+              timeRange: journalState.scheduledTime
+                ? journalState.scheduledTime.substring(0, 5)
+                : '09:00',
+              isActive: journalState.timelineState !== 'completed',
+              isCompleted: journalState.timelineState === 'completed',
+              badge: journalState.timelineState === 'completed' ? 'check' : null,
+              onPress: () =>
+                navigation.navigate('JournalEntry', { entry: entries[0], date: dateStr }),
+            },
+          ];
+        })()
+      : [];
+
+    return [
+      ...events.map((e: any) => ({
+        id: `e-${e.id}`,
+        title: e.name,
+        location: e.location,
+        startTime: new Date(`${dateStr}T${e.start_time}`),
+        durationMinutes: durationMinutesFromField(e.duration),
+        type: 'event' as const,
+        timeRange: e.start_time,
+        isActive: true,
+      })),
+      ...tasks.map((t: any) => ({
+        id: `t-${t.id}`,
+        title: t.name,
+        projectName: projects.find((p) => p.id === t.project)?.name,
+        startTime: t.due_time ? new Date(`${dateStr}T${t.due_time}`) : null,
+        durationMinutes: durationMinutesFromField(t.duration),
+        type: 'task' as const,
+        timeRange: t.due_time || '',
+        isActive: false,
+        isCompleted: t.status === 'COMPLETED',
+        badge: t.status === 'COMPLETED' ? ('check' as const) : null,
+        onToggle: async () => {
+          try {
+            await toggleTaskCompletion(t.id);
+            fetchEntries();
+          } catch (e) {
+            await fetchEntries();
+            setError("Couldn't update this task.");
+          }
+          fetchEntries();
+        },
+      })),
+      ...habits.map((h: any) => ({
+        id: `h-${h.id}`,
+        title: h.name,
+        startTime: h.reminder_time ? new Date(`${dateStr}T${h.reminder_time}`) : null,
+        type: 'habit' as const,
+        timeRange: h.reminder_time || '',
+        isActive: false,
+        isCompleted: h.completed,
+        badge: h.completed ? ('check' as const) : null,
+        onToggle: async () => {
+          try {
+            await toggleHabitCompletion(h.id, dateStr);
+            fetchEntries();
+          } catch (e) {
+            await fetchEntries();
+            setError("Couldn't update this habit.");
+          }
+          fetchEntries();
+        },
+      })),
+      ...budgetDueDates,
+      ...journalItems,
+    ];
+  }, [
+    events,
+    tasks,
+    habits,
+    projects,
+    budgetDueDates,
+    journalSettings,
+    selectedDate,
+    entries,
+    dateStr,
+    navigation,
+  ]);
+
   return (
     <ScreenLayout 
       title={isToday ? 'Today' : formatDate(selectedDate)}
@@ -250,7 +407,14 @@ export default function TodayScreen() {
         render: () => (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <ActionButton icon={IconUser} onPress={() => navigation.navigate('Profile')} size={40} />
-            <ActionButton icon={IconPlus} onPress={() => setModalVisible(true)} size={40} />
+            <ActionButton
+              icon={IconPlus}
+              onPress={() => {
+                setPendingHour(null);
+                setModalVisible(true);
+              }}
+              size={40}
+            />
           </View>
         )
       }}
@@ -258,134 +422,55 @@ export default function TodayScreen() {
       showPicker={showPicker}
       contentStyle={{ paddingHorizontal: 0 }}
     >
-      <View style={{ flex: 1 }}>
+      <View style={styles.root}>
         <View style={{ paddingHorizontal: 16 }}>
           <ErrorMessage message={error} />
         </View>
-        <View style={styles.summaryLine}>
-          <AppText style={[styles.summaryPart, { color: entityColors.tasks }]}>
-            {tasks.filter((t: any) => t.status !== 'COMPLETED').length} {tasks.filter((t: any) => t.status !== 'COMPLETED').length === 1 ? 'task' : 'tasks'}
-          </AppText>
-          <AppText style={[styles.summaryDot, { color: colors.subtext }]}>·</AppText>
-          <AppText style={[styles.summaryPart, { color: entityColors.habits }]}>
-            {habits.filter((h: any) => !h.completed).length} {habits.filter((h: any) => !h.completed).length === 1 ? 'habit' : 'habits'}
-          </AppText>
-          <AppText style={[styles.summaryDot, { color: colors.subtext }]}>·</AppText>
-          <AppText style={[styles.summaryPart, { color: entityColors.finance }]}>
-            {budgetDueDates.length} due
-          </AppText>
-        </View>
 
-        <View style={{ flex: 1 }}>
-        <TimelineAgenda
-            now={isToday ? new Date() : null} 
-            items={[
-                ...events.map((e: any) => ({
-                      id: `e-${e.id}`,
-                      title: e.name,
-                      location: e.location,
-                      startTime: new Date(`${dateStr}T${e.start_time}`),
-                      durationMinutes: durationMinutesFromField(e.duration),
-                      type: 'event',
-                      timeRange: e.start_time,
-                      isActive: true
-                    })),
-                ...tasks.map((t: any) => ({
-                      id: `t-${t.id}`,
-                      title: t.name,
-                      projectName: projects.find((p) => p.id === t.project)?.name,
-                      startTime: t.due_time ? new Date(`${dateStr}T${t.due_time}`) : null,
-                      durationMinutes: durationMinutesFromField(t.duration),
-                      type: 'task',
-                      timeRange: t.due_time || '',
-                      isActive: false,
-                      isCompleted: t.status === 'COMPLETED',
-                      onToggle: async () => {
-                          try {
-                            await toggleTaskCompletion(t.id);
-                            fetchEntries();
-                          } catch (e) {
-                            await fetchEntries();
-                            setError("Couldn't update this task.");
-                          }
-                          fetchEntries();
-                      }
-                  })),
-                ...habits.map((h: any) => ({
-                    id: `h-${h.id}`,
-                    title: h.name,
-                    startTime: h.reminder_time ? new Date(`${dateStr}T${h.reminder_time}`) : null,
-                    type: 'habit',
-                    timeRange: h.reminder_time || '',
-                    isActive: false,
-                    isCompleted: h.completed,
-                    onToggle: async () => {
-                      try {
-                        await toggleHabitCompletion(h.id, dateStr);
-                        fetchEntries();
-                      } catch (e) {
-                        await fetchEntries();
-                        setError("Couldn't update this habit.");
-                      }
-                      fetchEntries();
-                    }
-                })),
-                ...budgetDueDates,
-                ...(journalSettings ? (() => {
-                  const journalState = getJournalTimelineState(selectedDate, journalSettings, entries[0]);
-                  if (!journalState.shouldAppearInTimeline) return [];
-                  return [{
-                    id: 'journal',
-                    title: journalState.timelineState === 'completed' ? 'Journal Completed' : 'Journal',
-                    startTime: journalState.scheduledTime ? new Date(`${dateStr}T${journalState.scheduledTime}`) : new Date(`${dateStr}T09:00:00`),
-                    type: 'journal',
-                    timeRange: journalState.scheduledTime ? journalState.scheduledTime.substring(0,5) : '09:00',
-                    isActive: journalState.timelineState !== 'completed',
-                    isCompleted: journalState.timelineState === 'completed',
-                    onPress: () => navigation.navigate('JournalEntry', { entry: entries[0], date: dateStr })
-                  }];
-                })() : [])
-            ]} 
-            onItemPress={(item: any) => {
-                if (item.type === 'journal' && item.onPress) {
-                    item.onPress();
-                    return;
-                }
-                setSelectedItem(item);
-                setDetailsVisible(true);
+        <DayMetricStrip metrics={metrics} />
+
+        <View style={styles.timeline}>
+          <TimelineAgenda
+            now={isToday ? new Date() : null}
+            items={agendaItems}
+            onAddAtHour={handleAddAtHour}
+            onItemPress={(item: AgendaItem) => {
+              const target = resolveAgendaEditorTarget(item);
+              if (target.kind === 'journal') {
+                target.open();
+                return;
+              }
+              if (target.kind === 'unsupported') return;
+
+              setDetailsPayload({
+                kind: target.kind,
+                entityId: target.entityId,
+                occurrenceDate: dateStr,
+                projectName: item.projectName,
+                isCompleted: !!item.isCompleted,
+              });
+              setDetailsVisible(true);
             }}
-        />
+          />
         </View>
       </View>
 
-      <DetailsModal 
+      <ItemDetailsModal
         visible={detailsVisible}
-        onClose={() => setDetailsVisible(false)}
-        item={selectedItem}
-        onToggle={async () => {
-            if (selectedItem?.onToggle) {
-                await selectedItem.onToggle();
-                setSelectedItem((prev: any) => ({ ...prev, isCompleted: !prev.isCompleted }));
-            }
+        payload={detailsPayload}
+        onClose={() => {
+          setDetailsVisible(false);
+          setDetailsPayload(null);
         }}
-        onEdit={async () => {
-            setDetailsVisible(false);
-            if (selectedItem.type === 'habit') {
-                const habitData = await getHabitById(selectedItem.id.split('-')[1]);
-                navigation.navigate('HabitEntry', { habit: habitData });
-            } else if (selectedItem.type === 'task') {
-                const taskData = await getTaskById(selectedItem.id.split('-')[1]);
-                navigation.navigate('TaskEntry', { task: taskData });
-            } else if (selectedItem.type === 'event') {
-                const eventData = await getEventById(selectedItem.id.split('-')[1]);
-                navigation.navigate('EventEntry', { event: eventData });
-            }
-        }}
+        onTimelineRefresh={fetchEntries}
       />
 
       <CreateNewModal 
         visible={modalVisible} 
-        onClose={() => setModalVisible(false)} 
+        onClose={() => {
+          setModalVisible(false);
+          setPendingHour(null);
+        }}
         onSelect={handleOptionPress}
       />
 
@@ -400,8 +485,6 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
-  contentContainer: { flex: 1 },
-  summaryLine: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingBottom: 8 },
-  summaryPart: { fontSize: 11, fontWeight: '600' },
-  summaryDot: { fontSize: 11 },
+  root: { flex: 1 },
+  timeline: { flex: 1 },
 });

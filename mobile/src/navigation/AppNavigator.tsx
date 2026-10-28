@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -48,15 +49,24 @@ const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
 
+/** Full-height editors on phone; avoid iOS partial sheets for item details. */
+const editorScreenOptions = {
+  headerShown: false,
+  presentation: (Platform.OS === 'ios' ? 'fullScreenModal' : 'modal') as
+    | 'fullScreenModal'
+    | 'modal',
+  animation: 'slide_from_bottom' as const,
+};
+
 function MainTabs() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false, presentation: 'modal' }}>
       <MainStack.Screen name="Tabs" component={TabNavigator} />
-      {/* Entry Screens */}
-      <MainStack.Screen name="JournalEntry" component={JournalEntryScreen} />
-      <MainStack.Screen name="HabitEntry" component={HabitEntryScreen} />
-      <MainStack.Screen name="TaskEntry" component={TaskEntryScreen} />
-      <MainStack.Screen name="EventEntry" component={EventEntryScreen} />
+      {/* Entry / details editors — one-step from timeline */}
+      <MainStack.Screen name="JournalEntry" component={JournalEntryScreen} options={editorScreenOptions} />
+      <MainStack.Screen name="HabitEntry" component={HabitEntryScreen} options={editorScreenOptions} />
+      <MainStack.Screen name="TaskEntry" component={TaskEntryScreen} options={editorScreenOptions} />
+      <MainStack.Screen name="EventEntry" component={EventEntryScreen} options={editorScreenOptions} />
       <MainStack.Screen name="ProjectEntry" component={ProjectEntryScreen} />
       <MainStack.Screen name="ProjectTasks" component={ProjectTasksScreen} />
       <MainStack.Screen name="TransactionEntry" component={TransactionEntryScreen} />

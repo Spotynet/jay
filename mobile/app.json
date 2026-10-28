@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "JAY",
-    "slug": "mobile",
+    "slug": "jay",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/jay1.png",
@@ -40,7 +40,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "ef1863cf-5832-4be7-8a97-146bceb5df55"
+        "projectId": "3480fa14-adb5-49cc-9179-8c2905b93bad"
       }
     },
     "owner": "jdtorreserazo",
@@ -48,7 +48,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/ef1863cf-5832-4be7-8a97-146bceb5df55"
+      "url": "https://u.expo.dev/3480fa14-adb5-49cc-9179-8c2905b93bad"
     },
     "plugins": [
       "@react-native-community/datetimepicker",

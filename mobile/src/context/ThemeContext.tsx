@@ -83,12 +83,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const isDark = theme === 'system' ? systemColorScheme === 'dark' : theme === 'dark';
 
   const colors = {
-    background: isDark ? '#09090A' : '#F2F2F7',
-    surface: isDark ? '#1C1C1E' : '#FFFFFF',
-    surfaceElevated: isDark ? '#2C2C2E' : '#E5E5EA',
-    text: isDark ? '#FFFFFF' : '#000000',
-    border: isDark ? '#38383A' : '#C6C6C8',
-    subtext: isDark ? '#8E8E93' : '#636366',
+    background: isDark ? '#1D1E22' : '#F2F2F7',
+    surface: isDark ? '#30333A' : '#FFFFFF',
+    surfaceElevated: isDark ? '#3A3D45' : '#E5E5EA',
+    text: isDark ? '#F5F5F7' : '#000000',
+    border: isDark ? 'rgba(255,255,255,0.08)' : '#C6C6C8',
+    subtext: isDark ? '#929399' : '#636366',
     accent: accentColor,
     error: '#FF3B30',
   };

@@ -1,43 +1,32 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Text, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  LayoutChangeEvent,
+  useWindowDimensions,
+} from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { AgendaCard } from './AgendaCard';
 import { IconChevronDown, IconX } from 'tabler-icons-react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-
-interface AgendaItem {
-  id: string;
-  title: string;
-  type: string;
-  timeRange: string;
-  location?: string;
-  projectName?: string;
-  isActive: boolean;
-  isCompleted?: boolean;
-  isOverdue?: boolean;
-  onToggle?: () => void;
-  startTime: Date | null;
-  durationMinutes?: number;
-}
+import {
+  AgendaItem,
+  TimedAgendaItem,
+  buildHourIntervals,
+} from '../../utils/timelineLayout';
+import { TIMELINE_TOKENS as T } from '../../utils/timelineTokens';
+import { TimelineHourInterval } from '../timeline/TimelineHourInterval';
+import { TimelineEventCard } from '../timeline/TimelineEventCard';
+import { timelineColumnStyles, railAbsoluteLeft } from '../timeline/timelineColumns';
 
 interface TimelineAgendaProps {
   items: AgendaItem[];
   onItemPress?: (item: AgendaItem) => void;
+  onAddAtHour?: (hour: number, minute?: number) => void;
   now?: Date | null;
 }
-
-const COMPACT_HEIGHT = 32;
-const NO_TIME_CARD_HEIGHT = 32;
-const EXPANDED_HEIGHT = 120;
-const SIDEBAR_WIDTH = 60;
-
-type TimedItem = AgendaItem & { startTime: Date };
-
-type HourLayout = {
-  hour: number;
-  height: number;
-  y: number;
-};
 
 const formatTime = (date: Date): string => {
   const h = date.getHours();
@@ -45,242 +34,199 @@ const formatTime = (date: Date): string => {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 };
 
-function durationMinutesOf(item: AgendaItem): number {
-  if (item.durationMinutes && item.durationMinutes > 0) return item.durationMinutes;
-  return 0;
-}
-
-function buildHourLayouts(items: TimedItem[], now: Date | null): HourLayout[] {
-  const busy = Array.from({ length: 24 }, () => false);
-  items.forEach((item) => {
-    const startMs = item.startTime.getTime();
-    const minutes = durationMinutesOf(item);
-    const endMs = startMs + (minutes > 0 ? minutes * 60_000 : 1);
-    for (let hour = 0; hour < 24; hour++) {
-      const hourStart = new Date(item.startTime);
-      hourStart.setHours(hour, 0, 0, 0);
-      const hourEnd = hourStart.getTime() + 60 * 60_000;
-      if (startMs < hourEnd && endMs > hourStart.getTime()) busy[hour] = true;
-    }
-  });
-  if (now) busy[now.getHours()] = true;
-
-  const layouts: HourLayout[] = [];
-  let y = 0;
-  for (let hour = 0; hour < 24; hour++) {
-    const height = busy[hour] ? EXPANDED_HEIGHT : COMPACT_HEIGHT;
-    layouts.push({ hour, height, y });
-    y += height;
-  }
-  return layouts;
-}
-
-function yForTime(date: Date, layouts: HourLayout[]): number {
-  const layout = layouts[date.getHours()];
-  if (layout.height === EXPANDED_HEIGHT) {
-    return layout.y + (date.getMinutes() / 60) * EXPANDED_HEIGHT;
-  }
-  return layout.y;
-}
-
-export const TimelineAgenda = ({ items, onItemPress, now = null }: TimelineAgendaProps) => {
-  const { accentColor, colors, entityColors } = useTheme();
+export const TimelineAgenda = ({
+  items,
+  onItemPress,
+  onAddAtHour,
+  now = null,
+}: TimelineAgendaProps) => {
+  const { colors, isDark } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [chipDismissed, setChipDismissed] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const rowOffsets = useRef<Record<string, number>>({});
+  const didAutoScroll = useRef(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  const allDayItems = items.filter(item => !item.startTime);
-  const timedItems = items.filter(item => item.startTime !== null) as TimedItem[];
-  const sortedItems = [...timedItems].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+  const allDayItems = useMemo(() => items.filter((item) => !item.startTime), [items]);
+  const timedItems = useMemo(
+    () => items.filter((item): item is TimedAgendaItem => item.startTime != null),
+    [items],
+  );
+
   const showNow = now != null;
-  const layouts = buildHourLayouts(sortedItems, showNow ? currentTime : null);
-  const contentHeight = layouts.reduce((sum, layout) => sum + layout.height, 0);
-  const layoutKey = layouts.map((layout) => layout.height).join(',');
-  const nowTop = showNow ? yForTime(currentTime, layouts) : 0;
+  const intervals = useMemo(() => buildHourIntervals(timedItems), [timedItems]);
+
+  const futureItems = useMemo(() => {
+    const t = currentTime.getTime();
+    return [...timedItems]
+      .filter((item) => item.startTime.getTime() > t)
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+  }, [timedItems, currentTime]);
+
+  const nextItem = futureItems[0] ?? null;
+  const nowHour = showNow ? currentTime.getHours() : -1;
+
+  const contentWidth = Math.min(windowWidth, T.maxContentWidth);
+  const railColor = isDark ? T.railColorDark : T.railColorLight;
+  const untimedInnerWidth = contentWidth - T.pageInset * 2;
+  const untimedColumns = untimedInnerWidth < 280 ? 1 : 2;
+  const untimedCellWidth =
+    untimedColumns === 1
+      ? untimedInnerWidth
+      : (untimedInnerWidth - T.untimedGridGap) / 2;
+
+  const onRowLayout = useCallback((id: string, e: LayoutChangeEvent) => {
+    rowOffsets.current[id] = e.nativeEvent.layout.y;
+  }, []);
+
+  const scrollToY = useCallback((y: number, animated = true) => {
+    scrollViewRef.current?.scrollTo({ y: Math.max(0, y - 40), animated });
+  }, []);
+
+  const scrollToItem = useCallback(
+    (item: TimedAgendaItem) => {
+      const id = `interval-${item.startTime.getHours()}`;
+      const y = rowOffsets.current[id];
+      if (typeof y === 'number') scrollToY(y);
+    },
+    [scrollToY],
+  );
 
   useEffect(() => {
-    if (!showNow) return;
-    const scrollPosition = yForTime(currentTime, layouts) - 50;
+    if (!showNow || didAutoScroll.current) return;
     const timer = setTimeout(() => {
-      scrollViewRef.current?.scrollTo({ y: Math.max(0, scrollPosition), animated: true });
-    }, 500);
+      const y = rowOffsets.current['now'] ?? rowOffsets.current[`interval-${nowHour}`];
+      if (typeof y === 'number') {
+        scrollToY(y);
+        didAutoScroll.current = true;
+      }
+    }, 400);
     return () => clearTimeout(timer);
-  }, [layoutKey, showNow]);
-  
-  const slots: any = {};
-  sortedItems.forEach(item => {
-      const hour = item.startTime.getHours();
-      if (!slots[hour]) slots[hour] = [];
-      slots[hour].push(item);
-  });
+  }, [showNow, nowHour, intervals, scrollToY]);
 
-  // --- Option 1: "Later today" floating chip ---
-  const futureItems = useMemo(() => {
-    return sortedItems.filter(item => item.startTime.getTime() > currentTime.getTime());
-  }, [sortedItems, currentTime]);
-
-  const nextItem = futureItems.length > 0 ? futureItems[0] : null;
-
-  const scrollToItem = (item: TimedItem) => {
-    const targetY = yForTime(item.startTime, layouts) - 50;
-    scrollViewRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
-  };
+  useEffect(() => {
+    didAutoScroll.current = false;
+  }, [showNow]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {allDayItems.length > 0 && (
-        <View style={[styles.allDayContainer, { width: '100%' }]}>
-            <View style={styles.allDayHeader}>
-                <Text style={[styles.noTimeLabel, { color: colors.subtext }]} numberOfLines={1}>No time</Text>
-                <Text style={[styles.noTimeCount, { color: colors.subtext }]}>{allDayItems.length}</Text>
-            </View>
-            <ScrollView
-              style={styles.allDayScroll}
-              nestedScrollEnabled
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.allDayGrid}>
-                  {allDayItems.map(item => (
-                      <View key={item.id} style={styles.allDayCard}>
-                          <AgendaCard
-                              compact
-                              title={item.title}
-                              type={item.type as any}
-                              timeRange={item.timeRange}
-                              location={item.location}
-                              projectName={item.projectName}
-                              isActive={item.isActive}
-                              isCompleted={item.isCompleted}
-                              isOverdue={item.isOverdue}
-                              onToggle={item.onToggle}
-                              onPress={() => onItemPress && onItemPress(item)}
-                          />
-                      </View>
-                  ))}
+        <View style={styles.allDayContainer}>
+          <View style={styles.allDayHeader}>
+            <Text style={[styles.noTimeLabel, { color: colors.subtext }]}>No time</Text>
+            <Text style={[styles.noTimeCount, { color: colors.subtext }]}>
+              {allDayItems.length}
+            </Text>
+          </View>
+          <View style={styles.allDayGrid}>
+            {allDayItems.map((item) => (
+              <View key={item.id} style={{ width: untimedCellWidth }}>
+                <TimelineEventCard
+                  compact
+                  item={item}
+                  onPress={() => onItemPress?.(item)}
+                />
               </View>
-            </ScrollView>
+            ))}
+          </View>
         </View>
       )}
 
-      <ScrollView 
-        style={[styles.timelineScroll, { maxHeight: contentHeight }]}
+      <ScrollView
         ref={scrollViewRef}
-        showsVerticalScrollIndicator={false} 
-        contentContainerStyle={[styles.scrollContent, { height: contentHeight }]}
+        style={styles.timelineScroll}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { width: contentWidth, alignSelf: 'center', paddingBottom: 28 },
+        ]}
       >
-        {layouts.map((layout) => {
-            const hour = layout.hour;
-            const slotItems = slots[hour] || [];
-            const expanded = layout.height === EXPANDED_HEIGHT;
-            const prevExpanded = hour > 0 && layouts[hour - 1].height === EXPANDED_HEIGHT;
-            const nextExpanded = hour < 23 && layouts[hour + 1].height === EXPANDED_HEIGHT;
-            const rowStyle = expanded ? styles.hourRow : styles.hourRowSmall;
-            return (
-                <View key={hour} style={[rowStyle, { height: layout.height }]}>
-                    <View style={[styles.hourSide, !expanded && styles.hourSideCompact]}>
-                      <Text style={[styles.hourLabel, { color: colors.subtext }]}>
-                        {`${hour.toString().padStart(2, '0')}:00`}
-                      </Text>
-                      {expanded && (
+        <View style={styles.timelineBody}>
+          <View
+            pointerEvents="none"
+            accessible={false}
+            importantForAccessibility="no"
+            style={[
+              styles.rail,
+              {
+                backgroundColor: railColor,
+                left: railAbsoluteLeft(),
+                width: T.railThickness,
+              },
+            ]}
+          />
+
+          {intervals.map((interval) => (
+            <View key={interval.id} onLayout={(e) => onRowLayout(interval.id, e)}>
+              <TimelineHourInterval
+                hour={interval.hour}
+                label={interval.timestampLabel}
+                groups={interval.groups}
+                onAdd={onAddAtHour ? () => onAddAtHour(interval.hour, 0) : undefined}
+                onItemPress={onItemPress}
+                nowIndicator={
+                  showNow && nowHour === interval.hour ? (
+                    <View
+                      onLayout={(e) => onRowLayout('now', e)}
+                      style={[timelineColumnStyles.row, styles.nowRow]}
+                      accessible={false}
+                      importantForAccessibility="no"
+                    >
+                      <View style={timelineColumnStyles.timeColumn} />
+                      <View style={timelineColumnStyles.railColumn}>
                         <View
                           style={[
-                            styles.rail,
+                            styles.nowBulb,
                             {
-                              backgroundColor: colors.subtext,
-                              top: prevExpanded ? 0 : 6,
-                              bottom: nextExpanded ? 0 : 8,
+                              backgroundColor: colors.accent,
+                              width: T.nowBulbSize,
+                              height: T.nowBulbSize,
+                              borderRadius: T.nowBulbSize / 2,
                             },
                           ]}
                         />
-                      )}
-                      {expanded && (
-                        <View style={[styles.railDot, { backgroundColor: accentColor, borderColor: colors.background }]} />
-                      )}
-                      {expanded && (
-                        <>
-                          <Text style={[styles.hourLabel, styles.halfLabel, { color: colors.subtext }]}>
-                            {`${hour.toString().padStart(2, '0')}:30`}
-                          </Text>
-                          <View style={[styles.halfTick, { backgroundColor: colors.subtext }]} />
-                        </>
-                      )}
+                      </View>
+                      <View style={timelineColumnStyles.contentColumn}>
+                        <View
+                          style={[
+                            styles.nowLine,
+                            {
+                              backgroundColor: colors.accent,
+                              height: T.nowLineThickness,
+                            },
+                          ]}
+                        />
+                      </View>
                     </View>
-                    <View style={styles.slotContainer}>
-                        {slotItems.map((item: any) => {
-                             const startMinutes = item.startTime.getMinutes();
-                             const top = (startMinutes / 60) * EXPANDED_HEIGHT;
-                             const hasDuration = durationMinutesOf(item) > 0;
-                             const duration = durationMinutesOf(item);
-                             const height = hasDuration
-                               ? Math.max((duration / 60) * EXPANDED_HEIGHT, 40)
-                               : NO_TIME_CARD_HEIGHT;
-                             
-                             const overlaps = sortedItems.filter((p) => {
-                                 const otherDuration = durationMinutesOf(p);
-                                 const otherEnd = p.startTime.getTime() + (otherDuration > 0 ? otherDuration * 60_000 : 1);
-                                 const itemEnd = item.startTime.getTime() + (duration > 0 ? duration * 60_000 : 1);
-                                 return item.startTime.getTime() < otherEnd && itemEnd > p.startTime.getTime();
-                             });
-                             // Sort overlaps by priority: Events (0) > Tasks (1) > Habits (2) > Journal (3)
-                             const priorityMap: any = { 'event': 0, 'task': 1, 'habit': 2, 'journal': 3 };
-                             overlaps.sort((a: any, b: any) => (priorityMap[a.type] ?? 99) - (priorityMap[b.type] ?? 99));
-                             
-                             const numCols = overlaps.length;
-                             const colIndex = overlaps.indexOf(item);
-                             
-                             return (
-                                 <View key={item.id} style={[styles.flexCard, { 
-                                     position: 'absolute', 
-                                     top, 
-                                     height,
-                                     left: `${(colIndex * (100 / numCols))}%`, 
-                                     width: `${100 / numCols}%` 
-                                 }]}>
-                                    <AgendaCard 
-                                        compact={!hasDuration}
-                                        title={item.title}
-                                        type={item.type as any}
-                                        timeRange={item.timeRange}
-                                        location={item.location}
-                                        projectName={item.projectName}
-                                        isActive={item.isActive}
-                                        isCompleted={item.isCompleted}
-                                        onToggle={item.onToggle}
-                                        onPress={() => onItemPress && onItemPress(item)}
-                                        startTime={item.startTime}
-                                        durationMinutes={item.durationMinutes}
-                                        verticalAlign={hasDuration ? 'flex-start' : 'center'}
-                                    />
-                                 </View>
-                             );
-                        })}
-                        <View style={styles.divider} />
-                    </View>
-                </View>
-            );
-        })}
-
-        {showNow && (
-        <View style={[styles.nowLine, { top: nowTop, backgroundColor: accentColor }]}>
-          <View style={[styles.nowBulb, { backgroundColor: accentColor }]} />
+                  ) : null
+                }
+              />
+            </View>
+          ))}
         </View>
-        )}
       </ScrollView>
 
-      {/* Option 1: "Later today" floating chip */}
       {futureItems.length > 0 && !chipDismissed && (
-        <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)} style={styles.floatingChipContainer}>
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          exiting={FadeOut.duration(200)}
+          style={styles.floatingChipContainer}
+        >
           <TouchableOpacity
-            style={[styles.floatingChip, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            style={[
+              styles.floatingChip,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
             onPress={() => nextItem && scrollToItem(nextItem)}
             activeOpacity={0.8}
           >
-            <IconChevronDown size={14} color={colors.subtext} stroke={2} style={{ marginRight: 2 }} />
+            <IconChevronDown size={14} color={colors.subtext} stroke={2} />
             <Text style={[styles.floatingChipText, { color: colors.subtext }]}>
               {futureItems.length} later · {formatTime(nextItem!.startTime)}
             </Text>
@@ -296,39 +242,48 @@ export const TimelineAgenda = ({ items, onItemPress, now = null }: TimelineAgend
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, overflow: 'hidden' },
-  allDayContainer: { borderBottomWidth: 0.5, borderBottomColor: '#222', paddingTop: 6, paddingBottom: 6 },
-  allDayHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4, marginLeft: 20 },
-  noTimeLabel: { fontSize: 11, fontWeight: '400' },
-  noTimeCount: { fontSize: 11, fontWeight: '600' },
-  allDayScroll: { height: NO_TIME_CARD_HEIGHT },
-  allDayGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, gap: 6 },
-  allDayCard: { width: '48%', height: NO_TIME_CARD_HEIGHT },
-  scrollContent: { flexGrow: 0 },
-  timelineScroll: { flex: 1 },
-  hourRow: { flexDirection: 'row', alignItems: 'flex-start', overflow: 'visible' },
-  hourRowSmall: { flexDirection: 'row', alignItems: 'center', overflow: 'visible' },
-  hourSide: { width: SIDEBAR_WIDTH, height: '100%' },
-  hourSideCompact: { justifyContent: 'center' },
-  hourLabel: { width: SIDEBAR_WIDTH - 10, fontSize: 9, textAlign: 'center', textTransform: 'uppercase' },
-  rail: { position: 'absolute', right: 7, width: 1.5, borderRadius: 1, opacity: 0.45 },
-  railDot: { position: 'absolute', right: 3.5, top: 2, width: 8, height: 8, borderRadius: 4, borderWidth: 1.5 },
-  halfTick: { position: 'absolute', right: 2.5, top: EXPANDED_HEIGHT / 2 - 0.75, width: 10, height: 1.5, borderRadius: 1, opacity: 0.7, zIndex: 2 },
-  halfLabel: {
-    position: 'absolute',
-    left: 0,
-    height: 12,
-    lineHeight: 12,
-    top: EXPANDED_HEIGHT / 2 - 6,
-    textAlignVertical: 'center',
+  container: { flex: 1 },
+  allDayContainer: {
+    paddingTop: 4,
+    paddingBottom: T.untimedSectionBottom,
+    paddingHorizontal: T.pageInset,
   },
-  slotContainer: { flex: 1, flexDirection: 'row', position: 'relative', zIndex: 1 },
-  divider: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 0.5, backgroundColor: '#222', zIndex: -1 },
-  flexCard: { zIndex: 100 },
-  nowLine: { position: 'absolute', left: SIDEBAR_WIDTH, right: 0, height: 1 },
-  nowBulb: { position: 'absolute', left: -4, top: -4, width: 8, height: 8, borderRadius: 4 },
-
-  // Option 1: "Later today" floating chip
+  allDayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  noTimeLabel: { fontSize: 11, fontWeight: '500' },
+  noTimeCount: { fontSize: 11, fontWeight: '400', opacity: 0.8 },
+  allDayGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: T.untimedGridGap,
+    rowGap: T.untimedRowGap,
+  },
+  timelineScroll: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingTop: 2 },
+  timelineBody: {
+    position: 'relative',
+  },
+  rail: {
+    position: 'absolute',
+    top: 10,
+    bottom: 10,
+    zIndex: 0,
+  },
+  nowRow: {
+    minHeight: 18,
+    marginVertical: 2,
+  },
+  nowBulb: {
+    zIndex: 2,
+  },
+  nowLine: {
+    borderRadius: 1,
+    width: '100%',
+  },
   floatingChipContainer: {
     position: 'absolute',
     bottom: 12,
@@ -343,13 +298,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: 0.5,
+    borderWidth: StyleSheet.hairlineWidth,
     gap: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 6,
   },
   floatingChipText: {
     fontSize: 12,

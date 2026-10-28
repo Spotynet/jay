@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, TextInput, Switch } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../../components/ui/AppText';
@@ -12,16 +12,23 @@ import { createTask, updateTask, deleteTask, getTaskById } from '../../api/tasks
 import { getProjects } from '../../api/projects';
 import DeleteConfirm from '../../components/ui/DeleteConfirm';
 import { toLocalDateString, parseLocalDate } from '../../utils/date';
+import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 
 type ProjectOption = { id: number; name: string; status: string };
 
+function snapshotTaskDraft(values: Record<string, unknown>) {
+  return JSON.stringify(values);
+}
+
 export default function TaskEntryScreen() {
-  const { colors, accentColor } = useTheme();
+  const { colors, accentColor, entityColors } = useTheme();
+  const taskColor = entityColors.tasks;
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const isFocused = useIsFocused();
   const task = route.params?.task;
   const parentId = route.params?.parentId;
+  const occurrenceDate = route.params?.occurrenceDate as string | undefined;
 
   const [name, setName] = useState(task?.name || '');
   const [description, setDescription] = useState(task?.description || '');
@@ -34,8 +41,14 @@ export default function TaskEntryScreen() {
         ? parseLocalDate(route.params.date)
         : new Date()
   );
-  const [time, setTime] = useState(task?.due_time ? new Date(`1970-01-01T${task.due_time}`) : new Date());
-  const [hasTime, setHasTime] = useState(!!task?.due_time);
+  const [time, setTime] = useState(
+    task?.due_time
+      ? new Date(`1970-01-01T${task.due_time}`)
+      : route.params?.time
+        ? new Date(`1970-01-01T${route.params.time}`)
+        : new Date(),
+  );
+  const [hasTime, setHasTime] = useState(!!(task?.due_time || route.params?.time));
   const [hasDuration, setHasDuration] = useState(!!task?.duration);
   const [hours, setHours] = useState(task?.duration ? parseInt(task.duration.split(':')[0], 10) : 0);
   const [minutes, setMinutes] = useState(task?.duration ? parseInt(task.duration.split(':')[1], 10) : 15);
@@ -47,6 +60,55 @@ export default function TaskEntryScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [subtasks, setSubtasks] = useState<any[]>(Array.isArray(task?.subtasks) ? task.subtasks : []);
+  const [allowLeave, setAllowLeave] = useState(false);
+
+  const initialSnapshot = useMemo(
+    () =>
+      snapshotTaskDraft({
+        name: task?.name || '',
+        description: task?.description || '',
+        hasDate: !!(task?.due_date || route.params?.date),
+        dateKey: toLocalDateString(
+          task?.due_date
+            ? parseLocalDate(task.due_date)
+            : route.params?.date
+              ? parseLocalDate(route.params.date)
+              : new Date(),
+        ),
+        hasTime: !!(task?.due_time || route.params?.time),
+        timeKey: (
+          task?.due_time
+            ? new Date(`1970-01-01T${task.due_time}`)
+            : route.params?.time
+              ? new Date(`1970-01-01T${route.params.time}`)
+              : new Date()
+        )
+          .toTimeString()
+          .slice(0, 5),
+        hasDuration: !!task?.duration,
+        hours: task?.duration ? parseInt(task.duration.split(':')[0], 10) : 0,
+        minutes: task?.duration ? parseInt(task.duration.split(':')[1], 10) : 15,
+        projectId: task?.project ?? route.params?.projectId ?? null,
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const isDirty =
+    !allowLeave &&
+    snapshotTaskDraft({
+      name,
+      description,
+      hasDate,
+      dateKey: toLocalDateString(date),
+      hasTime,
+      timeKey: time.toTimeString().slice(0, 5),
+      hasDuration,
+      hours,
+      minutes,
+      projectId,
+    }) !== initialSnapshot;
+  useUnsavedChangesGuard(isDirty);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -96,6 +158,7 @@ export default function TaskEntryScreen() {
 
       if (task) await updateTask(task.id, data);
       else await createTask(data);
+      setAllowLeave(true);
       navigation.goBack();
     } catch (e) {
       setError("Couldn't save this task.");
@@ -109,6 +172,7 @@ export default function TaskEntryScreen() {
     try {
       await deleteTask(task.id);
       setDeleteModalVisible(false);
+      setAllowLeave(true);
       navigation.goBack();
     } catch (e) {
       setDeleteModalVisible(false);
@@ -118,29 +182,41 @@ export default function TaskEntryScreen() {
 
   return (
     <FormScreen
-      title={task ? 'EDIT TASK' : 'NEW TASK'}
+      title={task ? 'Task details' : 'New task'}
       showBack
       rightOption={task ? {
         render: () => (
-          <TouchableOpacity onPress={() => setDeleteModalVisible(true)}>
+          <TouchableOpacity
+            onPress={() => setDeleteModalVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Delete task"
+          >
             <AppText style={[styles.deleteText, { color: colors.error }]}>Delete</AppText>
           </TouchableOpacity>
         ),
       } : undefined}
-      submitTitle="Save Task"
+      submitTitle={loading ? 'Saving…' : 'Save'}
       onSubmit={saveTask}
       loading={loading}
       error={error}
-      submitStyle={{ backgroundColor: accentColor }}
+      submitStyle={{ backgroundColor: taskColor || accentColor }}
     >
       <View style={styles.field}>
-        <AppText style={[styles.label, { color: colors.subtext }]}>NAME</AppText>
+        <AppText style={[styles.typeLabel, { color: taskColor }]}>Task</AppText>
+        {occurrenceDate ? (
+          <AppText style={[styles.occurrenceHint, { color: colors.subtext }]}>
+            From timeline · {occurrenceDate}
+          </AppText>
+        ) : null}
+        <AppText style={[styles.label, { color: colors.subtext }]}>Name</AppText>
         <TextInput
           style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
           placeholder="Task name"
           placeholderTextColor={colors.subtext}
           value={name}
           onChangeText={setName}
+          autoFocus={false}
+          accessibilityLabel="Task name"
         />
       </View>
 
@@ -293,6 +369,8 @@ export default function TaskEntryScreen() {
 
 const styles = StyleSheet.create({
   field: { marginBottom: 24 },
+  typeLabel: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
+  occurrenceHint: { fontSize: 12, marginBottom: 10 },
   label: { fontSize: 11, fontWeight: '600', letterSpacing: 1.5, marginBottom: 8 },
   input: { borderRadius: 12, borderWidth: 1, padding: 16, fontSize: 16 },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
