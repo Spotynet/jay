@@ -6,7 +6,7 @@
  */
 
 #include "EventDispatcher.h"
-#include <cxxreact/JSExecutor.h>
+
 #include <react/renderer/core/StateUpdate.h>
 
 #include "EventQueue.h"
@@ -41,8 +41,10 @@ void EventDispatcher::experimental_flushSync() const {
   eventQueue_.experimental_flushSync();
 }
 
-void EventDispatcher::dispatchStateUpdate(StateUpdate&& stateUpdate) const {
-  eventQueue_.enqueueStateUpdate(std::move(stateUpdate));
+void EventDispatcher::dispatchStateUpdate(
+    StateUpdate&& stateUpdate,
+    EventQueue::UpdateMode updateMode) const {
+  eventQueue_.enqueueStateUpdate(std::move(stateUpdate), updateMode);
 }
 
 void EventDispatcher::dispatchUniqueEvent(RawEvent&& rawEvent) const {

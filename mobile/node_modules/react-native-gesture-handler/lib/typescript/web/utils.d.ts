@@ -1,5 +1,11 @@
+import type { StylusData } from '../handlers/gestureHandlerCommon';
 import { PointerType } from '../PointerType';
-import type { GestureHandlerRef, Point, StylusData, SVGRef } from './interfaces';
+import type { GestureHandlerRef, Point, SVGRef } from './interfaces';
+export declare function canUseDOM(): boolean;
+export declare function isStylableElement(view: unknown): view is HTMLElement | SVGElement;
+export declare function hasDisplayContents(view: HTMLElement): boolean;
+export declare function firstNonContentsView(view: HTMLElement): HTMLElement;
+export declare function getEffectiveBoundingRect(view: HTMLElement): DOMRect;
 export declare function isPointerInBounds(view: HTMLElement, { x, y }: Point): boolean;
 export declare const PointerTypeMapping: Map<string, PointerType>;
 export declare const degToRad: (degrees: number) => number;

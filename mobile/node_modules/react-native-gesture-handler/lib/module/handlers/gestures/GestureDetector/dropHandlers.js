@@ -1,9 +1,9 @@
 "use strict";
 
-import { unregisterHandler } from '../../handlersRegistry';
-import RNGestureHandlerModule from '../../../RNGestureHandlerModule';
-import { scheduleFlushOperations } from '../../utils';
 import { MountRegistry } from '../../../mountRegistry';
+import RNGestureHandlerModule from '../../../RNGestureHandlerModule';
+import { unregisterHandler } from '../../handlersRegistry';
+import { scheduleFlushOperations } from '../../utils';
 export function dropHandlers(preparedGesture) {
   for (const handler of preparedGesture.attachedGestures) {
     RNGestureHandlerModule.dropGestureHandler(handler.handlerTag);

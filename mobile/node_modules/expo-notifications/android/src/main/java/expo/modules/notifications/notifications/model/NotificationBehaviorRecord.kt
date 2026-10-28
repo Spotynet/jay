@@ -5,8 +5,10 @@ import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
 import expo.modules.notifications.notifications.enums.NotificationPriority
 import kotlinx.parcelize.Parcelize
+import expo.modules.kotlin.types.OptimizedRecord
 
 @Parcelize
+@OptimizedRecord
 data class NotificationBehaviorRecord(
   @Field val shouldShowAlert: Boolean = false,
   @Field val shouldShowBanner: Boolean = false,
@@ -22,5 +24,20 @@ data class NotificationBehaviorRecord(
 
   val shouldPresentAlert: Boolean get() {
     return shouldShowBanner || shouldShowList || shouldShowAlert
+  }
+
+  companion object {
+    /**
+     * Allows a banner, a place in the notification list, a sound, and a badge. This is what the
+     * handler that applies until the app sets one of its own asks for, so the code that presents a
+     * notification whose handler didn't answer in time asks for it too.
+     */
+    @JvmField
+    val ALLOW_ALL = NotificationBehaviorRecord(
+      shouldShowBanner = true,
+      shouldShowList = true,
+      shouldPlaySound = true,
+      shouldSetBadge = true
+    )
   }
 }

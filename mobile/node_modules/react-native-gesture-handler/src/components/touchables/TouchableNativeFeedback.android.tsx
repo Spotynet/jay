@@ -1,10 +1,12 @@
-import { Platform, ColorValue } from 'react-native';
 import * as React from 'react';
 import { Component } from 'react';
+import type { ColorValue } from 'react-native';
+import { Platform } from 'react-native';
+
 import GenericTouchable from './GenericTouchable';
-import {
-  TouchableNativeFeedbackProps,
+import type {
   TouchableNativeFeedbackExtraProps,
+  TouchableNativeFeedbackProps,
 } from './TouchableNativeFeedbackProps';
 
 /**
@@ -41,7 +43,12 @@ export default class TouchableNativeFeedback extends Component<TouchableNativeFe
     color: ColorValue,
     borderless: boolean,
     rippleRadius?: number
-  ) => ({
+  ): {
+    type: 'RippleAndroid';
+    color: ColorValue;
+    borderless: boolean;
+    rippleRadius: number | undefined;
+  } => ({
     type: 'RippleAndroid',
     color,
     borderless,
@@ -59,7 +66,8 @@ export default class TouchableNativeFeedback extends Component<TouchableNativeFe
       // TODO(TS): check if it works the same as previous implementation - looks like it works the same as RN component, so it should be ok
       if (background.type === 'RippleAndroid') {
         extraProps['borderless'] = background.borderless;
-        extraProps['rippleColor'] = background.color;
+        extraProps['rippleColor'] =
+          background.color as TouchableNativeFeedbackExtraProps['rippleColor'];
       } else if (background.type === 'ThemeAttrAndroid') {
         extraProps['borderless'] =
           background.attribute === 'selectableItemBackgroundBorderless';
@@ -70,7 +78,7 @@ export default class TouchableNativeFeedback extends Component<TouchableNativeFe
     extraProps['foreground'] = this.props.useForeground;
     return extraProps;
   }
-  render() {
+  override render() {
     const { style = {}, ...rest } = this.props;
     return (
       <GenericTouchable

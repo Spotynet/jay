@@ -1,7 +1,7 @@
-import { ColorValue } from 'react-native';
 import * as React from 'react';
 import { Component } from 'react';
-import { TouchableNativeFeedbackProps } from './TouchableNativeFeedbackProps';
+import type { ColorValue } from 'react-native';
+import type { TouchableNativeFeedbackProps } from './TouchableNativeFeedbackProps';
 /**
  * @deprecated TouchableNativeFeedback will be removed in the future version of Gesture Handler. Use Pressable instead.
  *
@@ -29,7 +29,7 @@ export default class TouchableNativeFeedback extends Component<TouchableNativeFe
         rippleRadius: number | undefined;
     };
     static Ripple: (color: ColorValue, borderless: boolean, rippleRadius?: number) => {
-        type: string;
+        type: "RippleAndroid";
         color: ColorValue;
         borderless: boolean;
         rippleRadius: number | undefined;

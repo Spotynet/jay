@@ -6,7 +6,7 @@ import android.os.Looper
 import android.view.MotionEvent
 import android.view.VelocityTracker
 import com.facebook.react.bridge.ReadableMap
-import com.swmansion.gesturehandler.react.eventbuilders.FlingGestureHandlerEventDataBuilder
+import com.swmansion.gesturehandler.react.events.eventbuilders.FlingGestureHandlerEventDataBuilder
 
 class FlingGestureHandler : GestureHandler() {
   var numberOfPointersRequired = DEFAULT_NUMBER_OF_TOUCHES_REQUIRED
@@ -14,7 +14,7 @@ class FlingGestureHandler : GestureHandler() {
 
   private val maxDurationMs = DEFAULT_MAX_DURATION_MS
   private val minVelocity = DEFAULT_MIN_VELOCITY
-  private var handler: Handler? = null
+  private val handler = Handler(Looper.getMainLooper())
   private var maxNumberOfPointersSimultaneously = 0
   private val failDelayed = Runnable { fail() }
   private var velocityTracker: VelocityTracker? = null
@@ -29,12 +29,8 @@ class FlingGestureHandler : GestureHandler() {
     velocityTracker = VelocityTracker.obtain()
     begin()
     maxNumberOfPointersSimultaneously = 1
-    if (handler == null) {
-      handler = Handler(Looper.getMainLooper()) // lazy delegate?
-    } else {
-      handler!!.removeCallbacksAndMessages(null)
-    }
-    handler!!.postDelayed(failDelayed, maxDurationMs)
+    handler.removeCallbacksAndMessages(null)
+    handler.postDelayed(failDelayed, maxDurationMs)
   }
 
   private fun tryEndFling(event: MotionEvent): Boolean {
@@ -69,7 +65,7 @@ class FlingGestureHandler : GestureHandler() {
       isAligned &&
       isFast
     ) {
-      handler!!.removeCallbacksAndMessages(null)
+      handler.removeCallbacksAndMessages(null)
       activate()
       true
     } else {
@@ -88,7 +84,7 @@ class FlingGestureHandler : GestureHandler() {
   }
 
   override fun onHandle(event: MotionEvent, sourceEvent: MotionEvent) {
-    if (!shouldActivateWithMouse(sourceEvent)) {
+    if (shouldSkipEvent(sourceEvent)) {
       return
     }
 
@@ -109,13 +105,13 @@ class FlingGestureHandler : GestureHandler() {
   }
 
   override fun onCancel() {
-    handler?.removeCallbacksAndMessages(null)
+    handler.removeCallbacksAndMessages(null)
   }
 
   override fun onReset() {
     velocityTracker?.recycle()
     velocityTracker = null
-    handler?.removeCallbacksAndMessages(null)
+    handler.removeCallbacksAndMessages(null)
   }
 
   private fun addVelocityMovement(tracker: VelocityTracker?, event: MotionEvent) {
@@ -132,8 +128,9 @@ class FlingGestureHandler : GestureHandler() {
 
     override fun create(context: Context?): FlingGestureHandler = FlingGestureHandler()
 
-    override fun setConfig(handler: FlingGestureHandler, config: ReadableMap) {
-      super.setConfig(handler, config)
+    override fun updateConfig(handler: FlingGestureHandler, config: ReadableMap) {
+      super.updateConfig(handler, config)
+
       if (config.hasKey(KEY_NUMBER_OF_POINTERS)) {
         handler.numberOfPointersRequired = config.getInt(KEY_NUMBER_OF_POINTERS)
       }

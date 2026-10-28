@@ -1,25 +1,19 @@
 "use strict";
 
-import EventManager from './EventManager';
-import { MouseButton } from '../../handlers/gestureHandlerCommon';
-import { EventTypes } from '../interfaces';
-import { PointerTypeMapping, calculateViewScale, tryExtractStylusData, isPointerInBounds } from '../utils';
 import { PointerType } from '../../PointerType';
+import { EventTypes } from '../interfaces';
+import { calculateViewScale, getEffectiveBoundingRect, isPointerInBounds, PointerTypeMapping, tryExtractStylusData } from '../utils';
+import EventManager from './EventManager';
 const POINTER_CAPTURE_EXCLUDE_LIST = new Set(['SELECT', 'INPUT']);
 export default class PointerEventManager extends EventManager {
   trackedPointers = new Set();
-  mouseButtonsMapper = new Map();
-  constructor(view) {
+  constructor(view, shouldSendHoverEvents) {
     super(view);
-    this.mouseButtonsMapper.set(0, MouseButton.LEFT);
-    this.mouseButtonsMapper.set(1, MouseButton.MIDDLE);
-    this.mouseButtonsMapper.set(2, MouseButton.RIGHT);
-    this.mouseButtonsMapper.set(3, MouseButton.BUTTON_4);
-    this.mouseButtonsMapper.set(4, MouseButton.BUTTON_5);
     this.lastPosition = {
       x: -Infinity,
       y: -Infinity
     };
+    this.shouldSendHoverEvents = shouldSendHoverEvents;
   }
   pointerDownCallback = event => {
     if (!isPointerInBounds(this.view, {
@@ -30,7 +24,7 @@ export default class PointerEventManager extends EventManager {
     }
     const adaptedEvent = this.mapEvent(event, EventTypes.DOWN);
     const target = event.target;
-    if (!POINTER_CAPTURE_EXCLUDE_LIST.has(target.tagName)) {
+    if (!POINTER_CAPTURE_EXCLUDE_LIST.has(target.tagName) && this.view.getAttribute('role') !== 'button') {
       target.setPointerCapture(adaptedEvent.pointerId);
     }
     this.markAsInBounds(adaptedEvent.pointerId);
@@ -52,7 +46,7 @@ export default class PointerEventManager extends EventManager {
     }
     const adaptedEvent = this.mapEvent(event, EventTypes.UP);
     const target = event.target;
-    if (!POINTER_CAPTURE_EXCLUDE_LIST.has(target.tagName)) {
+    if (!POINTER_CAPTURE_EXCLUDE_LIST.has(target.tagName) && this.view.getAttribute('role') !== 'button') {
       target.releasePointerCapture(adaptedEvent.pointerId);
     }
     this.markAsOutOfBounds(adaptedEvent.pointerId);
@@ -65,6 +59,9 @@ export default class PointerEventManager extends EventManager {
     }
   };
   pointerMoveCallback = event => {
+    if (!this.shouldSendHoverEvents && this.activePointersCounter === 0) {
+      return;
+    }
     const adaptedEvent = this.mapEvent(event, EventTypes.MOVE);
     const target = event.target;
 
@@ -80,7 +77,7 @@ export default class PointerEventManager extends EventManager {
     // incorporating it here seems stupid), so we just call it again here, every time
     // pointer moves until it succeeds.
     // God, I do love web development.
-    if (!target?.hasPointerCapture(event.pointerId) && !POINTER_CAPTURE_EXCLUDE_LIST.has(target.tagName)) {
+    if (!target?.hasPointerCapture(event.pointerId) && !POINTER_CAPTURE_EXCLUDE_LIST.has(target.tagName) && this.view.getAttribute('role') !== 'button') {
       target.setPointerCapture(event.pointerId);
     }
     const inBounds = isPointerInBounds(this.view, {
@@ -122,6 +119,15 @@ export default class PointerEventManager extends EventManager {
   pointerLeaveCallback = event => {
     const adaptedEvent = this.mapEvent(event, EventTypes.LEAVE);
     this.onPointerMoveOut(adaptedEvent);
+
+    // When the view is not capturing the pointer (e.g. when `role="button"`),
+    // `pointermove` stops firing once the pointer leaves the view's bounds, so
+    // the out-of-bounds detection in `pointerMoveCallback` never runs. Fall back
+    // to the DOM `pointerleave` event for any tracked, in-bounds pointer.
+    if (this.trackedPointers.has(event.pointerId) && this.pointersInBounds.indexOf(event.pointerId) >= 0) {
+      this.onPointerLeave(adaptedEvent);
+      this.markAsOutOfBounds(event.pointerId);
+    }
   };
   lostPointerCaptureCallback = event => {
     const adaptedEvent = this.mapEvent(event, EventTypes.CANCEL);
@@ -157,7 +163,7 @@ export default class PointerEventManager extends EventManager {
     this.view.removeEventListener('lostpointercapture', this.lostPointerCaptureCallback);
   }
   mapEvent(event, eventType) {
-    const rect = this.view.getBoundingClientRect();
+    const rect = getEffectiveBoundingRect(this.view);
     const {
       scaleX,
       scaleY
@@ -170,7 +176,7 @@ export default class PointerEventManager extends EventManager {
       pointerId: event.pointerId,
       eventType: eventType,
       pointerType: PointerTypeMapping.get(event.pointerType) ?? PointerType.OTHER,
-      button: this.mouseButtonsMapper.get(event.button),
+      button: event.buttons,
       time: event.timeStamp,
       stylusData: tryExtractStylusData(event)
     };

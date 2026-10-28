@@ -1,10 +1,11 @@
+import type { AdaptedEvent } from '../interfaces';
+import { EventTypes } from '../interfaces';
 import EventManager from './EventManager';
-import { AdaptedEvent, EventTypes } from '../interfaces';
 export default class PointerEventManager extends EventManager<HTMLElement> {
     private trackedPointers;
-    private readonly mouseButtonsMapper;
     private lastPosition;
-    constructor(view: HTMLElement);
+    private shouldSendHoverEvents;
+    constructor(view: HTMLElement, shouldSendHoverEvents: boolean);
     private pointerDownCallback;
     private pointerUpCallback;
     private pointerMoveCallback;

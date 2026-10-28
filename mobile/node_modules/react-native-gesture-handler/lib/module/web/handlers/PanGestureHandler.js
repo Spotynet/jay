@@ -1,6 +1,7 @@
 "use strict";
 
 import { State } from '../../State';
+import { SingleGestureName } from '../../v3/types';
 import { DEFAULT_TOUCH_SLOP } from '../constants';
 import { WheelDevice } from '../interfaces';
 import GestureHandler from './GestureHandler';
@@ -8,9 +9,10 @@ const DEFAULT_MIN_POINTERS = 1;
 const DEFAULT_MAX_POINTERS = 10;
 const DEFAULT_MIN_DIST_SQ = DEFAULT_TOUCH_SLOP * DEFAULT_TOUCH_SLOP;
 export default class PanGestureHandler extends GestureHandler {
-  customActivationProperties = ['activeOffsetXStart', 'activeOffsetXEnd', 'failOffsetXStart', 'failOffsetXEnd', 'activeOffsetYStart', 'activeOffsetYEnd', 'failOffsetYStart', 'failOffsetYEnd', 'minVelocityX', 'minVelocityY', 'minVelocity'];
+  isContinuous = true;
   velocityX = 0;
   velocityY = 0;
+  minDist = undefined;
   minDistSq = DEFAULT_MIN_DIST_SQ;
   activeOffsetXStart = -Number.MAX_SAFE_INTEGER;
   activeOffsetXEnd = Number.MIN_SAFE_INTEGER;
@@ -32,94 +34,76 @@ export default class PanGestureHandler extends GestureHandler {
   lastX = 0;
   lastY = 0;
   activateAfterLongPress = 0;
-  activationTimeout = 0;
   enableTrackpadTwoFingerGesture = false;
-  endWheelTimeout = 0;
   wheelDevice = WheelDevice.UNDETERMINED;
-  updateGestureConfig({
-    enabled = true,
-    ...props
-  }) {
-    this.resetConfig();
-    super.updateGestureConfig({
-      enabled: enabled,
-      ...props
-    });
-    this.checkCustomActivationCriteria(this.customActivationProperties);
-    if (this.config.minDist !== undefined) {
-      this.minDistSq = this.config.minDist * this.config.minDist;
-    } else if (this.hasCustomActivationCriteria) {
+  hasCustomActivationCriteria = false;
+  constructor(delegate) {
+    super(delegate);
+    this.name = SingleGestureName.Pan;
+  }
+  updateGestureConfig(config) {
+    super.updateGestureConfig(config);
+    if (config.minPointers !== undefined) {
+      this.minPointers = config.minPointers;
+    }
+    if (config.maxPointers !== undefined) {
+      this.maxPointers = config.maxPointers;
+    }
+    if (config.minVelocity !== undefined) {
+      this.minVelocitySq = config.minVelocity * config.minVelocity;
+      this.hasCustomActivationCriteria = true;
+    }
+    if (config.minVelocityX !== undefined) {
+      this.minVelocityX = config.minVelocityX;
+      this.hasCustomActivationCriteria = true;
+    }
+    if (config.minVelocityY !== undefined) {
+      this.minVelocityY = config.minVelocityY;
+      this.hasCustomActivationCriteria = true;
+    }
+    if (config.activateAfterLongPress !== undefined) {
+      this.activateAfterLongPress = config.activateAfterLongPress;
+    }
+    if (config.activeOffsetXStart !== undefined) {
+      this.activeOffsetXStart = config.activeOffsetXStart;
+      this.hasCustomActivationCriteria = true;
+    }
+    if (config.activeOffsetXEnd !== undefined) {
+      this.activeOffsetXEnd = config.activeOffsetXEnd;
+      this.hasCustomActivationCriteria = true;
+    }
+    if (config.failOffsetXStart !== undefined) {
+      this.failOffsetXStart = config.failOffsetXStart;
+      this.hasCustomActivationCriteria = true;
+    }
+    if (config.failOffsetXEnd !== undefined) {
+      this.failOffsetXEnd = config.failOffsetXEnd;
+      this.hasCustomActivationCriteria = true;
+    }
+    if (config.activeOffsetYStart !== undefined) {
+      this.activeOffsetYStart = config.activeOffsetYStart;
+      this.hasCustomActivationCriteria = true;
+    }
+    if (config.activeOffsetYEnd !== undefined) {
+      this.activeOffsetYEnd = config.activeOffsetYEnd;
+      this.hasCustomActivationCriteria = true;
+    }
+    if (config.failOffsetYStart !== undefined) {
+      this.failOffsetYStart = config.failOffsetYStart;
+      this.hasCustomActivationCriteria = true;
+    }
+    if (config.failOffsetYEnd !== undefined) {
+      this.failOffsetYEnd = config.failOffsetYEnd;
+      this.hasCustomActivationCriteria = true;
+    }
+    if (config.enableTrackpadTwoFingerGesture !== undefined) {
+      this.enableTrackpadTwoFingerGesture = config.enableTrackpadTwoFingerGesture;
+    }
+    if (config.minDist !== undefined) {
+      this.minDist = config.minDist;
+      this.minDistSq = config.minDist * config.minDist;
+    } else if (this.minDist === undefined && this.hasCustomActivationCriteria) {
       this.minDistSq = Number.MAX_SAFE_INTEGER;
-    }
-    if (this.config.minPointers !== undefined) {
-      this.minPointers = this.config.minPointers;
-    }
-    if (this.config.maxPointers !== undefined) {
-      this.maxPointers = this.config.maxPointers;
-    }
-    if (this.config.minVelocity !== undefined) {
-      this.minVelocityX = this.config.minVelocity;
-      this.minVelocityY = this.config.minVelocity;
-    }
-    if (this.config.minVelocityX !== undefined) {
-      this.minVelocityX = this.config.minVelocityX;
-    }
-    if (this.config.minVelocityY !== undefined) {
-      this.minVelocityY = this.config.minVelocityY;
-    }
-    if (this.config.activateAfterLongPress !== undefined) {
-      this.activateAfterLongPress = this.config.activateAfterLongPress;
-    }
-    if (this.config.activeOffsetXStart !== undefined) {
-      this.activeOffsetXStart = this.config.activeOffsetXStart;
-      if (this.config.activeOffsetXEnd === undefined) {
-        this.activeOffsetXEnd = Number.MAX_SAFE_INTEGER;
-      }
-    }
-    if (this.config.activeOffsetXEnd !== undefined) {
-      this.activeOffsetXEnd = this.config.activeOffsetXEnd;
-      if (this.config.activeOffsetXStart === undefined) {
-        this.activeOffsetXStart = Number.MIN_SAFE_INTEGER;
-      }
-    }
-    if (this.config.failOffsetXStart !== undefined) {
-      this.failOffsetXStart = this.config.failOffsetXStart;
-      if (this.config.failOffsetXEnd === undefined) {
-        this.failOffsetXEnd = Number.MAX_SAFE_INTEGER;
-      }
-    }
-    if (this.config.failOffsetXEnd !== undefined) {
-      this.failOffsetXEnd = this.config.failOffsetXEnd;
-      if (this.config.failOffsetXStart === undefined) {
-        this.failOffsetXStart = Number.MIN_SAFE_INTEGER;
-      }
-    }
-    if (this.config.activeOffsetYStart !== undefined) {
-      this.activeOffsetYStart = this.config.activeOffsetYStart;
-      if (this.config.activeOffsetYEnd === undefined) {
-        this.activeOffsetYEnd = Number.MAX_SAFE_INTEGER;
-      }
-    }
-    if (this.config.activeOffsetYEnd !== undefined) {
-      this.activeOffsetYEnd = this.config.activeOffsetYEnd;
-      if (this.config.activeOffsetYStart === undefined) {
-        this.activeOffsetYStart = Number.MIN_SAFE_INTEGER;
-      }
-    }
-    if (this.config.failOffsetYStart !== undefined) {
-      this.failOffsetYStart = this.config.failOffsetYStart;
-      if (this.config.failOffsetYEnd === undefined) {
-        this.failOffsetYEnd = Number.MAX_SAFE_INTEGER;
-      }
-    }
-    if (this.config.failOffsetYEnd !== undefined) {
-      this.failOffsetYEnd = this.config.failOffsetYEnd;
-      if (this.config.failOffsetYStart === undefined) {
-        this.failOffsetYStart = Number.MIN_SAFE_INTEGER;
-      }
-    }
-    if (this.config.enableTrackpadTwoFingerGesture !== undefined) {
-      this.enableTrackpadTwoFingerGesture = this.config.enableTrackpadTwoFingerGesture;
     }
   }
   resetConfig() {
@@ -135,10 +119,13 @@ export default class PanGestureHandler extends GestureHandler {
     this.minVelocityX = Number.MAX_SAFE_INTEGER;
     this.minVelocityY = Number.MAX_SAFE_INTEGER;
     this.minVelocitySq = Number.MAX_SAFE_INTEGER;
+    this.minDist = undefined;
     this.minDistSq = DEFAULT_MIN_DIST_SQ;
     this.minPointers = DEFAULT_MIN_POINTERS;
     this.maxPointers = DEFAULT_MAX_POINTERS;
     this.activateAfterLongPress = 0;
+    this.enableTrackpadTwoFingerGesture = false;
+    this.hasCustomActivationCriteria = false;
   }
   transformNativeEvent() {
     const translationX = this.getTranslationX();
@@ -188,7 +175,6 @@ export default class PanGestureHandler extends GestureHandler {
     this.startY = this.lastY;
     this.tryBegin(event);
     this.checkBegan();
-    this.tryToSendTouchEvent(event);
   }
   onPointerAdd(event) {
     this.tracker.addToTracker(event);
@@ -261,13 +247,12 @@ export default class PanGestureHandler extends GestureHandler {
       super.onPointerOutOfBounds(event);
     }
   }
-  scheduleWheelEnd(event) {
+  scheduleWheelEnd() {
     clearTimeout(this.endWheelTimeout);
     this.endWheelTimeout = setTimeout(() => {
       if (this.state === State.ACTIVE) {
         this.end();
-        this.tracker.removeFromTracker(event.pointerId);
-        this.state = State.UNDETERMINED;
+        this.reset();
       }
       this.wheelDevice = WheelDevice.UNDETERMINED;
     }, 30);
@@ -279,7 +264,7 @@ export default class PanGestureHandler extends GestureHandler {
     if (this.state === State.UNDETERMINED) {
       this.wheelDevice = event.wheelDeltaY % 120 !== 0 ? WheelDevice.TOUCHPAD : WheelDevice.MOUSE;
       if (this.wheelDevice === WheelDevice.MOUSE) {
-        this.scheduleWheelEnd(event);
+        this.scheduleWheelEnd();
         return;
       }
       this.tracker.addToTracker(event);
@@ -293,7 +278,7 @@ export default class PanGestureHandler extends GestureHandler {
     this.updateLastCoords();
     this.updateVelocity(event.pointerId);
     this.tryToSendMoveEvent(false, event);
-    this.scheduleWheelEnd(event);
+    this.scheduleWheelEnd();
   }
   shouldActivate() {
     const dx = this.getTranslationX();
@@ -315,11 +300,11 @@ export default class PanGestureHandler extends GestureHandler {
       return true;
     }
     const vx = this.velocityX;
-    if (this.minVelocityX !== Number.MAX_SAFE_INTEGER && (this.minVelocityX < 0 && vx <= this.minVelocityX || this.minVelocityX >= 0 && this.minVelocityX <= vx)) {
+    if (this.minVelocityX !== Number.MAX_SAFE_INTEGER && Math.abs(vx) >= Math.abs(this.minVelocityX)) {
       return true;
     }
     const vy = this.velocityY;
-    if (this.minVelocityY !== Number.MAX_SAFE_INTEGER && (this.minVelocityY < 0 && vy <= this.minVelocityY || this.minVelocityY >= 0 && this.minVelocityY <= vy)) {
+    if (this.minVelocityY !== Number.MAX_SAFE_INTEGER && Math.abs(vy) >= Math.abs(this.minVelocityY)) {
       return true;
     }
     const velocitySq = vx * vx + vy * vy;

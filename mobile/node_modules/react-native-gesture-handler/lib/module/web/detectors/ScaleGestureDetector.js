@@ -15,7 +15,15 @@ export default class ScaleGestureDetector {
     this.currentTime = event.time;
     const action = event.eventType;
     const numOfPointers = tracker.trackedPointersCount;
-    const streamComplete = action === EventTypes.UP || action === EventTypes.ADDITIONAL_POINTER_UP || action === EventTypes.CANCEL;
+
+    // When the last second pointer lifts (going down to 1), pause without
+    // touching span/time state so the gesture resumes cleanly on re-add.
+    // When 3+ → 2+ pointers, fall through so configChanged resets the span
+    // baseline to the remaining pointer set and avoids a scale jump.
+    if (action === EventTypes.ADDITIONAL_POINTER_UP && numOfPointers <= 2) {
+      return true;
+    }
+    const streamComplete = action === EventTypes.UP || action === EventTypes.CANCEL;
     if (action === EventTypes.DOWN || streamComplete) {
       if (this.inProgress) {
         this.onScaleEnd(this);
@@ -33,7 +41,7 @@ export default class ScaleGestureDetector {
     // Determine focal point
 
     const div = pointerUp ? numOfPointers - 1 : numOfPointers;
-    const coordsSum = tracker.getAbsoluteCoordsSum();
+    const coordsSum = tracker.getAbsoluteCoordsSum(ignoredPointer);
     const focusX = coordsSum.x / div;
     const focusY = coordsSum.y / div;
 

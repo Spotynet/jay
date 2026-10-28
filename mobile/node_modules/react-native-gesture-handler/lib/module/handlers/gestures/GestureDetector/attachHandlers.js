@@ -1,13 +1,13 @@
 "use strict";
 
-import { registerHandler } from '../../handlersRegistry';
-import RNGestureHandlerModule from '../../../RNGestureHandlerModule';
-import { filterConfig, scheduleFlushOperations } from '../../utils';
-import { ActionType } from '../../../ActionType';
 import { Platform } from 'react-native';
+import { ActionType } from '../../../ActionType';
 import { ghQueueMicrotask } from '../../../ghQueueMicrotask';
-import { extractGestureRelations, checkGestureCallbacksForWorklets, ALLOWED_PROPS } from './utils';
 import { MountRegistry } from '../../../mountRegistry';
+import RNGestureHandlerModule from '../../../RNGestureHandlerModule';
+import { registerHandler } from '../../handlersRegistry';
+import { filterConfig, scheduleFlushOperations } from '../../utils';
+import { ALLOWED_PROPS, checkGestureCallbacksForWorklets, extractGestureRelations } from './utils';
 export function attachHandlers({
   preparedGesture,
   gestureConfig,
@@ -38,7 +38,8 @@ export function attachHandlers({
       return;
     }
     for (const handler of gesturesToAttach) {
-      RNGestureHandlerModule.updateGestureHandler(handler.handlerTag, filterConfig(handler.config, ALLOWED_PROPS, extractGestureRelations(handler)));
+      RNGestureHandlerModule.setGestureHandlerConfig(handler.handlerTag, filterConfig(handler.config, ALLOWED_PROPS));
+      RNGestureHandlerModule.configureRelations(handler.handlerTag, extractGestureRelations(handler));
     }
     scheduleFlushOperations();
   });

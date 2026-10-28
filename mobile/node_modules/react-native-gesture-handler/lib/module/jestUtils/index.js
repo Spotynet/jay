@@ -1,4 +1,4 @@
 "use strict";
 
-export { getByGestureTestId, fireGestureHandler } from './jestUtils';
+export { createGestureController, fireGestureHandler, getByGestureTestId } from './jestUtils';
 //# sourceMappingURL=index.js.map

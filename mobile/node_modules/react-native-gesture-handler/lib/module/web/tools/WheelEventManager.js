@@ -1,8 +1,8 @@
 "use strict";
 
-import EventManager from './EventManager';
-import { EventTypes } from '../interfaces';
 import { PointerType } from '../../PointerType';
+import { EventTypes } from '../interfaces';
+import EventManager from './EventManager';
 export default class WheelEventManager extends EventManager {
   wheelDelta = {
     x: 0,
@@ -44,6 +44,10 @@ export default class WheelEventManager extends EventManager {
   }
   resetManager() {
     super.resetManager();
+    this.wheelDelta = {
+      x: 0,
+      y: 0
+    };
   }
 }
 //# sourceMappingURL=WheelEventManager.js.map

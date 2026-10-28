@@ -1,8 +1,9 @@
+import type { PropsWithChildren } from 'react';
 import React from 'react';
-export declare const Wrap: React.ForwardRefExoticComponent<{
-    children?: React.ReactNode | undefined;
-} & React.RefAttributes<HTMLDivElement>>;
-export declare const AnimatedWrap: React.ForwardRefExoticComponent<{
-    children?: React.ReactNode | undefined;
-} & React.RefAttributes<HTMLDivElement>>;
+export declare const Wrap: ({ ref, children, }: PropsWithChildren<{}> & {
+    ref: React.Ref<HTMLDivElement>;
+}) => React.JSX.Element;
+export declare const AnimatedWrap: ({ ref, children, }: PropsWithChildren<{}> & {
+    ref: React.Ref<HTMLDivElement>;
+}) => React.JSX.Element;
 //# sourceMappingURL=Wrap.web.d.ts.map

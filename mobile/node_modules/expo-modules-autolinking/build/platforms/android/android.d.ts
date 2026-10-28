@@ -1,13 +1,9 @@
-import { AutolinkingOptions } from '../../commands/autolinkingOptions';
+import type { AutolinkingOptions } from '../../commands/autolinkingOptions';
 import type { ExtraDependencies, ModuleDescriptorAndroid, PackageRevision } from '../../types';
 interface AndroidConfigurationOutput {
     buildFromSource: string[];
 }
 export declare function getConfiguration(options: AutolinkingOptions): AndroidConfigurationOutput | undefined;
-/**
- * Generates Java file that contains all autolinked packages.
- */
-export declare function generatePackageListAsync(modules: ModuleDescriptorAndroid[], targetPath: string, namespace: string): Promise<void>;
 export declare function isAndroidProject(projectRoot: string): boolean;
 export declare function resolveModuleAsync(packageName: string, revision: PackageRevision): Promise<ModuleDescriptorAndroid | null>;
 export declare function resolveExtraBuildDependenciesAsync(projectNativeRoot: string): Promise<ExtraDependencies | null>;

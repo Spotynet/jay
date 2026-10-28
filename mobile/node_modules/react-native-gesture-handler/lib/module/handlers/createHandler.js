@@ -1,83 +1,23 @@
 "use strict";
 
 import * as React from 'react';
-import { Platform, UIManager, DeviceEventEmitter } from 'react-native';
-import { customDirectEventTypes } from './customDirectEventTypes';
-import RNGestureHandlerModule from '../RNGestureHandlerModule';
-import { State } from '../State';
-import { handlerIDToTag, registerOldGestureHandler, unregisterOldGestureHandler } from './handlersRegistry';
-import { getNextHandlerTag } from './getNextHandlerTag';
-import { filterConfig, scheduleFlushOperations } from './utils';
-import findNodeHandle from '../findNodeHandle';
-import { deepEqual, isFabric, isReact19, isTestEnv, tagMessage } from '../utils';
+import { DeviceEventEmitter, Platform } from 'react-native';
 import { ActionType } from '../ActionType';
-import { PressabilityDebugView } from './PressabilityDebugView';
+import findNodeHandle from '../findNodeHandle';
 import GestureHandlerRootViewContext from '../GestureHandlerRootViewContext';
 import { ghQueueMicrotask } from '../ghQueueMicrotask';
 import { MountRegistry } from '../mountRegistry';
+import RNGestureHandlerModule from '../RNGestureHandlerModule';
+import { State } from '../State';
+import { deepEqual, isTestEnv, tagMessage } from '../utils';
+import { customDirectEventTypes } from './customDirectEventTypes';
+import { getNextHandlerTag } from './getNextHandlerTag';
+import { handlerIDToTag, registerOldGestureHandler, unregisterOldGestureHandler } from './handlersRegistry';
+import { PressabilityDebugView } from './PressabilityDebugView';
+import { filterConfig, scheduleFlushOperations, selectProperties } from './utils';
 import { jsx as _jsx } from "react/jsx-runtime";
-const UIManagerAny = UIManager;
 customDirectEventTypes.topGestureHandlerEvent = {
   registrationName: 'onGestureHandlerEvent'
-};
-const customGHEventsConfigFabricAndroid = {
-  topOnGestureHandlerEvent: {
-    registrationName: 'onGestureHandlerEvent'
-  },
-  topOnGestureHandlerStateChange: {
-    registrationName: 'onGestureHandlerStateChange'
-  }
-};
-const customGHEventsConfig = {
-  onGestureHandlerEvent: {
-    registrationName: 'onGestureHandlerEvent'
-  },
-  onGestureHandlerStateChange: {
-    registrationName: 'onGestureHandlerStateChange'
-  },
-  // When using React Native Gesture Handler for Animated.event with useNativeDriver: true
-  // on Android with Fabric enabled, the native part still sends the native events to JS
-  // but prefixed with "top". We cannot simply rename the events above so they are prefixed
-  // with "top" instead of "on" because in such case Animated.events would not be registered.
-  // That's why we need to register another pair of event names.
-  // The incoming events will be queued but never handled.
-  // Without this piece of code below, you'll get the following JS error:
-  // Unsupported top level event type "topOnGestureHandlerEvent" dispatched
-  ...(isFabric() && Platform.OS === 'android' && customGHEventsConfigFabricAndroid)
-};
-
-// Add gesture specific events to genericDirectEventTypes object exported from UIManager
-// native module.
-// Once new event types are registered with react it is possible to dispatch these
-// events to all kind of native views.
-UIManagerAny.genericDirectEventTypes = {
-  ...UIManagerAny.genericDirectEventTypes,
-  ...customGHEventsConfig
-};
-const UIManagerConstants = UIManagerAny.getViewManagerConfig?.('getConstants');
-if (UIManagerConstants) {
-  UIManagerConstants.genericDirectEventTypes = {
-    ...UIManagerConstants.genericDirectEventTypes,
-    ...customGHEventsConfig
-  };
-}
-
-// Wrap JS responder calls and notify gesture handler manager
-const {
-  setJSResponder: oldSetJSResponder = () => {
-    // no-op
-  },
-  clearJSResponder: oldClearJSResponder = () => {
-    // no-op
-  }
-} = UIManagerAny;
-UIManagerAny.setJSResponder = (tag, blockNativeResponder) => {
-  RNGestureHandlerModule.handleSetJSResponder(tag, blockNativeResponder);
-  oldSetJSResponder(tag, blockNativeResponder);
-};
-UIManagerAny.clearJSResponder = () => {
-  RNGestureHandlerModule.handleClearJSResponder();
-  oldClearJSResponder();
 };
 let allowTouches = true;
 const DEV_ON_ANDROID = __DEV__ && Platform.OS === 'android';
@@ -220,7 +160,7 @@ export default function createHandler({
       const child = React.Children.only(this.props.children);
       // @ts-ignore Since React 19 ref is accessible as standard prop
       // https://react.dev/blog/2024/04/25/react-19-upgrade-guide#deprecated-element-ref
-      const ref = isReact19() ? child.props?.ref : child?.ref;
+      const ref = child.props?.ref;
       if (!ref) {
         return;
       }
@@ -234,6 +174,7 @@ export default function createHandler({
       this.handlerTag = getNextHandlerTag();
       this.config = newConfig;
       RNGestureHandlerModule.createGestureHandler(name, this.handlerTag, newConfig);
+      RNGestureHandlerModule.configureRelations(this.handlerTag, selectProperties(newConfig, ['waitFor', 'simultaneousHandlers', 'blocksHandlers']));
     };
     attachGestureHandler = newViewTag => {
       this.viewTag = newViewTag;
@@ -271,9 +212,10 @@ export default function createHandler({
         MountRegistry.gestureHandlerWillMount(this);
       });
     };
-    updateGestureHandler = newConfig => {
+    setGestureHandlerConfig = newConfig => {
       this.config = newConfig;
-      RNGestureHandlerModule.updateGestureHandler(this.handlerTag, newConfig);
+      RNGestureHandlerModule.setGestureHandlerConfig(this.handlerTag, newConfig);
+      RNGestureHandlerModule.configureRelations(this.handlerTag, selectProperties(newConfig, ['waitFor', 'simultaneousHandlers', 'blocksHandlers']));
       scheduleFlushOperations();
     };
     update(remainingTries) {
@@ -292,7 +234,7 @@ export default function createHandler({
       } else {
         const newConfig = filterConfig(transformProps ? transformProps(this.props) : this.props, [...allowedProps, ...customNativeProps], config);
         if (!deepEqual(this.config, newConfig)) {
-          this.updateGestureHandler(newConfig);
+          this.setGestureHandlerConfig(newConfig);
         }
       }
     }
@@ -304,7 +246,7 @@ export default function createHandler({
         ...updates
       };
       const newConfig = filterConfig(transformProps ? transformProps(mergedProps) : mergedProps, [...allowedProps, ...customNativeProps], config);
-      this.updateGestureHandler(newConfig);
+      this.setGestureHandlerConfig(newConfig);
     }
     render() {
       if (__DEV__ && !this.context && !isTestEnv() && Platform.OS !== 'web') {

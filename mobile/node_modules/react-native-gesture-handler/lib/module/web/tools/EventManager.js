@@ -25,6 +25,7 @@ export default class EventManager {
   onPointerMoveOver(_event) {}
   onPointerMoveOut(_event) {}
   onWheel(_event) {}
+  onScroll(_event) {}
   setOnPointerDown(callback) {
     this.onPointerDown = callback;
   }
@@ -61,6 +62,9 @@ export default class EventManager {
   setOnWheel(callback) {
     this.onWheel = callback;
   }
+  setOnScroll(callback) {
+    this.onScroll = callback;
+  }
   markAsInBounds(pointerId) {
     if (this.pointersInBounds.indexOf(pointerId) >= 0) {
       return;
@@ -73,6 +77,14 @@ export default class EventManager {
       return;
     }
     this.pointersInBounds.splice(index, 1);
+  }
+  setEnabled(value) {
+    if (value) {
+      this.registerListeners();
+    } else {
+      this.resetManager();
+      this.unregisterListeners();
+    }
   }
   resetManager() {
     // Reseting activePointersCounter is necessary to make gestures such as pinch work properly

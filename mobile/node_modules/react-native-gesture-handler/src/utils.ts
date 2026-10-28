@@ -1,5 +1,3 @@
-import React from 'react';
-
 export function toArray<T>(object: T | T[]): T[] {
   if (!Array.isArray(object)) {
     return [object];
@@ -37,28 +35,18 @@ export function hasProperty(object: object, key: string) {
 
 export function isTestEnv(): boolean {
   // @ts-ignore Do not use `@types/node` because it will prioritise Node types over RN types which breaks the types (ex. setTimeout) in React Native projects.
-  return hasProperty(global, 'process') && process.env.NODE_ENV === 'test';
+  return hasProperty(globalThis, 'process') && process.env.NODE_ENV === 'test';
 }
 
 export function tagMessage(msg: string) {
+  'worklet';
   return `[react-native-gesture-handler] ${msg}`;
-}
-
-// Helper method to check whether Fabric is enabled, however global.nativeFabricUIManager
-// may not be initialized before the first render
-export function isFabric(): boolean {
-  // @ts-expect-error nativeFabricUIManager is not yet included in the RN types
-  return !!global?.nativeFabricUIManager;
-}
-
-export function isReact19() {
-  return React.version.startsWith('19.');
 }
 
 export function isRemoteDebuggingEnabled(): boolean {
   // react-native-reanimated checks if in remote debugging in the same way
-  // @ts-ignore global is available but node types are not included
-  const localGlobal = global as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
+  const localGlobal = globalThis as any;
   return (
     (!localGlobal.nativeCallSyncHook || !!localGlobal.__REMOTEDEV__) &&
     !localGlobal.RN$Bridgeless

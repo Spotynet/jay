@@ -6,6 +6,10 @@ function changeEventCalculator(current, _previous) {
 
   return current;
 }
+
+/**
+ * @deprecated `ManualGesture` is deprecated and will be removed in the future. Please use `useManualGesture` instead.
+ */
 export class ManualGesture extends ContinousBaseGesture {
   constructor() {
     super();
@@ -17,4 +21,8 @@ export class ManualGesture extends ContinousBaseGesture {
     return super.onChange(callback);
   }
 }
+
+/**
+ * @deprecated `ManualGestureType` is deprecated and will be removed in the future. Please use `ManualGesture` instead.
+ */
 //# sourceMappingURL=manualGesture.js.map

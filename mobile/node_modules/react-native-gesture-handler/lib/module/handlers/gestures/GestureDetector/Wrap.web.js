@@ -1,12 +1,13 @@
 "use strict";
 
-import React, { forwardRef } from 'react';
+import React from 'react';
 import { tagMessage } from '../../../utils';
 import { isRNSVGNode } from '../../../web/utils';
 import { jsx as _jsx } from "react/jsx-runtime";
-export const Wrap = /*#__PURE__*/forwardRef(({
+export const Wrap = ({
+  ref,
   children
-}, ref) => {
+}) => {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const child = React.Children.only(children);
@@ -28,7 +29,7 @@ export const Wrap = /*#__PURE__*/forwardRef(({
   } catch (e) {
     throw new Error(tagMessage(`GestureDetector got more than one view as a child. If you want the gesture to work on multiple views, wrap them with a common parent and attach the gesture to that view.`));
   }
-});
+};
 
 // On web we never take a path with Reanimated,
 // therefore we can simply export Wrap

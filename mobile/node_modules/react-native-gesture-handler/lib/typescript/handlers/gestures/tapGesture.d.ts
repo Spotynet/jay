@@ -1,6 +1,10 @@
-import { BaseGestureConfig, BaseGesture } from './gesture';
-import { TapGestureConfig } from '../TapGestureHandler';
 import type { TapGestureHandlerEventPayload } from '../GestureHandlerEventPayload';
+import type { TapGestureConfig } from '../TapGestureHandler';
+import type { BaseGestureConfig } from './gesture';
+import { BaseGesture } from './gesture';
+/**
+ * @deprecated `TapGesture` is deprecated and will be removed in the future. Please use `useTapGesture` instead.
+ */
 export declare class TapGesture extends BaseGesture<TapGestureHandlerEventPayload> {
     config: BaseGestureConfig & TapGestureConfig;
     constructor();
@@ -47,5 +51,8 @@ export declare class TapGesture extends BaseGesture<TapGestureHandlerEventPayloa
      */
     maxDeltaY(delta: number): this;
 }
+/**
+ * @deprecated `TapGestureType` is deprecated and will be removed in the future. Please use `TapGesture` instead.
+ */
 export type TapGestureType = InstanceType<typeof TapGesture>;
 //# sourceMappingURL=tapGesture.d.ts.map

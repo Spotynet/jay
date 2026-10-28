@@ -1,5 +1,6 @@
-import React, { PropsWithChildren } from 'react';
-import { BaseGestureHandlerProps } from './gestureHandlerCommon';
+import type { PropsWithChildren } from 'react';
+import React from 'react';
+import type { BaseGestureHandlerProps } from './gestureHandlerCommon';
 import type { ForceTouchGestureHandlerEventPayload } from './GestureHandlerEventPayload';
 export declare const forceTouchGestureHandlerProps: readonly ["minForce", "maxForce", "feedbackOnActivation"];
 declare class ForceTouchFallback extends React.Component<PropsWithChildren<unknown>> {

@@ -1,9 +1,10 @@
 "use strict";
 
-import { isFabric, tagMessage } from '../../../utils';
-import { getShadowNodeFromRef } from '../../../getShadowNodeFromRef';
 import { useCallback } from 'react';
 import findNodeHandle from '../../../findNodeHandle';
+import { getShadowNodeFromRef } from '../../../getShadowNodeFromRef';
+import { resolveHostInstance } from '../../../hostInstance';
+import { tagMessage } from '../../../utils';
 // Ref handler for the Wrap component attached under the GestureDetector.
 // It's responsible for setting the viewRef on the state and triggering the reattaching of handlers
 // if the view has changed.
@@ -16,7 +17,7 @@ export function useViewRefHandler(state, updateAttachedGestures) {
 
     // if it's the first render, also set the previousViewTag to prevent reattaching gestures when not needed
     if (state.previousViewTag === -1) {
-      state.previousViewTag = findNodeHandle(state.viewRef);
+      state.previousViewTag = findNodeHandle(resolveHostInstance(state.viewRef));
     }
 
     // Pass true as `skipConfigUpdate`. Here we only want to trigger the eventual reattaching of handlers
@@ -24,9 +25,9 @@ export function useViewRefHandler(state, updateAttachedGestures) {
     if (!state.firstRender) {
       updateAttachedGestures(true);
     }
-    if (__DEV__ && isFabric() && global.isViewFlatteningDisabled) {
-      const node = getShadowNodeFromRef(ref);
-      if (global.isViewFlatteningDisabled(node) === false) {
+    if (__DEV__ && global._isViewFlatteningDisabled) {
+      const node = getShadowNodeFromRef(resolveHostInstance(ref));
+      if (global._isViewFlatteningDisabled(node) === false) {
         console.error(tagMessage('GestureDetector has received a child that may get view-flattened. ' + '\nTo prevent it from misbehaving you need to wrap the child with a `<View collapsable={false}>`.'));
       }
     }

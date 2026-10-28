@@ -1,5 +1,5 @@
+import type { AdaptedEvent } from '../interfaces';
 import EventManager from './EventManager';
-import { AdaptedEvent } from '../interfaces';
 export default class WheelEventManager extends EventManager<HTMLElement> {
     private wheelDelta;
     private resetDelta;

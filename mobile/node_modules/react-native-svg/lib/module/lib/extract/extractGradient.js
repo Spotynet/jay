@@ -48,7 +48,7 @@ export default function extractGradient(props, parent) {
     const offsetNumber = percentToFloat(offset || 0);
     const color = stopColor && processColor(stopColor);
     if (typeof color !== 'number' || isNaN(offsetNumber)) {
-      console.warn(`"${stopColor}" is not a valid color or "${offset}" is not a valid offset`);
+      console.warn(`"${String(stopColor)}" is not a valid color or "${offset}" is not a valid offset`);
       continue;
     }
     const alpha = Math.round(extractOpacity(stopOpacity) * 255);

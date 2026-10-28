@@ -1,8 +1,8 @@
 "use strict";
 
-import { Platform } from 'react-native';
 import * as React from 'react';
 import { Component } from 'react';
+import { Platform } from 'react-native';
 import GenericTouchable from './GenericTouchable';
 import { jsx as _jsx } from "react/jsx-runtime";
 /**

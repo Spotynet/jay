@@ -1,6 +1,10 @@
 "use strict";
 
 import { BaseGesture } from './gesture';
+
+/**
+ * @deprecated `TapGesture` is deprecated and will be removed in the future. Please use `useTapGesture` instead.
+ */
 export class TapGesture extends BaseGesture {
   config = {};
   constructor() {
@@ -79,4 +83,8 @@ export class TapGesture extends BaseGesture {
     return this;
   }
 }
+
+/**
+ * @deprecated `TapGestureType` is deprecated and will be removed in the future. Please use `TapGesture` instead.
+ */
 //# sourceMappingURL=tapGesture.js.map

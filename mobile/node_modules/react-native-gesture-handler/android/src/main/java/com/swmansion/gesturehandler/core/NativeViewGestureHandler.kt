@@ -14,11 +14,13 @@ import com.facebook.react.views.swiperefresh.ReactSwipeRefreshLayout
 import com.facebook.react.views.text.ReactTextView
 import com.facebook.react.views.textinput.ReactEditText
 import com.facebook.react.views.view.ReactViewGroup
-import com.swmansion.gesturehandler.react.RNGestureHandlerButtonViewManager
-import com.swmansion.gesturehandler.react.eventbuilders.NativeGestureHandlerEventDataBuilder
-import com.swmansion.gesturehandler.react.isScreenReaderOn
+import com.swmansion.gesturehandler.react.RNGestureHandlerRootHelper
+import com.swmansion.gesturehandler.react.events.eventbuilders.NativeGestureHandlerEventDataBuilder
+import java.lang.reflect.Method
 
 class NativeViewGestureHandler : GestureHandler() {
+  override val isContinuous = true
+
   private var shouldActivateOnStart = false
 
   /**
@@ -29,7 +31,29 @@ class NativeViewGestureHandler : GestureHandler() {
   var disallowInterruption = false
     private set
 
+  /**
+   * Composes with [disallowInterruption]. When both are `true`, the handler still resists
+   * discrete gesture peers but yields to continuous peers. No-op when [disallowInterruption] is `false`.
+   */
+  var yieldsToContinuousGestures = false
+    private set
+
+  /**
+   * When set, overrides whether the connected scrollable container delays the pressed state of
+   * its children (see [android.view.ViewGroup.shouldDelayChildPressedState]). Only applies to
+   * views implementing `HasChildPressedStateDelay` (React Native 0.87+), no-op otherwise. The
+   * override is applied for the duration of a gesture.
+   */
+  var delaysChildPressedState: Boolean? = null
+    private set
+
+  private var pressedStateDelayOverriddenView: View? = null
+
   private var hook: NativeViewGestureHandlerHook = defaultHook
+
+  private data class ActiveUpdateSnapshot(val pointerInside: Boolean, val numberOfPointers: Int, val pointerType: Int)
+
+  private var lastActiveUpdate: ActiveUpdateSnapshot? = null
 
   init {
     shouldCancelWhenOutside = true
@@ -39,7 +63,25 @@ class NativeViewGestureHandler : GestureHandler() {
     super.resetConfig()
     shouldActivateOnStart = DEFAULT_SHOULD_ACTIVATE_ON_START
     disallowInterruption = DEFAULT_DISALLOW_INTERRUPTION
+    yieldsToContinuousGestures = DEFAULT_YIELDS_TO_CONTINUOUS_GESTURES
     shouldCancelWhenOutside = DEFAULT_SHOULD_CANCEL_WHEN_OUTSIDE
+    delaysChildPressedState = DEFAULT_DELAYS_CHILD_PRESSED_STATE
+  }
+
+  fun updateConfig(config: Config) {
+    isEnabled = config.enabled
+    shouldCancelWhenOutside = config.shouldCancelWhenOutside
+    testID = config.testID
+    val hitSlop = config.hitSlop
+    if (hitSlop != null) {
+      setHitSlop(hitSlop.left, hitSlop.top, hitSlop.right, hitSlop.bottom, HIT_SLOP_NONE, HIT_SLOP_NONE)
+    } else {
+      setHitSlop(null)
+    }
+    shouldActivateOnStart = config.shouldActivateOnStart
+    disallowInterruption = config.disallowInterruption
+    yieldsToContinuousGestures = config.yieldsToContinuousGestures
+    delaysChildPressedState = config.delaysChildPressedState
   }
 
   override fun shouldRecognizeSimultaneously(handler: GestureHandler): Boolean {
@@ -57,12 +99,15 @@ class NativeViewGestureHandler : GestureHandler() {
       // For the `disallowInterruption` to work correctly we need to check the property when
       // accessed as a peer, because simultaneous recognizers can be set on either side of the
       // connection.
-      if (handler.state == STATE_ACTIVE && handler.disallowInterruption) {
+      if (handler.state == STATE_ACTIVE &&
+        handler.disallowInterruption &&
+        !handler.yieldsToContinuousGestures
+      ) {
         // other handler is active and it disallows interruption, we don't want to get into its way
         return false
       }
     }
-    val canBeInterrupted = !disallowInterruption
+    val canBeInterrupted = canBeInterruptedBy(handler)
     val otherState = handler.state
     return if (state == STATE_ACTIVE && otherState == STATE_ACTIVE && canBeInterrupted) {
       // if both handlers are active and the current handler can be interrupted it we return `false`
@@ -77,7 +122,17 @@ class NativeViewGestureHandler : GestureHandler() {
     // otherwise we can only return `true` if already in an active state
   }
 
-  override fun shouldBeCancelledBy(handler: GestureHandler): Boolean = !disallowInterruption
+  override fun shouldBeCancelledBy(handler: GestureHandler): Boolean = canBeInterruptedBy(handler)
+
+  /**
+   * Whether this handler permits [other] to take over the touch stream, given its
+   * `disallowInterruption` and `yieldsToContinuousGestures` configuration.
+   */
+  fun canBeInterruptedBy(other: GestureHandler): Boolean = !disallowInterruption ||
+    (yieldsToContinuousGestures && other.isContinuous)
+
+  override fun shouldBeginWithRecordedHandlers(recorded: List<GestureHandler>): Boolean =
+    hook.shouldBeginWithRecordedHandlers(recorded, this)
 
   override fun onPrepare() {
     when (val view = view) {
@@ -89,26 +144,26 @@ class NativeViewGestureHandler : GestureHandler() {
       is ReactTextView -> this.hook = TextViewHook()
       is ReactViewGroup -> this.hook = ReactViewGroupHook()
     }
+
+    delaysChildPressedState?.let { delays ->
+      this.view?.let {
+        if (trySetChildPressedStateDelay(it, delays)) {
+          pressedStateDelayOverriddenView = it
+        }
+      }
+    }
   }
 
   override fun onHandle(event: MotionEvent, sourceEvent: MotionEvent) {
     val view = view!!
-
-    val isTouchExplorationEnabled = view.context.isScreenReaderOn()
-
-    if (view is RNGestureHandlerButtonViewManager.ButtonViewGroup && isTouchExplorationEnabled) {
-      // Fix for: https://github.com/software-mansion/react-native-gesture-handler/issues/2808
-      // When TalkBack is enabled, events are often not being sent to the orchestrator for processing.
-      // Instead, states will be changed directly by an alternative mechanism added in this PR:
-      // https://github.com/software-mansion/react-native-gesture-handler/pull/2234
-      return
-    }
-
     if (event.actionMasked == MotionEvent.ACTION_UP) {
       if (state == STATE_UNDETERMINED && !hook.canBegin(event)) {
         cancel()
       } else {
         hook.sendTouchEvent(view, event)
+        if (shouldStopNestedScroll()) {
+          view.stopNestedScroll()
+        }
 
         if ((state == STATE_UNDETERMINED || state == STATE_BEGAN) && hook.canActivate(view)) {
           activate()
@@ -123,6 +178,10 @@ class NativeViewGestureHandler : GestureHandler() {
 
       hook.afterGestureEnd(event)
     } else if (state == STATE_UNDETERMINED || state == STATE_BEGAN) {
+      if (state != STATE_BEGAN && hook.canBegin(event)) {
+        begin()
+      }
+
       when {
         shouldActivateOnStart -> {
           tryIntercept(view, event)
@@ -138,12 +197,6 @@ class NativeViewGestureHandler : GestureHandler() {
         hook.wantsToHandleEventBeforeActivation() -> {
           hook.handleEventBeforeActivation(event)
         }
-
-        state != STATE_BEGAN -> {
-          if (hook.canBegin(event)) {
-            begin()
-          }
-        }
       }
     } else if (state == STATE_ACTIVE) {
       hook.sendTouchEvent(view, event)
@@ -156,8 +209,18 @@ class NativeViewGestureHandler : GestureHandler() {
       action = MotionEvent.ACTION_CANCEL
     }
     hook.sendTouchEvent(view, event)
+    if (shouldStopNestedScroll()) {
+      view?.stopNestedScroll()
+    }
     event.recycle()
   }
+
+  // Once the handler is active, it delivers touches straight to the view's `onTouchEvent`. Normally
+  // touches arrive through `View.dispatchTouchEvent`, which also ends the nested scroll when the finger
+  // goes up. Because we skip it, the nested scroll stays open and the parent never finds out that the
+  // gesture is over - e.g. SwipeRefreshLayout never fires refresh (#4485). While the handler is not
+  // active, the view still receives touches the regular way, so Android takes care of it.
+  private fun shouldStopNestedScroll() = state == STATE_ACTIVE && hook.shouldStopNestedScroll()
 
   override fun onCancel() = dispatchCancelEventToView()
 
@@ -165,7 +228,52 @@ class NativeViewGestureHandler : GestureHandler() {
 
   override fun onReset() {
     this.hook = defaultHook
+    lastActiveUpdate = null
+    // `null` restores the view's default pressed state delay behavior.
+    pressedStateDelayOverriddenView?.let { trySetChildPressedStateDelay(it, null) }
+    pressedStateDelayOverriddenView = null
   }
+
+  override fun dispatchHandlerUpdate(event: MotionEvent) {
+    val snapshot = ActiveUpdateSnapshot(isWithinBounds, numberOfPointers, pointerType)
+    if (snapshot == lastActiveUpdate) {
+      return
+    }
+    lastActiveUpdate = snapshot
+    super.dispatchHandlerUpdate(event)
+
+    hook.onHandlerUpdate(this)
+  }
+
+  override fun dispatchStateChange(newState: Int, prevState: Int) {
+    lastActiveUpdate = null
+    super.dispatchStateChange(newState, prevState)
+
+    hook.onHandlerStateChange(this, newState, prevState)
+  }
+
+  override fun wantsToAttachDirectlyToView() = true
+
+  fun shouldCancelOnNativeTouchGrab(grabbedMidGesture: Boolean): Boolean =
+    hook.shouldCancelOnNativeTouchGrab(grabbedMidGesture)
+
+  data class HitSlop(
+    val left: Float = HIT_SLOP_NONE,
+    val top: Float = HIT_SLOP_NONE,
+    val right: Float = HIT_SLOP_NONE,
+    val bottom: Float = HIT_SLOP_NONE,
+  )
+
+  data class Config(
+    val enabled: Boolean = true,
+    val shouldCancelWhenOutside: Boolean = DEFAULT_SHOULD_CANCEL_WHEN_OUTSIDE,
+    val hitSlop: HitSlop? = null,
+    val testID: String? = null,
+    val shouldActivateOnStart: Boolean = DEFAULT_SHOULD_ACTIVATE_ON_START,
+    val disallowInterruption: Boolean = DEFAULT_DISALLOW_INTERRUPTION,
+    val yieldsToContinuousGestures: Boolean = DEFAULT_YIELDS_TO_CONTINUOUS_GESTURES,
+    val delaysChildPressedState: Boolean? = DEFAULT_DELAYS_CHILD_PRESSED_STATE,
+  )
 
   class Factory : GestureHandler.Factory<NativeViewGestureHandler>() {
     override val type = NativeViewGestureHandler::class.java
@@ -173,13 +281,19 @@ class NativeViewGestureHandler : GestureHandler() {
 
     override fun create(context: Context?): NativeViewGestureHandler = NativeViewGestureHandler()
 
-    override fun setConfig(handler: NativeViewGestureHandler, config: ReadableMap) {
-      super.setConfig(handler, config)
+    override fun updateConfig(handler: NativeViewGestureHandler, config: ReadableMap) {
+      super.updateConfig(handler, config)
       if (config.hasKey(KEY_SHOULD_ACTIVATE_ON_START)) {
         handler.shouldActivateOnStart = config.getBoolean(KEY_SHOULD_ACTIVATE_ON_START)
       }
       if (config.hasKey(KEY_DISALLOW_INTERRUPTION)) {
         handler.disallowInterruption = config.getBoolean(KEY_DISALLOW_INTERRUPTION)
+      }
+      if (config.hasKey(KEY_YIELDS_TO_CONTINUOUS_GESTURES)) {
+        handler.yieldsToContinuousGestures = config.getBoolean(KEY_YIELDS_TO_CONTINUOUS_GESTURES)
+      }
+      if (config.hasKey(KEY_DELAYS_CHILD_PRESSED_STATE)) {
+        handler.delaysChildPressedState = config.getBoolean(KEY_DELAYS_CHILD_PRESSED_STATE)
       }
     }
 
@@ -188,6 +302,8 @@ class NativeViewGestureHandler : GestureHandler() {
     companion object {
       private const val KEY_SHOULD_ACTIVATE_ON_START = "shouldActivateOnStart"
       private const val KEY_DISALLOW_INTERRUPTION = "disallowInterruption"
+      private const val KEY_YIELDS_TO_CONTINUOUS_GESTURES = "yieldsToContinuousGestures"
+      private const val KEY_DELAYS_CHILD_PRESSED_STATE = "delaysChildPressedState"
     }
   }
 
@@ -195,10 +311,44 @@ class NativeViewGestureHandler : GestureHandler() {
     private const val DEFAULT_SHOULD_CANCEL_WHEN_OUTSIDE = true
     private const val DEFAULT_SHOULD_ACTIVATE_ON_START = false
     private const val DEFAULT_DISALLOW_INTERRUPTION = false
+    private const val DEFAULT_YIELDS_TO_CONTINUOUS_GESTURES = false
+    private val DEFAULT_DELAYS_CHILD_PRESSED_STATE: Boolean = true
+
+    // `HasChildPressedStateDelay` was introduced in React Native 0.87 — it's accessed via
+    // reflection so that the library compiles and runs on older versions.
+    private val childPressedStateDelaySetter: Method? by lazy {
+      try {
+        Class
+          .forName("com.facebook.react.uimanager.HasChildPressedStateDelay")
+          .getMethod("setHasChildPressedStateDelay", Boolean::class.javaObjectType)
+      } catch (e: ReflectiveOperationException) {
+        null
+      }
+    }
+
+    private fun trySetChildPressedStateDelay(view: View, value: Boolean?): Boolean {
+      val setter = childPressedStateDelaySetter ?: return false
+      if (!setter.declaringClass.isInstance(view)) {
+        return false
+      }
+
+      return try {
+        setter.invoke(view, value)
+        true
+      } catch (e: ReflectiveOperationException) {
+        false
+      }
+    }
 
     private fun tryIntercept(view: View, event: MotionEvent) = view is ViewGroup && view.onInterceptTouchEvent(event)
 
     private val defaultHook = object : NativeViewGestureHandlerHook {}
+
+    enum class ScrollDirection(val value: Int) {
+      UP(-1),
+      DOWN(1),
+      NONE(0),
+    }
   }
 
   interface NativeViewGestureHandlerHook {
@@ -210,6 +360,12 @@ class NativeViewGestureHandler : GestureHandler() {
      * the gesture will be cancelled.
      */
     fun canBegin(event: MotionEvent) = true
+
+    /**
+     * Whether the view's nested scroll should be stopped when the active gesture ends. Touches
+     * are fed through `onTouchEvent`, so `View.dispatchTouchEvent` never gets to do it.
+     */
+    fun shouldStopNestedScroll() = false
 
     /**
      * Checks whether handler can activate. Used by TextViewHook.
@@ -226,6 +382,11 @@ class NativeViewGestureHandler : GestureHandler() {
      * other (handler). Returning false doesn't necessarily prevent it from happening.
      */
     fun shouldRecognizeSimultaneously(handler: GestureHandler): Boolean? = null
+
+    /**
+     * Called after a native view grabbed the touch lock; return true to cancel the handler.
+     */
+    fun shouldCancelOnNativeTouchGrab(grabbedMidGesture: Boolean) = false
 
     /**
      * shouldActivateOnStart and tryIntercept have priority over this method
@@ -247,9 +408,29 @@ class NativeViewGestureHandler : GestureHandler() {
     fun shouldCancelRootViewGestureHandlerIfNecessary() = false
 
     /**
+     * Called when the handler is being recorded by the orchestrator, before any pointer events
+     * are delivered. Returning `false` cancels the handler immediately.
+     *
+     * @param recorded handlers already recorded for the current touch
+     * @param handler the handler being recorded
+     */
+    fun shouldBeginWithRecordedHandlers(recorded: List<GestureHandler>, handler: NativeViewGestureHandler): Boolean =
+      true
+
+    /**
      * Passes the event down to the underlying view using the correct method.
      */
     fun sendTouchEvent(view: View?, event: MotionEvent) = view?.onTouchEvent(event)
+
+    /*
+     * Called when the handler processes a new update event.
+     */
+    fun onHandlerUpdate(handler: NativeViewGestureHandler) = Unit
+
+    /*
+     * Called when the handler moves to a new state.
+     */
+    fun onHandlerStateChange(handler: NativeViewGestureHandler, newState: Int, prevState: Int) = Unit
   }
 
   private class TextViewHook : NativeViewGestureHandlerHook {
@@ -279,11 +460,14 @@ class NativeViewGestureHandler : GestureHandler() {
       }
     }
 
-    // recognize alongside every handler besides RootViewGestureHandler, which is a private inner class
-    // of RNGestureHandlerRootHelper so no explicit type checks, but its tag is always negative
+    // recognize alongside every handler besides RootViewGestureHandler;
     // also if other handler is NativeViewGestureHandler then don't override the default implementation
-    override fun shouldRecognizeSimultaneously(handler: GestureHandler) =
-      handler.tag > 0 && handler !is NativeViewGestureHandler
+    override fun shouldRecognizeSimultaneously(handler: GestureHandler): Boolean? =
+      if (handler is NativeViewGestureHandler) {
+        null
+      } else {
+        handler !is RNGestureHandlerRootHelper.RootViewGestureHandler
+      }
 
     override fun wantsToHandleEventBeforeActivation() = true
 
@@ -302,6 +486,7 @@ class NativeViewGestureHandler : GestureHandler() {
     private val handler: NativeViewGestureHandler,
     private val swipeRefreshLayout: ReactSwipeRefreshLayout,
   ) : NativeViewGestureHandlerHook {
+    private var lastY: Float? = null
     override fun wantsToHandleEventBeforeActivation() = true
 
     override fun handleEventBeforeActivation(event: MotionEvent) {
@@ -321,10 +506,31 @@ class NativeViewGestureHandler : GestureHandler() {
           it is NativeViewGestureHandler
         }
 
-      // If handler was found, it's active and the ScrollView is not at the top, fail the RefreshControl
-      if (scrollHandler != null && scrollHandler.state == STATE_ACTIVE && scroll.scrollY > 0) {
+      // In old API ScrollView was detecting scroll even if RefreshControl hasn't been cancelled yet.
+      // This doesn't work on new API, therefore we check scroll direction. This shouldn't affect old APIs.
+      // To determine scroll direction, we will compare current event with previous one.
+      // Note: Scrolling up is handled by `canScrollVertically` method.
+      val scrollDirection = lastY?.let {
+        val dy = it - event.y
+
+        when {
+          dy < 0 -> ScrollDirection.UP
+          dy > 0 -> ScrollDirection.DOWN
+          else -> ScrollDirection.NONE
+        }
+      } ?: ScrollDirection.NONE
+
+      // We want to fail RefreshControl if we find active ScrollView handler and we either:
+      // 1. scroll down,
+      // 2. scroll up when we are not at the top of the list.
+      if (scrollHandler != null &&
+        scrollHandler.state == STATE_ACTIVE &&
+        (scrollDirection == ScrollDirection.DOWN || scroll.canScrollVertically(ScrollDirection.UP.value))
+      ) {
         handler.fail()
       }
+
+      lastY = event.y
 
       // The drawback is that the smooth transition from scrolling to refreshing in a single swipe
       // is impossible this way and two swipes are required:
@@ -336,6 +542,10 @@ class NativeViewGestureHandler : GestureHandler() {
 
   private class ScrollViewHook : NativeViewGestureHandlerHook {
     override fun shouldCancelRootViewGestureHandlerIfNecessary() = true
+
+    // ScrollView starts a nested scroll on DOWN but never stops it itself. Without this the
+    // parent's `onStopNestedScroll` never runs, e.g. SwipeRefreshLayout never triggers refresh.
+    override fun shouldStopNestedScroll() = true
   }
 
   private class ReactViewGroupHook : NativeViewGestureHandlerHook {

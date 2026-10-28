@@ -59,9 +59,11 @@ Pod::Spec.new do |s|
   s.dependency "RCTTypeSafety"
   s.dependency "React-RCTNetwork"
   s.dependency "React-RCTImage"
+  s.dependency "React-RCTLinking"
   s.dependency "React-CoreModules"
   s.dependency "React-RCTFBReactNativeSpec"
   s.dependency "React-defaultsnativemodule"
+  s.dependency "React-RCTAnimatedModuleProvider"
   if use_hermes()
     s.dependency 'React-hermes'
   end
@@ -85,4 +87,6 @@ Pod::Spec.new do |s|
   depend_on_js_engine(s)
   add_rn_third_party_dependencies(s)
   add_rncore_dependency(s)
+
+  mark_as_react_native_build(s)
 end

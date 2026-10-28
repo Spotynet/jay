@@ -1,31 +1,40 @@
 "use strict";
 
 import * as React from 'react';
-import { ScrollView as RNScrollView, Switch as RNSwitch, TextInput as RNTextInput, DrawerLayoutAndroid as RNDrawerLayoutAndroid, FlatList as RNFlatList, RefreshControl as RNRefreshControl } from 'react-native';
+import { FlatList as RNFlatList, RefreshControl as RNRefreshControl, ScrollView as RNScrollView, Switch as RNSwitch, TextInput as RNTextInput } from 'react-native';
 import createNativeWrapper from '../handlers/createNativeWrapper';
 import { nativeViewProps } from '../handlers/NativeViewGestureHandler';
 import { toArray } from '../utils';
+
+/**
+ * @deprecated use `RefreshControl` instead
+ */
 import { jsx as _jsx } from "react/jsx-runtime";
-export const RefreshControl = createNativeWrapper(RNRefreshControl, {
+export const LegacyRefreshControl = createNativeWrapper(RNRefreshControl, {
   disallowInterruption: true,
   shouldCancelWhenOutside: false
 });
+
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 
 const GHScrollView = createNativeWrapper(RNScrollView, {
   disallowInterruption: true,
   shouldCancelWhenOutside: false
 });
-export const ScrollView = /*#__PURE__*/React.forwardRef((props, ref) => {
+
+/**
+ * @deprecated use `ScrollView` instead
+ */
+export const LegacyScrollView = props => {
   const refreshControlGestureRef = React.useRef(null);
   const {
     refreshControl,
     waitFor,
+    ref,
     ...rest
   } = props;
   return /*#__PURE__*/_jsx(GHScrollView, {
     ...rest,
-    // @ts-ignore `ref` exists on `GHScrollView`
     ref: ref,
     waitFor: [...toArray(waitFor ?? []), refreshControlGestureRef]
     // @ts-ignore we don't pass `refreshing` prop as we only want to override the ref
@@ -35,27 +44,59 @@ export const ScrollView = /*#__PURE__*/React.forwardRef((props, ref) => {
       ref: refreshControlGestureRef
     }) : undefined
   });
-});
+};
+
 // Backward type compatibility with https://github.com/software-mansion/react-native-gesture-handler/blob/db78d3ca7d48e8ba57482d3fe9b0a15aa79d9932/react-native-gesture-handler.d.ts#L440-L457
 // include methods of wrapped components by creating an intersection type with the RN component instead of duplicating them.
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 
-export const Switch = createNativeWrapper(RNSwitch, {
+/**
+ * @deprecated use `Switch` instead
+ */
+export const LegacySwitch = createNativeWrapper(RNSwitch, {
   shouldCancelWhenOutside: false,
   shouldActivateOnStart: true,
   disallowInterruption: true
 });
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 
-export const TextInput = createNativeWrapper(RNTextInput);
+/**
+ * @deprecated use `RefreshControl` instead
+ */
+export const LegacyTextInput = createNativeWrapper(RNTextInput);
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 
-export const DrawerLayoutAndroid = createNativeWrapper(RNDrawerLayoutAndroid, {
+// RN's `DrawerLayoutAndroid` export is a getter that logs a deprecation
+// warning on access, so resolve it on first render instead of module load.
+// `require` is used on purpose: `import * as RN` would read every export
+// eagerly under Metro's `experimentalImportSupport`.
+let DrawerLayoutAndroidImpl;
+const LazyDrawerLayoutAndroid = props => {
+  if (!DrawerLayoutAndroidImpl) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {
+      DrawerLayoutAndroid
+    } = require('react-native');
+    DrawerLayoutAndroidImpl = DrawerLayoutAndroid;
+  }
+  return /*#__PURE__*/_jsx(DrawerLayoutAndroidImpl, {
+    ...props
+  });
+};
+LazyDrawerLayoutAndroid.displayName = 'DrawerLayoutAndroid';
+
+/**
+ * @deprecated use `DrawerLayoutAndroid` instead
+ */
+export const LegacyDrawerLayoutAndroid = createNativeWrapper(LazyDrawerLayoutAndroid, {
   disallowInterruption: true
 });
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 
-export const FlatList = /*#__PURE__*/React.forwardRef((props, ref) => {
+/**
+ * @deprecated use `FlatList` instead
+ */
+export const LegacyFlatList = props => {
   const refreshControlGestureRef = React.useRef(null);
   const {
     waitFor,
@@ -80,9 +121,8 @@ export const FlatList = /*#__PURE__*/React.forwardRef((props, ref) => {
     /*#__PURE__*/
     // @ts-ignore - this function cannot have generic type so we have to ignore this error
     _jsx(RNFlatList, {
-      ref: ref,
       ...flatListProps,
-      renderScrollComponent: scrollProps => /*#__PURE__*/_jsx(ScrollView, {
+      renderScrollComponent: scrollProps => /*#__PURE__*/_jsx(LegacyScrollView, {
         ...scrollProps,
         ...scrollViewProps,
         waitFor: [...toArray(waitFor ?? []), refreshControlGestureRef]
@@ -95,6 +135,7 @@ export const FlatList = /*#__PURE__*/React.forwardRef((props, ref) => {
       }) : undefined
     })
   );
-});
+};
+
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 //# sourceMappingURL=GestureComponents.js.map

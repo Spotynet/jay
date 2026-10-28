@@ -1,4 +1,4 @@
-import { AdaptedEvent, EventTypes } from '../interfaces';
+import type { AdaptedEvent, EventTypes } from '../interfaces';
 type PointerEventCallback = (event: AdaptedEvent) => void;
 export default abstract class EventManager<T> {
     protected readonly view: T;
@@ -20,6 +20,7 @@ export default abstract class EventManager<T> {
     protected onPointerMoveOver(_event: AdaptedEvent): void;
     protected onPointerMoveOut(_event: AdaptedEvent): void;
     protected onWheel(_event: AdaptedEvent): void;
+    protected onScroll(_event: AdaptedEvent): void;
     setOnPointerDown(callback: PointerEventCallback): void;
     setOnPointerAdd(callback: PointerEventCallback): void;
     setOnPointerUp(callback: PointerEventCallback): void;
@@ -32,8 +33,10 @@ export default abstract class EventManager<T> {
     setOnPointerMoveOver(callback: PointerEventCallback): void;
     setOnPointerMoveOut(callback: PointerEventCallback): void;
     setOnWheel(callback: PointerEventCallback): void;
+    setOnScroll(callback: PointerEventCallback): void;
     protected markAsInBounds(pointerId: number): void;
     protected markAsOutOfBounds(pointerId: number): void;
+    setEnabled(value: boolean | null): void;
     resetManager(): void;
 }
 export {};

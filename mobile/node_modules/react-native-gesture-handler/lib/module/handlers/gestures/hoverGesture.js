@@ -1,12 +1,6 @@
 "use strict";
 
 import { ContinousBaseGesture } from './gesture';
-export let HoverEffect = /*#__PURE__*/function (HoverEffect) {
-  HoverEffect[HoverEffect["NONE"] = 0] = "NONE";
-  HoverEffect[HoverEffect["LIFT"] = 1] = "LIFT";
-  HoverEffect[HoverEffect["HIGHLIGHT"] = 2] = "HIGHLIGHT";
-  return HoverEffect;
-}({});
 export const hoverGestureHandlerProps = ['hoverEffect'];
 function changeEventCalculator(current, previous) {
   'worklet';
@@ -28,6 +22,10 @@ function changeEventCalculator(current, previous) {
     ...changePayload
   };
 }
+
+/**
+ * @deprecated `HoverGesture` is deprecated and will be removed in the future. Please use `useHoverGesture` instead.
+ */
 export class HoverGesture extends ContinousBaseGesture {
   config = {};
   constructor() {
@@ -49,4 +47,8 @@ export class HoverGesture extends ContinousBaseGesture {
     return super.onChange(callback);
   }
 }
+
+/**
+ * @deprecated `HoverGestureType` is deprecated and will be removed in the future. Please use `HoverGesture` instead.
+ */
 //# sourceMappingURL=hoverGesture.js.map

@@ -1,9 +1,9 @@
 "use strict";
 
-import { Animated, Easing, StyleSheet, View } from 'react-native';
-import GenericTouchable, { TOUCHABLE_STATE } from './GenericTouchable';
 import * as React from 'react';
 import { Component } from 'react';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
+import GenericTouchable, { TOUCHABLE_STATE } from './GenericTouchable';
 
 /**
  * @deprecated TouchableOpacity will be removed in the future version of Gesture Handler. Use Pressable instead.
@@ -30,6 +30,7 @@ export default class TouchableOpacity extends Component {
     Animated.timing(this.opacity, {
       toValue: value,
       duration: duration,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       easing: Easing.inOut(Easing.quad),
       useNativeDriver: this.props.useNativeAnimations ?? true
     }).start();

@@ -1,13 +1,18 @@
-import { AdaptedEvent } from '../interfaces';
+import type { ActionType } from '../../ActionType';
+import type { AdaptedEvent, HostDetector, PropsRef } from '../interfaces';
+import type { GestureHandlerDelegate } from '../tools/GestureHandlerDelegate';
 import GestureHandler from './GestureHandler';
+import type IGestureHandler from './IGestureHandler';
 export default class PinchGestureHandler extends GestureHandler {
+    readonly isContinuous = true;
     private scale;
     private velocity;
     private startingSpan;
     private spanSlop;
     private scaleDetectorListener;
     private scaleGestureDetector;
-    init(ref: number, propsRef: React.RefObject<unknown>): void;
+    constructor(delegate: GestureHandlerDelegate<unknown, IGestureHandler>);
+    init(ref: number, propsRef: React.RefObject<PropsRef>, actionType: ActionType, hostDetector?: HostDetector | null): void;
     protected transformNativeEvent(): {
         focalX: number;
         focalY: number;

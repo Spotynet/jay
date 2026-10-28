@@ -19,6 +19,10 @@ function changeEventCalculator(current, previous) {
     ...changePayload
   };
 }
+
+/**
+ * @deprecated `RotationGesture` is deprecated and will be removed in the future. Please use `useRotationGesture` instead.
+ */
 export class RotationGesture extends ContinousBaseGesture {
   constructor() {
     super();
@@ -30,4 +34,8 @@ export class RotationGesture extends ContinousBaseGesture {
     return super.onChange(callback);
   }
 }
+
+/**
+ * @deprecated `RotationGestureType` is deprecated and will be removed in the future. Please use `RotationGesture` instead.
+ */
 //# sourceMappingURL=rotationGesture.js.map

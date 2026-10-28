@@ -1,8 +1,8 @@
 "use strict";
 
 import React from 'react';
-import { tagMessage } from '../utils';
 import PlatformConstants from '../PlatformConstants';
+import { tagMessage } from '../utils';
 import createHandler from './createHandler';
 import { baseGestureHandlerProps } from './gestureHandlerCommon';
 export const forceTouchGestureHandlerProps = ['minForce', 'maxForce', 'feedbackOnActivation'];

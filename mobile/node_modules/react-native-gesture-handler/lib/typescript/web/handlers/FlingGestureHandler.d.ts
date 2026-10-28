@@ -1,5 +1,7 @@
-import { AdaptedEvent, Config } from '../interfaces';
+import type { AdaptedEvent, Config } from '../interfaces';
+import type { GestureHandlerDelegate } from '../tools/GestureHandlerDelegate';
 import GestureHandler from './GestureHandler';
+import type IGestureHandler from './IGestureHandler';
 export default class FlingGestureHandler extends GestureHandler {
     private numberOfPointersRequired;
     private direction;
@@ -8,7 +10,8 @@ export default class FlingGestureHandler extends GestureHandler {
     private delayTimeout;
     private maxNumberOfPointersSimultaneously;
     private keyPointer;
-    updateGestureConfig({ enabled, ...props }: Config): void;
+    constructor(delegate: GestureHandlerDelegate<unknown, IGestureHandler>);
+    updateGestureConfig(config: Config): void;
     private startFling;
     private tryEndFling;
     private endFling;

@@ -1,9 +1,13 @@
-import { AdaptedEvent, Config, StylusData } from '../interfaces';
+import type { StylusData } from '../../handlers/gestureHandlerCommon';
+import type { AdaptedEvent, Config } from '../interfaces';
+import type { GestureHandlerDelegate } from '../tools/GestureHandlerDelegate';
 import GestureHandler from './GestureHandler';
+import type IGestureHandler from './IGestureHandler';
 export default class PanGestureHandler extends GestureHandler {
-    private readonly customActivationProperties;
+    readonly isContinuous = true;
     velocityX: number;
     velocityY: number;
+    private minDist?;
     private minDistSq;
     private activeOffsetXStart;
     private activeOffsetXEnd;
@@ -30,7 +34,9 @@ export default class PanGestureHandler extends GestureHandler {
     private enableTrackpadTwoFingerGesture;
     private endWheelTimeout;
     private wheelDevice;
-    updateGestureConfig({ enabled, ...props }: Config): void;
+    private hasCustomActivationCriteria;
+    constructor(delegate: GestureHandlerDelegate<unknown, IGestureHandler>);
+    updateGestureConfig(config: Config): void;
     protected resetConfig(): void;
     protected transformNativeEvent(): {
         translationX: number;

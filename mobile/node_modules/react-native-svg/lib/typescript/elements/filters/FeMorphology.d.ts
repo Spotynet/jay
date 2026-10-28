@@ -8,10 +8,10 @@ export interface FeMorphologyProps {
 export default class FeMorphology extends FilterPrimitive<FeMorphologyProps> {
     static displayName: string;
     static defaultProps: {
-        x?: import("../../lib/extract/types").NumberProp;
-        y?: import("../../lib/extract/types").NumberProp;
-        width?: import("../../lib/extract/types").NumberProp;
-        height?: import("../../lib/extract/types").NumberProp;
+        x?: import("../..").NumberProp;
+        y?: import("../..").NumberProp;
+        width?: import("../..").NumberProp;
+        height?: import("../..").NumberProp;
         result?: string;
     };
     render(): null;

@@ -11,21 +11,89 @@ class RNGestureHandlerRegistry : GestureHandlerRegistry {
   private val handlers = SparseArray<GestureHandler>()
   private val attachedTo = SparseArray<Int?>()
   private val handlersForView = SparseArray<ArrayList<GestureHandler>>()
+  private val observers = mutableMapOf<Int, MutableMap<Any, (GestureHandler) -> Unit>>()
+
+  fun registerHandler(handler: GestureHandler) {
+    val hasObservers = synchronized(this) {
+      handlers.put(handler.tag, handler)
+      observers[handler.tag]?.isNotEmpty() == true
+    }
+
+    if (!hasObservers) {
+      return
+    }
+
+    // `createGestureHandler` runs on the JS thread, but observer callbacks read detector
+    // view state (childCount, getChildAt) and may attach native handlers, so they must run
+    // on the UI thread. Re-resolve the observer list on the UI thread so a cancellation that
+    // happens between this post and `notify` running (e.g. detector detach) actually prevents
+    // the callback.
+    val notify = {
+      val callbacks = synchronized(this) {
+        observers[handler.tag]?.values?.toList().orEmpty()
+      }
+      for (callback in callbacks) {
+        callback(handler)
+      }
+    }
+
+    if (UiThreadUtil.isOnUiThread()) {
+      notify()
+    } else {
+      UiThreadUtil.runOnUiThread(notify)
+    }
+  }
+
+  // Invokes `block` every time a handler with `tag` is registered, and synchronously once now if
+  // the handler already exists. The observation persists until explicitly cancelled: the registry
+  // holds both `owner` and `block` strongly, so callers MUST call `cancelObservation` or
+  // `cancelAllObservationsForOwner` when the owner is going away (typically in detach / dispose
+  // paths) to avoid leaking the owner. Observing the same tag twice with the same `owner` replaces
+  // the previous block.
+  fun observeHandler(tag: Int, owner: Any, block: (GestureHandler) -> Unit) {
+    val existing = synchronized(this) {
+      observers.getOrPut(tag) { mutableMapOf() }[owner] = block
+      handlers[tag]
+    }
+    existing?.let { block(it) }
+  }
 
   @Synchronized
-  fun registerHandler(handler: GestureHandler) {
-    handlers.put(handler.tag, handler)
+  fun cancelObservation(tag: Int, owner: Any) {
+    val observersForTag = observers[tag] ?: return
+    observersForTag.remove(owner)
+    if (observersForTag.isEmpty()) {
+      observers.remove(tag)
+    }
+  }
+
+  @Synchronized
+  fun cancelAllObservationsForOwner(owner: Any) {
+    val iterator = observers.entries.iterator()
+    while (iterator.hasNext()) {
+      val entry = iterator.next()
+      entry.value.remove(owner)
+      if (entry.value.isEmpty()) {
+        iterator.remove()
+      }
+    }
   }
 
   @Synchronized
   fun getHandler(handlerTag: Int): GestureHandler? = handlers[handlerTag]
 
   @Synchronized
-  fun attachHandlerToView(handlerTag: Int, viewTag: Int, actionType: Int): Boolean {
+  fun attachHandlerToView(
+    handlerTag: Int,
+    viewTag: Int,
+    actionType: Int,
+    hostDetectorView: RNGestureHandlerDetectorView? = null,
+  ): Boolean {
     val handler = handlers[handlerTag]
     return handler?.let {
-      detachHandler(handler)
+      detachHandlerInternal(handler)
       handler.actionType = actionType
+      handler.hostDetectorView = hostDetectorView
       registerHandlerForViewWithTag(viewTag, handler)
       true
     } ?: false
@@ -48,7 +116,7 @@ class RNGestureHandlerRegistry : GestureHandlerRegistry {
   }
 
   @Synchronized
-  private fun detachHandler(handler: GestureHandler) {
+  private fun detachHandlerInternal(handler: GestureHandler) {
     val attachedToView = attachedTo[handler.tag]
     if (attachedToView != null) {
       attachedTo.remove(handler.tag)
@@ -72,9 +140,17 @@ class RNGestureHandlerRegistry : GestureHandlerRegistry {
   }
 
   @Synchronized
+  fun detachHandlerFromHostDetector(handlerTag: Int, hostDetectorView: RNGestureHandlerDetectorView?) {
+    handlers[handlerTag]?.let {
+      if (it.hostDetectorView != hostDetectorView) return
+      detachHandlerInternal(it)
+    }
+  }
+
+  @Synchronized
   fun dropHandler(handlerTag: Int) {
     handlers[handlerTag]?.let {
-      detachHandler(it)
+      detachHandlerInternal(it)
       handlers.remove(handlerTag)
     }
   }
@@ -87,7 +163,7 @@ class RNGestureHandlerRegistry : GestureHandlerRegistry {
   }
 
   @Synchronized
-  fun getHandlersForViewWithTag(viewTag: Int): ArrayList<GestureHandler>? = handlersForView[viewTag]
+  override fun getHandlersForViewWithTag(viewTag: Int): ArrayList<GestureHandler>? = handlersForView[viewTag]
 
   @Synchronized
   override fun getHandlersForView(view: View): ArrayList<GestureHandler>? = getHandlersForViewWithTag(view.id)

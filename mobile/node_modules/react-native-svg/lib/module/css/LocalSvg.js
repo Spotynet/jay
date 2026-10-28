@@ -1,13 +1,12 @@
 function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
 import * as React from 'react';
 import { useState, useEffect, Component } from 'react';
-import { Image, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { fetchText } from 'react-native-svg';
 import { resolveAssetUri } from '../lib/resolveAssetUri';
 import { SvgCss, SvgWithCss } from './css';
 export function getUriFromSource(source) {
-  const resolvedAssetSource = Platform.OS === 'web' ? resolveAssetUri(source) : Image.resolveAssetSource(source);
-  return resolvedAssetSource === null || resolvedAssetSource === void 0 ? void 0 : resolvedAssetSource.uri;
+  return resolveAssetUri(source)?.uri;
 }
 export function loadLocalRawResourceDefault(source) {
   const uri = getUriFromSource(source);

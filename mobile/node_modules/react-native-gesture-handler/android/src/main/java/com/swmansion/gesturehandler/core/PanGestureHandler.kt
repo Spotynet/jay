@@ -10,9 +10,12 @@ import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.uimanager.PixelUtil
 import com.swmansion.gesturehandler.core.GestureUtils.getLastPointerX
 import com.swmansion.gesturehandler.core.GestureUtils.getLastPointerY
-import com.swmansion.gesturehandler.react.eventbuilders.PanGestureHandlerEventDataBuilder
+import com.swmansion.gesturehandler.react.events.eventbuilders.PanGestureHandlerEventDataBuilder
+import kotlin.math.abs
 
 class PanGestureHandler(context: Context?) : GestureHandler() {
+  override val isContinuous = true
+
   var velocityX = 0f
     private set
   var velocityY = 0f
@@ -24,6 +27,12 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
 
   private val defaultMinDist: Float
   private var minDist = MAX_VALUE_IGNORE
+
+  // Config updates may be partial (e.g. a single key sent when a shared value used in the config
+  // changes), so both of these need to persist between updateConfig calls - deriving them from the
+  // keys present in a single update would reset minDist based on an incomplete picture.
+  private var hasCustomActivationCriteria = false
+  private var hasExplicitMinDist = false
   private var activeOffsetXStart = MIN_VALUE_IGNORE
   private var activeOffsetXEnd = MAX_VALUE_IGNORE
   private var failOffsetXStart = MAX_VALUE_IGNORE
@@ -51,7 +60,7 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
   private var averageTouches = false
   private var activateAfterLongPress = DEFAULT_ACTIVATE_AFTER_LONG_PRESS
   private val activateDelayed = Runnable { activate() }
-  private var handler: Handler? = null
+  private val handler = Handler(Looper.getMainLooper())
   var stylusData: StylusData = StylusData()
     private set
 
@@ -87,6 +96,8 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
     minVelocityY = DEFAULT_MIN_VELOCITY_Y
     minVelocity = DEFAULT_MIN_VELOCITY
     minDist = defaultMinDist
+    hasCustomActivationCriteria = false
+    hasExplicitMinDist = false
     minPointers = DEFAULT_MIN_POINTERS
     maxPointers = DEFAULT_MAX_POINTERS
     activateAfterLongPress = DEFAULT_ACTIVATE_AFTER_LONG_PRESS
@@ -113,15 +124,11 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
       return true
     }
     val vx = velocityX
-    if (minVelocityX != MIN_VALUE_IGNORE &&
-      (minVelocityX < 0 && vx <= minVelocityX || minVelocityX in 0.0f..vx)
-    ) {
+    if (minVelocityX != MIN_VALUE_IGNORE && abs(vx) >= abs(minVelocityX)) {
       return true
     }
     val vy = velocityY
-    if (minVelocityY != MIN_VALUE_IGNORE &&
-      (minVelocityY < 0 && vx <= minVelocityY || minVelocityY in 0.0f..vx)
-    ) {
+    if (minVelocityY != MIN_VALUE_IGNORE && abs(vy) >= abs(minVelocityY)) {
       return true
     }
     val velocitySq = vx * vx + vy * vy
@@ -133,7 +140,7 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
     val dy = lastY - startY + offsetY
 
     if (activateAfterLongPress > 0 && dx * dx + dy * dy > defaultMinDist * defaultMinDist) {
-      handler?.removeCallbacksAndMessages(null)
+      handler.removeCallbacksAndMessages(null)
       return true
     }
     if (failOffsetXStart != MAX_VALUE_IGNORE && dx < failOffsetXStart) {
@@ -148,9 +155,23 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
     return failOffsetYEnd != MIN_VALUE_IGNORE && dy > failOffsetYEnd
   }
 
+  override fun initialize(event: MotionEvent, sourceEvent: MotionEvent) {
+    resetProgress()
+    offsetX = 0f
+    offsetY = 0f
+    velocityX = 0f
+    velocityY = 0f
+    velocityTracker = VelocityTracker.obtain()
+  }
+
   override fun onHandle(event: MotionEvent, sourceEvent: MotionEvent) {
-    if (!shouldActivateWithMouse(sourceEvent)) {
+    if (shouldSkipEvent(sourceEvent)) {
       return
+    }
+
+    if (forceReinitializeDuringOnHandle) {
+      forceReinitializeDuringOnHandle = false
+      initialize(event, sourceEvent)
     }
 
     if (event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS) {
@@ -174,20 +195,12 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
       lastY = getLastPointerY(sourceEvent, averageTouches)
     }
     if (state == STATE_UNDETERMINED && sourceEvent.pointerCount >= minPointers) {
-      resetProgress()
-      offsetX = 0f
-      offsetY = 0f
-      velocityX = 0f
-      velocityY = 0f
-      velocityTracker = VelocityTracker.obtain()
+      initialize(event, sourceEvent)
       addVelocityMovement(velocityTracker, sourceEvent)
       begin()
 
       if (activateAfterLongPress > 0) {
-        if (handler == null) {
-          handler = Handler(Looper.getMainLooper())
-        }
-        handler!!.postDelayed(activateDelayed, activateAfterLongPress)
+        handler.postDelayed(activateDelayed, activateAfterLongPress)
       }
     } else if (velocityTracker != null) {
       addVelocityMovement(velocityTracker, sourceEvent)
@@ -236,11 +249,11 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
   }
 
   override fun onCancel() {
-    handler?.removeCallbacksAndMessages(null)
+    handler.removeCallbacksAndMessages(null)
   }
 
   override fun onReset() {
-    handler?.removeCallbacksAndMessages(null)
+    handler.removeCallbacksAndMessages(null)
     velocityTracker?.let {
       it.recycle()
       velocityTracker = null
@@ -260,9 +273,8 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
 
     override fun create(context: Context?): PanGestureHandler = PanGestureHandler(context)
 
-    override fun setConfig(handler: PanGestureHandler, config: ReadableMap) {
-      super.setConfig(handler, config)
-      var hasCustomActivationCriteria = false
+    override fun updateConfig(handler: PanGestureHandler, config: ReadableMap) {
+      super.updateConfig(handler, config)
       if (config.hasKey(KEY_ACTIVE_OFFSET_X_START)) {
         handler.activeOffsetXStart =
           PixelUtil.toPixelFromDIP(
@@ -270,7 +282,7 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
               KEY_ACTIVE_OFFSET_X_START,
             ),
           )
-        hasCustomActivationCriteria = true
+        handler.hasCustomActivationCriteria = true
       }
       if (config.hasKey(KEY_ACTIVE_OFFSET_X_END)) {
         handler.activeOffsetXEnd =
@@ -279,7 +291,7 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
               KEY_ACTIVE_OFFSET_X_END,
             ),
           )
-        hasCustomActivationCriteria = true
+        handler.hasCustomActivationCriteria = true
       }
       if (config.hasKey(KEY_FAIL_OFFSET_RANGE_X_START)) {
         handler.failOffsetXStart =
@@ -288,7 +300,7 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
               KEY_FAIL_OFFSET_RANGE_X_START,
             ),
           )
-        hasCustomActivationCriteria = true
+        handler.hasCustomActivationCriteria = true
       }
       if (config.hasKey(KEY_FAIL_OFFSET_RANGE_X_END)) {
         handler.failOffsetXEnd =
@@ -297,7 +309,7 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
               KEY_FAIL_OFFSET_RANGE_X_END,
             ),
           )
-        hasCustomActivationCriteria = true
+        handler.hasCustomActivationCriteria = true
       }
       if (config.hasKey(KEY_ACTIVE_OFFSET_Y_START)) {
         handler.activeOffsetYStart =
@@ -306,7 +318,7 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
               KEY_ACTIVE_OFFSET_Y_START,
             ),
           )
-        hasCustomActivationCriteria = true
+        handler.hasCustomActivationCriteria = true
       }
       if (config.hasKey(KEY_ACTIVE_OFFSET_Y_END)) {
         handler.activeOffsetYEnd =
@@ -315,7 +327,7 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
               KEY_ACTIVE_OFFSET_Y_END,
             ),
           )
-        hasCustomActivationCriteria = true
+        handler.hasCustomActivationCriteria = true
       }
       if (config.hasKey(KEY_FAIL_OFFSET_RANGE_Y_START)) {
         handler.failOffsetYStart =
@@ -324,7 +336,7 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
               KEY_FAIL_OFFSET_RANGE_Y_START,
             ),
           )
-        hasCustomActivationCriteria = true
+        handler.hasCustomActivationCriteria = true
       }
       if (config.hasKey(KEY_FAIL_OFFSET_RANGE_Y_END)) {
         handler.failOffsetYEnd =
@@ -333,28 +345,30 @@ class PanGestureHandler(context: Context?) : GestureHandler() {
               KEY_FAIL_OFFSET_RANGE_Y_END,
             ),
           )
-        hasCustomActivationCriteria = true
+        handler.hasCustomActivationCriteria = true
       }
       if (config.hasKey(KEY_MIN_VELOCITY)) {
         // This value is actually in DPs/ms, but we can use the same function as for converting
         // from DPs to pixels as the unit we're converting is in the numerator
         handler.minVelocity = PixelUtil.toPixelFromDIP(config.getDouble(KEY_MIN_VELOCITY))
-        hasCustomActivationCriteria = true
+        handler.hasCustomActivationCriteria = true
       }
       if (config.hasKey(KEY_MIN_VELOCITY_X)) {
         handler.minVelocityX = PixelUtil.toPixelFromDIP(config.getDouble(KEY_MIN_VELOCITY_X))
-        hasCustomActivationCriteria = true
+        handler.hasCustomActivationCriteria = true
       }
       if (config.hasKey(KEY_MIN_VELOCITY_Y)) {
         handler.minVelocityY = PixelUtil.toPixelFromDIP(config.getDouble(KEY_MIN_VELOCITY_Y))
-        hasCustomActivationCriteria = true
+        handler.hasCustomActivationCriteria = true
       }
 
       // PanGestureHandler sets minDist by default, if there are custom criteria specified we want
-      // to reset that setting and use provided criteria instead.
+      // to reset that setting and use provided criteria instead - unless minDist was explicitly
+      // configured, in which case it must survive partial config updates of other criteria.
       if (config.hasKey(KEY_MIN_DIST)) {
         handler.minDist = PixelUtil.toPixelFromDIP(config.getDouble(KEY_MIN_DIST))
-      } else if (hasCustomActivationCriteria) {
+        handler.hasExplicitMinDist = true
+      } else if (handler.hasCustomActivationCriteria && !handler.hasExplicitMinDist) {
         handler.minDist = Float.MAX_VALUE
       }
       if (config.hasKey(KEY_MIN_POINTERS)) {

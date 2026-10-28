@@ -1,4 +1,4 @@
-import { ConfigPlugin } from '@expo/config-plugins';
+import { ConfigPlugin } from 'expo/config-plugins';
 declare const DATE_PICKER_ALLOWED_ATTRIBUTES: {
     readonly colorAccent: {
         readonly attrName: "colorAccent";
@@ -47,6 +47,9 @@ declare const TIME_PICKER_ALLOWED_ATTRIBUTES: {
     };
     readonly numbersBackgroundColor: {
         readonly attrName: "android:numbersBackgroundColor";
+    };
+    readonly numbersInnerTextColor: {
+        readonly attrName: "android:numbersInnerTextColor";
     };
     readonly numbersSelectorColor: {
         readonly attrName: "android:numbersSelectorColor";

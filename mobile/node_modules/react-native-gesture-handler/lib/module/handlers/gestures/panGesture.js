@@ -1,6 +1,11 @@
 "use strict";
 
 import { ContinousBaseGesture } from './gesture';
+
+/**
+ * @deprecated `PanGestureChangeEventPayload` is deprecated and will be removed in the future. Please use `PanGestureActiveEvent` instead.
+ */
+
 function changeEventCalculator(current, previous) {
   'worklet';
 
@@ -21,6 +26,10 @@ function changeEventCalculator(current, previous) {
     ...changePayload
   };
 }
+
+/**
+ * @deprecated `PanGesture` is deprecated and will be removed in the future. Please use `usePanGesture` instead.
+ */
 export class PanGesture extends ContinousBaseGesture {
   config = {};
   constructor() {
@@ -126,7 +135,8 @@ export class PanGesture extends ContinousBaseGesture {
   }
 
   /**
-   * Minimum velocity the finger has to reach in order to activate handler.
+   * Minimum speed the pointer has to reach in order to activate handler.
+   * Expressed in points per second.
    * @param velocity
    */
   minVelocity(velocity) {
@@ -135,7 +145,8 @@ export class PanGesture extends ContinousBaseGesture {
   }
 
   /**
-   * Minimum velocity along X axis the finger has to reach in order to activate handler.
+   * Minimum speed along X axis the pointer has to reach in order to activate handler.
+   * Expressed in points per second.
    * @param velocity
    */
   minVelocityX(velocity) {
@@ -144,7 +155,8 @@ export class PanGesture extends ContinousBaseGesture {
   }
 
   /**
-   * Minimum velocity along Y axis the finger has to reach in order to activate handler.
+   * Minimum speed along Y axis the pointer has to reach in order to activate handler.
+   * Expressed in points per second.
    * @param velocity
    */
   minVelocityY(velocity) {
@@ -189,4 +201,8 @@ export class PanGesture extends ContinousBaseGesture {
     return super.onChange(callback);
   }
 }
+
+/**
+ * @deprecated `PanGestureType` is deprecated and will be removed in the future. Please use `PanGesture` instead.
+ */
 //# sourceMappingURL=panGesture.js.map

@@ -84,8 +84,7 @@ export const prepare = (self, props = self.props) => {
     clean.onClick = props.onPress;
   }
   if (props.href !== null && props.href !== undefined) {
-    var _resolveAssetUri;
-    clean.href = (_resolveAssetUri = resolveAssetUri(props.href)) === null || _resolveAssetUri === void 0 ? void 0 : _resolveAssetUri.uri;
+    clean.href = resolveAssetUri(props.href)?.uri;
   }
   return clean;
 };

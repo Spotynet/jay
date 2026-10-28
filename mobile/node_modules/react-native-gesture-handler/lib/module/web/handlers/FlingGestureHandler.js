@@ -1,10 +1,11 @@
 "use strict";
 
-import { State } from '../../State';
 import { DiagonalDirections, Directions } from '../../Directions';
-import GestureHandler from './GestureHandler';
+import { State } from '../../State';
+import { SingleGestureName } from '../../v3/types';
 import Vector from '../tools/Vector';
 import { coneToDeviation } from '../utils';
+import GestureHandler from './GestureHandler';
 const DEFAULT_MAX_DURATION_MS = 800;
 const DEFAULT_MIN_VELOCITY = 700;
 const DEFAULT_ALIGNMENT_CONE = 30;
@@ -19,19 +20,17 @@ export default class FlingGestureHandler extends GestureHandler {
   minVelocity = DEFAULT_MIN_VELOCITY;
   maxNumberOfPointersSimultaneously = 0;
   keyPointer = NaN;
-  updateGestureConfig({
-    enabled = true,
-    ...props
-  }) {
-    super.updateGestureConfig({
-      enabled: enabled,
-      ...props
-    });
-    if (this.config.direction) {
-      this.direction = this.config.direction;
+  constructor(delegate) {
+    super(delegate);
+    this.name = SingleGestureName.Fling;
+  }
+  updateGestureConfig(config) {
+    super.updateGestureConfig(config);
+    if (config.direction) {
+      this.direction = config.direction;
     }
-    if (this.config.numberOfPointers) {
-      this.numberOfPointersRequired = this.config.numberOfPointers;
+    if (config.numberOfPointers) {
+      this.numberOfPointersRequired = config.numberOfPointers;
     }
   }
   startFling() {
@@ -75,7 +74,6 @@ export default class FlingGestureHandler extends GestureHandler {
     this.keyPointer = event.pointerId;
     super.onPointerDown(event);
     this.newPointerAction();
-    this.tryToSendTouchEvent(event);
   }
   onPointerAdd(event) {
     this.tracker.addToTracker(event);

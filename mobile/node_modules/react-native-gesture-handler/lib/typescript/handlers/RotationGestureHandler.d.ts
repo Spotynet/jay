@@ -1,5 +1,5 @@
-import { RotationGestureHandlerEventPayload } from './GestureHandlerEventPayload';
-import { BaseGestureHandlerProps } from './gestureHandlerCommon';
+import type { BaseGestureHandlerProps } from './gestureHandlerCommon';
+import type { RotationGestureHandlerEventPayload } from './GestureHandlerEventPayload';
 /**
  * @deprecated RotationGestureHandler will be removed in the future version of Gesture Handler. Use `Gesture.Rotation()` instead.
  */

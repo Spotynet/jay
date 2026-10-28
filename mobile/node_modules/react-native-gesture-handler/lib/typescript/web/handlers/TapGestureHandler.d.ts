@@ -1,5 +1,7 @@
-import { AdaptedEvent, Config } from '../interfaces';
+import type { AdaptedEvent, Config } from '../interfaces';
+import type { GestureHandlerDelegate } from '../tools/GestureHandlerDelegate';
 import GestureHandler from './GestureHandler';
+import type IGestureHandler from './IGestureHandler';
 export default class TapGestureHandler extends GestureHandler {
     private maxDeltaX;
     private maxDeltaY;
@@ -18,7 +20,8 @@ export default class TapGestureHandler extends GestureHandler {
     private waitTimeout;
     private delayTimeout;
     private tapsSoFar;
-    updateGestureConfig({ enabled, ...props }: Config): void;
+    constructor(delegate: GestureHandlerDelegate<unknown, IGestureHandler>);
+    updateGestureConfig(config: Config): void;
     protected resetConfig(): void;
     private clearTimeouts;
     private startTap;

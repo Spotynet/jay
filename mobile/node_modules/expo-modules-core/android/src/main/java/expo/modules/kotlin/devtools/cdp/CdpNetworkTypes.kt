@@ -5,6 +5,7 @@ package expo.modules.kotlin.devtools.cdp
 import expo.modules.kotlin.devtools.ExpoNetworkInspectOkHttpNetworkInterceptor
 import expo.modules.kotlin.devtools.toSingleMap
 import okio.Buffer
+import org.json.JSONArray
 import org.json.JSONObject
 import java.math.BigDecimal
 
@@ -155,7 +156,7 @@ data class RequestWillBeSentParams(
 
 data class RequestWillBeSentExtraInfoParams(
   val requestId: RequestId,
-  val associatedCookies: Map<String, String> = emptyMap(),
+  val associatedCookies: List<Any> = emptyList(),
   val headers: Headers,
   val connectTiming: ConnectTiming
 ) : JsonSerializable {
@@ -168,7 +169,7 @@ data class RequestWillBeSentExtraInfoParams(
   override fun toJSONObject(): JSONObject {
     return JSONObject().apply {
       put("requestId", requestId)
-      put("associatedCookies", JSONObject(associatedCookies))
+      put("associatedCookies", JSONArray(associatedCookies))
       put("headers", JSONObject(headers))
       put("connectTiming", connectTiming.toJSONObject())
     }
@@ -237,7 +238,11 @@ data class ExpoReceivedResponseBodyParams(
   ) {
     val contentType = body.contentType()
     val isText = contentType?.type == "text" || (contentType?.type == "application" && contentType.subtype == "json")
-    val bodyString = if (isText) body.string() else body.source().readByteString().base64()
+    val bodyString = if (isText) {
+      body.string()
+    } else {
+      body.source().readByteString().base64()
+    }
 
     this.body = bodyString
     this.base64Encoded = !isText

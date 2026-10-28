@@ -13,6 +13,6 @@ export interface NativeProps extends ViewProps, FilterPrimitiveCommonProps {
     dx?: UnsafeMixed<NumberProp>;
     dy?: UnsafeMixed<NumberProp>;
 }
-declare const _default: import("react-native/Libraries/Utilities/codegenNativeComponent").NativeComponentType<NativeProps>;
+declare const _default: import("react-native").HostComponent<NativeProps>;
 export default _default;
 //# sourceMappingURL=FeOffsetNativeComponent.d.ts.map

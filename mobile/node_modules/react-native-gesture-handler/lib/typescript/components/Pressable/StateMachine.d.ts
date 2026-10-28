@@ -1,7 +1,8 @@
-import { PressableEvent } from './PressableProps';
+import type { PressableEvent } from './PressableProps';
 export interface StateDefinition {
     eventName: string;
     callback?: (event: PressableEvent) => void;
+    optional?: boolean;
 }
 declare class PressableStateMachine {
     private states;

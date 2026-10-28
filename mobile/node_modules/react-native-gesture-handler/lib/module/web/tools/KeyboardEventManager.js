@@ -1,8 +1,8 @@
 "use strict";
 
+import { PointerType } from '../../PointerType';
 import { EventTypes } from '../interfaces';
 import EventManager from './EventManager';
-import { PointerType } from '../../PointerType';
 export default class KeyboardEventManager extends EventManager {
   static activationKeys = ['Enter', ' '];
   static cancelationKeys = ['Tab'];

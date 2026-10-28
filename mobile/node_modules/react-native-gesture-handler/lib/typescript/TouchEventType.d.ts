@@ -3,7 +3,7 @@ export declare const TouchEventType: {
     readonly TOUCHES_DOWN: 1;
     readonly TOUCHES_MOVE: 2;
     readonly TOUCHES_UP: 3;
-    readonly TOUCHES_CANCELLED: 4;
+    readonly TOUCHES_CANCEL: 4;
 };
 export type TouchEventType = (typeof TouchEventType)[keyof typeof TouchEventType];
 //# sourceMappingURL=TouchEventType.d.ts.map

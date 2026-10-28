@@ -1,33 +1,16 @@
 import invariant from 'invariant';
 import { DeviceEventEmitter } from 'react-native';
-import { ReactTestInstance } from 'react-test-renderer';
-import {
-  FlingGestureHandler,
-  flingHandlerName,
-} from '../handlers/FlingGestureHandler';
-import {
-  ForceTouchGestureHandler,
-  forceTouchHandlerName,
-} from '../handlers/ForceTouchGestureHandler';
-import {
+import type { ReactTestInstance } from 'react-test-renderer';
+
+import type { FlingGestureHandler } from '../handlers/FlingGestureHandler';
+import { flingHandlerName } from '../handlers/FlingGestureHandler';
+import type { ForceTouchGestureHandler } from '../handlers/ForceTouchGestureHandler';
+import { forceTouchHandlerName } from '../handlers/ForceTouchGestureHandler';
+import type {
   BaseGestureHandlerProps,
   GestureEvent,
   HandlerStateChangeEvent,
 } from '../handlers/gestureHandlerCommon';
-import { FlingGesture } from '../handlers/gestures/flingGesture';
-import { ForceTouchGesture } from '../handlers/gestures/forceTouchGesture';
-import { BaseGesture, GestureType } from '../handlers/gestures/gesture';
-import { LongPressGesture } from '../handlers/gestures/longPressGesture';
-import { NativeGesture } from '../handlers/gestures/nativeGesture';
-import { PanGesture } from '../handlers/gestures/panGesture';
-import { PinchGesture } from '../handlers/gestures/pinchGesture';
-import { RotationGesture } from '../handlers/gestures/rotationGesture';
-import { TapGesture } from '../handlers/gestures/tapGesture';
-import { findHandlerByTestID } from '../handlers/handlersRegistry';
-import {
-  LongPressGestureHandler,
-  longPressHandlerName,
-} from '../handlers/LongPressGestureHandler';
 import type {
   FlingGestureHandlerEventPayload,
   ForceTouchGestureHandlerEventPayload,
@@ -38,28 +21,33 @@ import type {
   RotationGestureHandlerEventPayload,
   TapGestureHandlerEventPayload,
 } from '../handlers/GestureHandlerEventPayload';
-import {
-  NativeViewGestureHandler,
-  nativeViewHandlerName,
-} from '../handlers/NativeViewGestureHandler';
-import {
-  PanGestureHandler,
-  panHandlerName,
-} from '../handlers/PanGestureHandler';
-import {
-  PinchGestureHandler,
-  pinchHandlerName,
-} from '../handlers/PinchGestureHandler';
-import {
-  RotationGestureHandler,
-  rotationHandlerName,
-} from '../handlers/RotationGestureHandler';
-import {
-  TapGestureHandler,
-  tapHandlerName,
-} from '../handlers/TapGestureHandler';
+import type { FlingGesture } from '../handlers/gestures/flingGesture';
+import type { ForceTouchGesture } from '../handlers/gestures/forceTouchGesture';
+import type { GestureType } from '../handlers/gestures/gesture';
+import { BaseGesture } from '../handlers/gestures/gesture';
+import type { LongPressGesture } from '../handlers/gestures/longPressGesture';
+import type { NativeGesture } from '../handlers/gestures/nativeGesture';
+import type { PanGesture } from '../handlers/gestures/panGesture';
+import type { PinchGesture } from '../handlers/gestures/pinchGesture';
+import type { RotationGesture } from '../handlers/gestures/rotationGesture';
+import type { TapGesture } from '../handlers/gestures/tapGesture';
+import { findGesture, findHandlerByTestID } from '../handlers/handlersRegistry';
+import type { LongPressGestureHandler } from '../handlers/LongPressGestureHandler';
+import { longPressHandlerName } from '../handlers/LongPressGestureHandler';
+import type { NativeViewGestureHandler } from '../handlers/NativeViewGestureHandler';
+import { nativeViewHandlerName } from '../handlers/NativeViewGestureHandler';
+import type { PanGestureHandler } from '../handlers/PanGestureHandler';
+import { panHandlerName } from '../handlers/PanGestureHandler';
+import type { PinchGestureHandler } from '../handlers/PinchGestureHandler';
+import { pinchHandlerName } from '../handlers/PinchGestureHandler';
+import type { RotationGestureHandler } from '../handlers/RotationGestureHandler';
+import { rotationHandlerName } from '../handlers/RotationGestureHandler';
+import type { TapGestureHandler } from '../handlers/TapGestureHandler';
+import { tapHandlerName } from '../handlers/TapGestureHandler';
 import { State } from '../State';
 import { hasProperty, withPrevAndCurrent } from '../utils';
+import { maybeUnpackValue } from '../v3/hooks/utils';
+import type { DetectorCallbacks, SingleGesture } from '../v3/types';
 
 // Load fireEvent conditionally, so RNGH may be used in setups without testing-library
 let fireEvent = (
@@ -164,9 +152,18 @@ const handlersDefaultEvents: DefaultEventsMapping = {
 };
 
 function isGesture(
-  componentOrGesture: ReactTestInstance | GestureType
+  componentOrGesture:
+    | ReactTestInstance
+    | GestureType
+    | SingleGesture<any, any, any>
 ): componentOrGesture is GestureType {
   return componentOrGesture instanceof BaseGesture;
+}
+
+function isHookGesture(
+  componentOrGesture: ReactTestInstance | SingleGesture<any, any, any>
+): componentOrGesture is SingleGesture<any, any, any> {
+  return 'detectorCallbacks' in componentOrGesture;
 }
 
 interface WrappedGestureHandlerTestEvent {
@@ -408,7 +405,10 @@ interface HandlerData {
   enabled: boolean | undefined;
 }
 function getHandlerData(
-  componentOrGesture: ReactTestInstance | GestureType
+  componentOrGesture:
+    | ReactTestInstance
+    | GestureType
+    | SingleGesture<any, any, any>
 ): HandlerData {
   if (isGesture(componentOrGesture)) {
     const gesture = componentOrGesture;
@@ -421,6 +421,33 @@ function getHandlerData(
       enabled: gesture.config.enabled,
     };
   }
+
+  if (isHookGesture(componentOrGesture)) {
+    return {
+      handlerType: componentOrGesture.type as HandlerNames,
+      handlerTag: componentOrGesture.handlerTag,
+      enabled: maybeUnpackValue<boolean>(componentOrGesture.config.enabled),
+      emitEvent: (eventName, args) => {
+        const { state, oldState, handlerTag, ...rest } = args.nativeEvent;
+
+        const event = {
+          state,
+          handlerTag,
+          handlerData: { ...rest },
+        };
+
+        if (eventName === 'onGestureHandlerStateChange') {
+          componentOrGesture.detectorCallbacks.jsEventHandler?.({
+            oldState: oldState as State,
+            ...event,
+          });
+        } else if (eventName === 'onGestureHandlerEvent') {
+          componentOrGesture.detectorCallbacks.jsEventHandler?.(event);
+        }
+      },
+    };
+  }
+
   const gestureHandlerComponent = componentOrGesture;
   return {
     emitEvent: (eventName, args) => {
@@ -464,8 +491,277 @@ type ExtractConfig<T> =
       ? ExtractPayloadFromProps<THandlerProps>
       : Record<string, unknown>;
 
+type ExtractHookGesturePayload<T> = T extends {
+  detectorCallbacks: DetectorCallbacks<any, infer TExtendedHandlerData>;
+}
+  ? TExtendedHandlerData
+  : never;
+
+type ExtractGestureControllerPayload<T> =
+  T extends SingleGesture<any, any, any>
+    ? ExtractHookGesturePayload<T>
+    : T extends BaseGesture<any>
+      ? ExtractConfig<T>
+      : Record<string, unknown>;
+
+export type GestureControllerEvent<
+  TEventPayload extends Record<string, unknown> = Record<string, unknown>,
+> = Partial<TEventPayload> & {
+  handlerTag?: never;
+  nativeEvent?: never;
+  oldState?: never;
+  state?: never;
+};
+
+type GestureControllerTarget =
+  | ReactTestInstance
+  | GestureType
+  | SingleGesture<any, any, any>
+  | string;
+
+export interface GestureController<
+  TEventPayload extends Record<string, unknown> = Record<string, unknown>,
+> {
+  begin: (event?: GestureControllerEvent<TEventPayload>) => void;
+  activate: (event?: GestureControllerEvent<TEventPayload>) => void;
+  update: (event?: GestureControllerEvent<TEventPayload>) => void;
+  end: (event?: GestureControllerEvent<TEventPayload>) => void;
+  fail: (event?: GestureControllerEvent<TEventPayload>) => void;
+  cancel: (event?: GestureControllerEvent<TEventPayload>) => void;
+}
+
+const FORBIDDEN_CONTROLLER_EVENT_FIELDS = [
+  'handlerTag',
+  'nativeEvent',
+  'oldState',
+  'state',
+];
+
+const FINISHED_CONTROLLER_STATES: State[] = [
+  State.END,
+  State.FAILED,
+  State.CANCELLED,
+];
+
+function getStateName(state: State): string {
+  return (
+    Object.entries(State).find(([, value]) => value === state)?.[0] ??
+    String(state)
+  );
+}
+
+function validateControllerEvent(event: Record<string, unknown>) {
+  for (const field of FORBIDDEN_CONTROLLER_EVENT_FIELDS) {
+    invariant(
+      !hasProperty(event, field),
+      `GestureController manages '${field}' internally. Pass only gesture event payload fields.`
+    );
+  }
+}
+
+function resolveGestureControllerTarget(target: GestureControllerTarget) {
+  if (typeof target === 'string') {
+    return getByGestureTestId(target);
+  }
+
+  if (isGesture(target)) {
+    return target;
+  }
+
+  if (isHookGesture(target)) {
+    return findGesture(target.handlerTag) ?? target;
+  }
+
+  return target;
+}
+
+class GestureControllerImpl<
+  TEventPayload extends Record<string, unknown> = Record<string, unknown>,
+> implements GestureController<TEventPayload>
+{
+  private state: State = State.UNDETERMINED;
+
+  // eslint-disable-next-line no-useless-constructor
+  constructor(private resolveHandlerData: () => HandlerData) {}
+
+  public begin(event: GestureControllerEvent<TEventPayload> = {}) {
+    const handlerData = this.resolveHandlerData();
+
+    if (!this.isEnabled(handlerData)) {
+      return;
+    }
+
+    this.resetIfFinished();
+
+    this.transition(
+      'begin',
+      State.BEGAN,
+      [State.UNDETERMINED],
+      event,
+      handlerData
+    );
+  }
+
+  public activate(event: GestureControllerEvent<TEventPayload> = {}) {
+    const handlerData = this.resolveHandlerData();
+
+    if (!this.isEnabled(handlerData)) {
+      return;
+    }
+
+    this.transition(
+      'activate',
+      State.ACTIVE,
+      [State.BEGAN],
+      event,
+      handlerData
+    );
+  }
+
+  public update(event: GestureControllerEvent<TEventPayload> = {}) {
+    const handlerData = this.resolveHandlerData();
+
+    if (!this.isEnabled(handlerData)) {
+      return;
+    }
+
+    this.assertCurrentState('update', [State.ACTIVE]);
+
+    const nativeEvent = this.buildEvent(State.ACTIVE, event, handlerData);
+    handlerData.emitEvent(
+      'onGestureHandlerEvent',
+      wrapWithNativeEvent(nativeEvent as GestureHandlerTestEvent)
+    );
+  }
+
+  public end(event: GestureControllerEvent<TEventPayload> = {}) {
+    const handlerData = this.resolveHandlerData();
+
+    if (!this.isEnabled(handlerData)) {
+      return;
+    }
+
+    this.transition(
+      'end',
+      State.END,
+      [State.BEGAN, State.ACTIVE],
+      event,
+      handlerData
+    );
+  }
+
+  public fail(event: GestureControllerEvent<TEventPayload> = {}) {
+    const handlerData = this.resolveHandlerData();
+
+    if (!this.isEnabled(handlerData)) {
+      return;
+    }
+
+    this.transition(
+      'fail',
+      State.FAILED,
+      [State.BEGAN, State.ACTIVE],
+      event,
+      handlerData
+    );
+  }
+
+  public cancel(event: GestureControllerEvent<TEventPayload> = {}) {
+    const handlerData = this.resolveHandlerData();
+
+    if (!this.isEnabled(handlerData)) {
+      return;
+    }
+
+    this.transition(
+      'cancel',
+      State.CANCELLED,
+      [State.BEGAN, State.ACTIVE],
+      event,
+      handlerData
+    );
+  }
+
+  private transition(
+    action: string,
+    nextState: State,
+    allowedStates: State[],
+    event: GestureControllerEvent<TEventPayload>,
+    handlerData: HandlerData
+  ) {
+    this.assertCurrentState(action, allowedStates);
+
+    const oldState = this.state;
+    const nativeEvent = {
+      oldState,
+      ...this.buildEvent(nextState, event, handlerData),
+    } as GestureHandlerTestEvent;
+
+    this.state = nextState;
+
+    handlerData.emitEvent(
+      'onGestureHandlerStateChange',
+      wrapWithNativeEvent(nativeEvent)
+    );
+  }
+
+  private isEnabled(handlerData: HandlerData) {
+    return handlerData.enabled !== false;
+  }
+
+  private resetIfFinished() {
+    if (FINISHED_CONTROLLER_STATES.includes(this.state)) {
+      this.state = State.UNDETERMINED;
+    }
+  }
+
+  private assertCurrentState(action: string, allowedStates: State[]) {
+    invariant(
+      allowedStates.includes(this.state),
+      `Cannot ${action} gesture from ${getStateName(this.state)} state.`
+    );
+  }
+
+  private buildEvent(
+    state: State,
+    event: GestureControllerEvent<TEventPayload>,
+    handlerData: HandlerData
+  ): Omit<GestureHandlerTestEvent, 'oldState'> {
+    validateControllerEvent(event);
+
+    return fillMissingDefaultsFor(handlerData)({
+      ...event,
+      state,
+    } as Partial<GestureHandlerTestEvent>) as Omit<
+      GestureHandlerTestEvent,
+      'oldState'
+    >;
+  }
+}
+
+export function createGestureController<
+  TTarget extends GestureType | SingleGesture<any, any, any>,
+>(
+  componentOrGesture: TTarget
+): GestureController<ExtractGestureControllerPayload<TTarget>>;
+export function createGestureController<
+  TEventPayload extends Record<string, unknown> = Record<string, unknown>,
+>(
+  componentOrGesture: ReactTestInstance | string
+): GestureController<TEventPayload>;
+export function createGestureController(
+  componentOrGesture: GestureControllerTarget
+): GestureController<Record<string, unknown>> {
+  return new GestureControllerImpl(() =>
+    getHandlerData(resolveGestureControllerTarget(componentOrGesture))
+  );
+}
+
 export function fireGestureHandler<THandler extends AllGestures | AllHandlers>(
-  componentOrGesture: ReactTestInstance | GestureType,
+  componentOrGesture:
+    | ReactTestInstance
+    | GestureType
+    | SingleGesture<any, any, any>,
   eventList: Partial<GestureHandlerTestEvent<ExtractConfig<THandler>>>[] = []
 ): void {
   const { emitEvent, handlerType, handlerTag, enabled } =
@@ -482,16 +778,15 @@ export function fireGestureHandler<THandler extends AllGestures | AllHandlers>(
   _ = _.map(fillMissingDefaultsFor({ handlerTag, handlerType }));
   _ = withPrevAndCurrent(_, fillOldStateChanges);
   _ = withPrevAndCurrent(_, validateStateTransitions);
-  // @ts-ignore TODO
-  _ = _.map(wrapWithNativeEvent);
+  const events = _.map((event) =>
+    wrapWithNativeEvent(event as GestureHandlerTestEvent)
+  );
 
-  const events = _ as unknown as WrappedGestureHandlerTestEvent[];
-
-  const firstEvent = events.shift()!;
+  const [firstEvent, ...restEvents] = events;
 
   emitEvent('onGestureHandlerStateChange', firstEvent);
   let lastSentEvent = firstEvent;
-  for (const event of events) {
+  for (const event of restEvents) {
     const hasChangedState =
       lastSentEvent.nativeEvent.state !== event.nativeEvent.state;
 

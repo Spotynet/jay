@@ -8,7 +8,7 @@ import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.uimanager.PixelUtil
 import com.swmansion.gesturehandler.core.GestureUtils.getLastPointerX
 import com.swmansion.gesturehandler.core.GestureUtils.getLastPointerY
-import com.swmansion.gesturehandler.react.eventbuilders.TapGestureHandlerEventDataBuilder
+import com.swmansion.gesturehandler.react.events.eventbuilders.TapGestureHandlerEventDataBuilder
 import kotlin.math.abs
 
 class TapGestureHandler : GestureHandler() {
@@ -26,7 +26,7 @@ class TapGestureHandler : GestureHandler() {
   private var offsetY = 0f
   private var lastX = 0f
   private var lastY = 0f
-  private var handler: Handler? = null
+  private val handler = Handler(Looper.getMainLooper())
   private var tapsSoFar = 0
   private val failDelayed = Runnable { fail() }
 
@@ -47,24 +47,16 @@ class TapGestureHandler : GestureHandler() {
   }
 
   private fun startTap() {
-    if (handler == null) {
-      handler = Handler(Looper.getMainLooper()) // TODO: lazy init (handle else branch correctly)
-    } else {
-      handler!!.removeCallbacksAndMessages(null)
-    }
-    handler!!.postDelayed(failDelayed, maxDurationMs)
+    handler.removeCallbacksAndMessages(null)
+    handler.postDelayed(failDelayed, maxDurationMs)
   }
 
   private fun endTap() {
-    if (handler == null) {
-      handler = Handler(Looper.getMainLooper())
-    } else {
-      handler!!.removeCallbacksAndMessages(null)
-    }
+    handler.removeCallbacksAndMessages(null)
     if (++tapsSoFar == numberOfTaps && currentMaxNumberOfPointers >= minNumberOfPointers) {
       activate()
     } else {
-      handler!!.postDelayed(failDelayed, maxDelayMs)
+      handler.postDelayed(failDelayed, maxDelayMs)
     }
   }
 
@@ -81,18 +73,27 @@ class TapGestureHandler : GestureHandler() {
     return maxDist != MAX_VALUE_IGNORE && dist > maxDist * maxDist
   }
 
+  override fun initialize(event: MotionEvent, sourceEvent: MotionEvent) {
+    offsetX = 0f
+    offsetY = 0f
+    startX = getLastPointerX(sourceEvent, true)
+    startY = getLastPointerY(sourceEvent, true)
+  }
+
   override fun onHandle(event: MotionEvent, sourceEvent: MotionEvent) {
-    if (!shouldActivateWithMouse(sourceEvent)) {
+    if (shouldSkipEvent(sourceEvent)) {
       return
+    }
+
+    if (forceReinitializeDuringOnHandle) {
+      forceReinitializeDuringOnHandle = false
+      initialize(event, sourceEvent)
     }
 
     val state = state
     val action = sourceEvent.actionMasked
     if (state == STATE_UNDETERMINED) {
-      offsetX = 0f
-      offsetY = 0f
-      startX = getLastPointerX(sourceEvent, true)
-      startY = getLastPointerY(sourceEvent, true)
+      initialize(event, sourceEvent)
     }
     if (action == MotionEvent.ACTION_POINTER_UP || action == MotionEvent.ACTION_POINTER_DOWN) {
       offsetX += lastX - startX
@@ -130,13 +131,13 @@ class TapGestureHandler : GestureHandler() {
   }
 
   override fun onCancel() {
-    handler?.removeCallbacksAndMessages(null)
+    handler.removeCallbacksAndMessages(null)
   }
 
   override fun onReset() {
     tapsSoFar = 0
     currentMaxNumberOfPointers = 0
-    handler?.removeCallbacksAndMessages(null)
+    handler.removeCallbacksAndMessages(null)
   }
 
   class Factory : GestureHandler.Factory<TapGestureHandler>() {
@@ -145,8 +146,8 @@ class TapGestureHandler : GestureHandler() {
 
     override fun create(context: Context?): TapGestureHandler = TapGestureHandler()
 
-    override fun setConfig(handler: TapGestureHandler, config: ReadableMap) {
-      super.setConfig(handler, config)
+    override fun updateConfig(handler: TapGestureHandler, config: ReadableMap) {
+      super.updateConfig(handler, config)
       if (config.hasKey(KEY_NUMBER_OF_TAPS)) {
         handler.numberOfTaps = config.getInt(KEY_NUMBER_OF_TAPS)
       }

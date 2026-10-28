@@ -5,15 +5,15 @@ import android.content.Intent
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.facebook.react.ReactActivity
+import com.facebook.react.ReactHost
 import com.facebook.react.ReactInstanceEventListener
 import com.facebook.react.bridge.ReactContext
-import expo.interfaces.devmenu.ReactHostWrapper
 import expo.modules.devlauncher.launcher.DevLauncherControllerInterface
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 /**
  * An abstract class of app loader. An object of this class will launch provided `Intent` with all the needed setup.
@@ -35,7 +35,7 @@ import kotlin.coroutines.suspendCoroutine
  * - `onReactContext` - is called after the `ReactContext` was loaded.
  */
 abstract class DevLauncherAppLoader(
-  private val appHost: ReactHostWrapper,
+  private val appHost: ReactHost,
   private val context: Context,
   private val controller: DevLauncherControllerInterface
 ) {
@@ -71,11 +71,11 @@ abstract class DevLauncherAppLoader(
   }
 
   open suspend fun launch(intent: Intent): Boolean = withContext(Dispatchers.Main) {
-    suspendCoroutine { callback ->
+    suspendCancellableCoroutine { callback ->
       if (injectBundleLoader()) {
         continuation = callback
         launchIntent(intent)
-        return@suspendCoroutine
+        return@suspendCancellableCoroutine
       }
       callback.resume(false)
     }

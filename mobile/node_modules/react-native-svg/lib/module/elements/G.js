@@ -8,12 +8,11 @@ import RNSVGGroup from '../fabric/GroupNativeComponent';
 export default class G extends Shape {
   static displayName = 'G';
   setNativeProps = props => {
-    var _this$root;
     const matrix = !props.matrix && extractTransform(props);
     if (matrix) {
       props.matrix = matrix;
     }
-    (_this$root = this.root) === null || _this$root === void 0 || _this$root.setNativeProps(props);
+    this.root?.setNativeProps(props);
   };
   render() {
     const {

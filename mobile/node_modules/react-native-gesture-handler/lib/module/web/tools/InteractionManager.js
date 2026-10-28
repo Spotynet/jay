@@ -1,5 +1,6 @@
 "use strict";
 
+import { SingleGestureName } from '../../v3/types';
 export default class InteractionManager {
   waitForRelations = new Map();
   simultaneousRelations = new Map();
@@ -13,35 +14,21 @@ export default class InteractionManager {
     if (config.waitFor) {
       const waitFor = [];
       config.waitFor.forEach(otherHandler => {
-        // New API reference
-        if (typeof otherHandler === 'number') {
-          waitFor.push(otherHandler);
-        } else {
-          // Old API reference
-          waitFor.push(otherHandler.handlerTag);
-        }
+        waitFor.push(typeof otherHandler === 'number' ? otherHandler : otherHandler.handlerTag);
       });
       this.waitForRelations.set(handler.handlerTag, waitFor);
     }
     if (config.simultaneousHandlers) {
       const simultaneousHandlers = [];
       config.simultaneousHandlers.forEach(otherHandler => {
-        if (typeof otherHandler === 'number') {
-          simultaneousHandlers.push(otherHandler);
-        } else {
-          simultaneousHandlers.push(otherHandler.handlerTag);
-        }
+        simultaneousHandlers.push(typeof otherHandler === 'number' ? otherHandler : otherHandler.handlerTag);
       });
       this.simultaneousRelations.set(handler.handlerTag, simultaneousHandlers);
     }
     if (config.blocksHandlers) {
       const blocksHandlers = [];
       config.blocksHandlers.forEach(otherHandler => {
-        if (typeof otherHandler === 'number') {
-          blocksHandlers.push(otherHandler);
-        } else {
-          blocksHandlers.push(otherHandler.handlerTag);
-        }
+        blocksHandlers.push(typeof otherHandler === 'number' ? otherHandler : otherHandler.handlerTag);
       });
       this.blocksHandlersRelations.set(handler.handlerTag, blocksHandlers);
     }
@@ -66,7 +53,7 @@ export default class InteractionManager {
   }
   shouldHandlerBeCancelledBy(_handler, otherHandler) {
     // We check constructor name instead of using `instanceof` in order do avoid circular dependencies
-    const isNativeHandler = otherHandler.constructor.name === 'NativeViewGestureHandler';
+    const isNativeHandler = otherHandler.name === SingleGestureName.Native;
     const isActive = otherHandler.active;
     const isButton = otherHandler.isButton?.() === true;
     return isNativeHandler && isActive && !isButton;

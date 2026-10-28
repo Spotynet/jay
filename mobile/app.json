@@ -6,12 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/jay1.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/jay1.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.spotynet.jayapp",
@@ -24,7 +18,6 @@
         "foregroundImage": "./assets/jay1.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -54,7 +47,16 @@
       "@react-native-community/datetimepicker",
       "expo-secure-store",
       "expo-font",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/jay1.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      "expo-status-bar"
     ]
   }
 }

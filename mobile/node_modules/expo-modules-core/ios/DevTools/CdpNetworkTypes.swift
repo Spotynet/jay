@@ -10,6 +10,19 @@ struct CdpNetwork {
   typealias RequestId = String
   typealias TimeSinceEpoch = TimeInterval
 
+  static func normalizeMimeType(_ contentType: String?) -> String {
+    return contentType?
+      .components(separatedBy: ";")
+      .first?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .lowercased() ?? ""
+  }
+
+  static func isTextContentType(_ contentType: String?) -> Bool {
+    let mimeType = normalizeMimeType(contentType)
+    return mimeType.starts(with: "text/") || mimeType == "application/json"
+  }
+
   enum ResourceType: String, Encodable {
     case image = "Image"
     case media = "Media"
@@ -19,6 +32,7 @@ struct CdpNetwork {
     case other = "Other"
 
     static func fromMimeType(_ mimeType: String) -> ResourceType {
+      let mimeType = CdpNetwork.normalizeMimeType(mimeType)
       if mimeType.starts(with: "image/") {
         return image
       }
@@ -72,14 +86,14 @@ struct CdpNetwork {
         }
       }
       self.headers = headers
-      self.mimeType = response.value(forHTTPHeaderField: "Content-Type") ?? ""
+      self.mimeType = CdpNetwork.normalizeMimeType(response.value(forHTTPHeaderField: "Content-Type"))
       self.encodedDataLength = encodedDataLength
     }
   }
 
   // MARK: Events
 
-  struct RequestWillBeSentParams: EventParms {
+  struct RequestWillBeSentParams: EventParams {
     let requestId: RequestId
     var loaderId = ""
     var documentURL = "mobile"
@@ -108,9 +122,9 @@ struct CdpNetwork {
     }
   }
 
-  struct RequestWillBeSentExtraInfoParams: EventParms {
+  struct RequestWillBeSentExtraInfoParams: EventParams {
     let requestId: RequestId
-    var associatedCookies = [String: String]()
+    var associatedCookies = [String]()
     let headers: Headers
     let connectTiming: ConnectTiming
 
@@ -121,7 +135,7 @@ struct CdpNetwork {
     }
   }
 
-  struct ResponseReceivedParams: EventParms {
+  struct ResponseReceivedParams: EventParams {
     let requestId: RequestId
     var loaderId = ""
     let timestamp: MonotonicTime
@@ -137,7 +151,7 @@ struct CdpNetwork {
     }
   }
 
-  struct LoadingFinishedParams: EventParms {
+  struct LoadingFinishedParams: EventParams {
     let requestId: RequestId
     let timestamp: MonotonicTime
     let encodedDataLength: Int64
@@ -149,7 +163,23 @@ struct CdpNetwork {
     }
   }
 
-  struct ExpoReceivedResponseBodyParams: EventParms {
+  struct LoadingFailedParams: EventParams {
+    let requestId: RequestId
+    let timestamp: MonotonicTime
+    let type: ResourceType
+    let errorText: String
+    let canceled: Bool
+
+    init(now: TimeInterval, requestId: RequestId, error: Error) {
+      self.requestId = requestId
+      self.timestamp = now
+      self.type = ResourceType.other
+      self.errorText = error.localizedDescription
+      self.canceled = (error as? URLError)?.code == .cancelled
+    }
+  }
+
+  struct ExpoReceivedResponseBodyParams: EventParams {
     let requestId: RequestId
     let body: String
     let base64Encoded: Bool
@@ -167,9 +197,9 @@ struct CdpNetwork {
     }
   }
 
-  typealias EventParms = Encodable
+  typealias EventParams = Encodable & Sendable
 
-  struct Event<T: EventParms>: Encodable {
+  struct Event<T: EventParams>: Encodable, Sendable {
     let method: String
     let params: T
   }

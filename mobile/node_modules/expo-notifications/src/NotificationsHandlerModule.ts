@@ -1,6 +1,6 @@
-import { Platform } from 'expo-modules-core';
+import { Platform } from 'expo';
 
-import { NotificationsHandlerModule } from './NotificationsHandlerModule.types';
+import type { NotificationsHandlerModule } from './NotificationsHandlerModule.types';
 
 let warningHasBeenShown = false;
 
@@ -12,6 +12,12 @@ export default {
       );
       warningHasBeenShown = true;
     }
+    return {
+      remove: () => {},
+    };
   },
-  removeListeners: () => {},
+  removeListener: () => {},
+  removeAllListeners: () => {},
+  emit: () => {},
+  listenerCount: () => 0,
 } as NotificationsHandlerModule;

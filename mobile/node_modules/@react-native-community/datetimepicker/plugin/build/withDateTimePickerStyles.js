@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const config_plugins_1 = require("@expo/config-plugins");
+const config_plugins_1 = require("expo/config-plugins");
 const moduleName = 'RNDatetimePicker: ';
 const DATE_PICKER_ALLOWED_ATTRIBUTES = {
     colorAccent: { attrName: 'colorAccent' },
@@ -41,6 +41,9 @@ const TIME_PICKER_ALLOWED_ATTRIBUTES = {
     },
     numbersBackgroundColor: {
         attrName: 'android:numbersBackgroundColor',
+    },
+    numbersInnerTextColor: {
+        attrName: 'android:numbersInnerTextColor',
     },
     numbersSelectorColor: {
         attrName: 'android:numbersSelectorColor',

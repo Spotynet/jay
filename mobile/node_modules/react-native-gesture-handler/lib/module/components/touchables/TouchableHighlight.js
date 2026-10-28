@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { Component } from 'react';
+import { View } from 'react-native';
 import GenericTouchable, { TOUCHABLE_STATE } from './GenericTouchable';
-import { StyleSheet, View } from 'react-native';
 
 /**
  * @deprecated TouchableHighlight will be removed in the future version of Gesture Handler. Use Pressable instead.
@@ -58,7 +58,7 @@ export default class TouchableHighlight extends Component {
     }
     const child = React.Children.only(this.props.children); // TODO: not sure if OK but fixes error
     return /*#__PURE__*/React.cloneElement(child, {
-      style: StyleSheet.compose(child.props.style, this.state.extraChildStyle)
+      style: this.state.extraChildStyle ? [child.props.style, this.state.extraChildStyle] : child.props.style
     });
   }
   onStateChange = (_from, to) => {

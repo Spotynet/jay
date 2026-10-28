@@ -1,3 +1,4 @@
+import { getOriginalEnv, loadProjectEnv, logLoadedEnv } from '@expo/env';
 import assert from 'assert';
 
 import { createFingerprintForBuildAsync } from './createFingerprintForBuildAsync';
@@ -20,11 +21,19 @@ import { findUpProjectRoot } from './findUpProjectRoot';
   assert(destinationDir, 'Must provide a valid destination directory');
 
   const createUpdatesResourcesMode = process.argv[5];
-  if (!['all', 'only-fingerprint'].includes(createUpdatesResourcesMode)) {
+
+  if (
+    createUpdatesResourcesMode == null ||
+    !['all', 'only-fingerprint'].includes(createUpdatesResourcesMode)
+  ) {
     throw new Error(`Unsupported createUpdatesResourcesMode: ${createUpdatesResourcesMode}`);
   }
 
   const entryFileArg = process.argv[6];
+  const mode = process.argv[7];
+
+  process.env = getOriginalEnv();
+  logLoadedEnv(loadProjectEnv(possibleProjectRoot, { mode }));
 
   await Promise.all([
     createUpdatesResourcesMode === 'all'

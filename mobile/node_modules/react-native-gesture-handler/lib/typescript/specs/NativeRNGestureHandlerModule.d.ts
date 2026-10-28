@@ -1,14 +1,13 @@
-import { TurboModule } from 'react-native';
-import { Double } from 'react-native/Libraries/Types/CodegenTypes';
+import type { CodegenTypes, TurboModule } from 'react-native';
 export interface Spec extends TurboModule {
-    handleSetJSResponder: (tag: Double, blockNativeResponder: boolean) => void;
-    handleClearJSResponder: () => void;
-    createGestureHandler: (handlerName: string, handlerTag: Double, config: Object) => void;
-    attachGestureHandler: (handlerTag: Double, newView: Double, actionType: Double) => void;
-    updateGestureHandler: (handlerTag: Double, newConfig: Object) => void;
-    dropGestureHandler: (handlerTag: Double) => void;
-    install: () => boolean;
+    createGestureHandler: (handlerName: string, handlerTag: CodegenTypes.Double, config: Object) => void;
+    attachGestureHandler: (handlerTag: CodegenTypes.Double, newView: CodegenTypes.Double, actionType: CodegenTypes.Double) => void;
+    setGestureHandlerConfig: (handlerTag: CodegenTypes.Double, newConfig: Object) => void;
+    updateGestureHandlerConfig: (handlerTag: CodegenTypes.Double, newConfig: Object) => void;
+    configureRelations: (handlerTag: CodegenTypes.Double, relations: Object) => void;
+    dropGestureHandler: (handlerTag: CodegenTypes.Double) => void;
     flushOperations: () => void;
+    installUIRuntimeBindings: () => boolean;
 }
 declare const _default: Spec;
 export default _default;

@@ -1,5 +1,8 @@
 import React from 'react';
-import { PressableProps } from './PressableProps';
-declare const Pressable: (props: PressableProps) => React.JSX.Element;
-export default Pressable;
+import type { LegacyPressableProps } from './PressableProps';
+/**
+ * @deprecated `LegacyPressable` is deprecated, use `Pressable` instead.
+ */
+declare const LegacyPressable: (props: LegacyPressableProps) => React.JSX.Element;
+export default LegacyPressable;
 //# sourceMappingURL=Pressable.d.ts.map

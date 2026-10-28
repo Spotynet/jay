@@ -1,5 +1,5 @@
-import { AdaptedEvent } from '../interfaces';
-import PointerTracker from '../tools/PointerTracker';
+import type { AdaptedEvent } from '../interfaces';
+import type PointerTracker from '../tools/PointerTracker';
 export interface RotationGestureListener {
     onRotationBegin: (detector: RotationGestureDetector) => boolean;
     onRotation: (detector: RotationGestureDetector) => boolean;

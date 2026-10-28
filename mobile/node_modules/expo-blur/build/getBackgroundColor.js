@@ -1,7 +1,6 @@
 export default function getBackgroundColor(intensity, tint) {
     const opacity = intensity / 100;
-    switch (tint) {
-        // From Apple iOS 14 Sketch Kit - https://developer.apple.com/design/resources/
+    switch(tint){
         // From Apple iOS 14 Sketch Kit - https://developer.apple.com/design/resources/
         case 'dark':
         case 'systemMaterialDark':
@@ -40,4 +39,5 @@ export default function getBackgroundColor(intensity, tint) {
             return `rgba(199,199,199,${opacity * 0.78})`;
     }
 }
+
 //# sourceMappingURL=getBackgroundColor.js.map

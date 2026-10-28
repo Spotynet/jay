@@ -1,15 +1,16 @@
-import { BaseGestureConfig, ContinousBaseGesture } from './gesture';
-import { ForceTouchGestureConfig } from '../ForceTouchGestureHandler';
+import type { ForceTouchGestureConfig } from '../ForceTouchGestureHandler';
+import type { GestureUpdateEvent } from '../gestureHandlerCommon';
 import type { ForceTouchGestureHandlerEventPayload } from '../GestureHandlerEventPayload';
-import { GestureUpdateEvent } from '../gestureHandlerCommon';
+import type { BaseGestureConfig } from './gesture';
+import { ContinousBaseGesture } from './gesture';
 /**
- * @deprecated ForceTouch gesture is deprecated and will be removed in the future.
+ * @deprecated `ForceTouchGestureChangeEventPayload` is deprecated and will be removed in the future.
  */
 export type ForceTouchGestureChangeEventPayload = {
     forceChange: number;
 };
 /**
- * @deprecated ForceTouch gesture is deprecated and will be removed in the future.
+ * @deprecated `ForceTouchGesture` is deprecated and will be removed in the future.
  */
 export declare class ForceTouchGesture extends ContinousBaseGesture<ForceTouchGestureHandlerEventPayload, ForceTouchGestureChangeEventPayload> {
     config: BaseGestureConfig & ForceTouchGestureConfig;
@@ -34,7 +35,7 @@ export declare class ForceTouchGesture extends ContinousBaseGesture<ForceTouchGe
     onChange(callback: (event: GestureUpdateEvent<GestureUpdateEvent<ForceTouchGestureHandlerEventPayload & ForceTouchGestureChangeEventPayload>>) => void): this;
 }
 /**
- * @deprecated ForceTouch gesture is deprecated and will be removed in the future.
+ * @deprecated `ForceTouchGestureType` is deprecated and will be removed in the future.
  */
 export type ForceTouchGestureType = InstanceType<typeof ForceTouchGesture>;
 //# sourceMappingURL=forceTouchGesture.d.ts.map

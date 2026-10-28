@@ -1,6 +1,6 @@
-import type { StyleProp, ViewStyle, TouchableWithoutFeedbackProps, Insets } from 'react-native';
+import type { Insets, StyleProp, TouchableWithoutFeedbackProps, ViewStyle } from 'react-native';
 import type { UserSelect } from '../../handlers/gestureHandlerCommon';
-import { ExtraButtonProps } from './ExtraButtonProps';
+import type { ExtraButtonProps } from './ExtraButtonProps';
 export interface GenericTouchableProps extends Omit<TouchableWithoutFeedbackProps, 'hitSlop'> {
     onPress?: () => void;
     onPressIn?: () => void;

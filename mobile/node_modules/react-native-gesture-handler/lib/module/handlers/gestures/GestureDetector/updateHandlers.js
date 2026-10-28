@@ -1,10 +1,10 @@
 "use strict";
 
-import { registerHandler } from '../../handlersRegistry';
-import RNGestureHandlerModule from '../../../RNGestureHandlerModule';
-import { filterConfig, scheduleFlushOperations } from '../../utils';
 import { ghQueueMicrotask } from '../../../ghQueueMicrotask';
-import { extractGestureRelations, checkGestureCallbacksForWorklets, ALLOWED_PROPS } from './utils';
+import RNGestureHandlerModule from '../../../RNGestureHandlerModule';
+import { registerHandler } from '../../handlersRegistry';
+import { filterConfig, scheduleFlushOperations } from '../../utils';
+import { ALLOWED_PROPS, checkGestureCallbacksForWorklets, extractGestureRelations } from './utils';
 export function updateHandlers(preparedGesture, gestureConfig, newGestures) {
   gestureConfig.prepare();
   for (let i = 0; i < newGestures.length; i++) {
@@ -47,7 +47,8 @@ export function updateHandlers(preparedGesture, gestureConfig, newGestures) {
       }
       handler.config = newGestures[i].config;
       handler.handlers = newGestures[i].handlers;
-      RNGestureHandlerModule.updateGestureHandler(handler.handlerTag, filterConfig(handler.config, ALLOWED_PROPS, extractGestureRelations(handler)));
+      RNGestureHandlerModule.setGestureHandlerConfig(handler.handlerTag, filterConfig(handler.config, ALLOWED_PROPS));
+      RNGestureHandlerModule.configureRelations(handler.handlerTag, extractGestureRelations(handler));
       registerHandler(handler.handlerTag, handler, handler.config.testId);
     }
     if (preparedGesture.animatedHandlers && shouldUpdateSharedValueIfUsed) {

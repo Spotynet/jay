@@ -1,50 +1,90 @@
 "use strict";
 
 import findNodeHandle from '../../findNodeHandle';
-import PointerEventManager from './PointerEventManager';
-import { State } from '../../State';
-import { isPointerInBounds } from '../utils';
 import { MouseButton } from '../../handlers/gestureHandlerCommon';
+import { State } from '../../State';
+import { tagMessage } from '../../utils';
+import { SingleGestureName } from '../../v3/types';
+import { firstNonContentsView, getEffectiveBoundingRect, hasDisplayContents, isPointerInBounds, isRNSVGElement } from '../utils';
 import KeyboardEventManager from './KeyboardEventManager';
+import PointerEventManager from './PointerEventManager';
+import ScrollEventManager from './ScrollEventManager';
 import WheelEventManager from './WheelEventManager';
 export class GestureHandlerWebDelegate {
   isInitialized = false;
+  _view = null;
   eventManagers = [];
   defaultViewStyles = {
     userSelect: '',
     touchAction: ''
   };
+  areContextMenuListenersAdded = false;
+  wasContextMenuEnabled = false;
   init(viewRef, handler) {
     if (!viewRef) {
       throw new Error(`Cannot find HTML Element for handler ${handler.handlerTag}`);
     }
-    this.isInitialized = true;
     this.gestureHandler = handler;
-    this.view = findNodeHandle(viewRef);
+    this.view = handler.usesNativeOrVirtualDetector() && !isRNSVGElement(viewRef) ? viewRef : findNodeHandle(viewRef);
     this.defaultViewStyles = {
       userSelect: this.view.style.userSelect,
       touchAction: this.view.style.touchAction
     };
-    const config = handler.config;
-    this.setUserSelect(config.enabled);
-    this.setTouchAction(config.enabled);
-    this.setContextMenu(config.enabled);
-    this.eventManagers.push(new PointerEventManager(this.view));
+    const shouldSendHoverEvents = handler.name === SingleGestureName.Hover;
+    this.eventManagers.push(new PointerEventManager(this.view, shouldSendHoverEvents));
     this.eventManagers.push(new KeyboardEventManager(this.view));
     this.eventManagers.push(new WheelEventManager(this.view));
+    this.eventManagers.push(new ScrollEventManager(this.view));
     this.eventManagers.forEach(manager => this.gestureHandler.attachEventManager(manager));
+    this.isInitialized = true;
+    this.updateDOM();
+  }
+  detach() {
+    this.restoreDefaultViewStyles();
+    this.defaultViewStyles = {
+      userSelect: '',
+      touchAction: ''
+    };
+    this.eventManagers.forEach(manager => {
+      manager.setEnabled(false);
+    });
+    this.removeContextMenuListeners();
+    this._view = null;
+    this.eventManagers = [];
+    this.isInitialized = false;
+  }
+  restoreDefaultViewStyles() {
+    this.ensureView(this.view);
+    this.setViewStyle('userSelect', this.defaultViewStyles.userSelect);
+    this.setViewStyle('webkitUserSelect', this.defaultViewStyles.userSelect);
+    this.setViewStyle('touchAction', this.defaultViewStyles.touchAction);
+    this.setViewStyle('WebkitTouchCallout', this.defaultViewStyles.touchAction);
+  }
+  updateDOM() {
+    if (!this.isInitialized) {
+      return;
+    }
+    this.setUserSelect();
+    this.setTouchAction();
+    this.setContextMenu();
   }
   isPointerInBounds({
     x,
     y
   }) {
+    if (!this.view) {
+      return false;
+    }
     return isPointerInBounds(this.view, {
       x,
       y
     });
   }
   measureView() {
-    const rect = this.view.getBoundingClientRect();
+    if (!this.view) {
+      throw new Error(tagMessage('Cannot measure a null view'));
+    }
+    const rect = getEffectiveBoundingRect(this.view);
     return {
       pageX: rect.left,
       pageY: rect.top,
@@ -52,30 +92,79 @@ export class GestureHandlerWebDelegate {
       height: rect.height
     };
   }
+  absoluteToLocal(absoluteX, absoluteY) {
+    if (!this.view) {
+      throw new Error(tagMessage('Cannot convert coords on a null view'));
+    }
+    const localView = this.gestureHandler.usesNativeOrVirtualDetector() ? firstNonContentsView(this.view) : this.view;
+    const rect = getEffectiveBoundingRect(localView);
+    const transform = getComputedStyle(localView).transform;
+    const matrix = transform && transform !== 'none' ? new DOMMatrix(transform) : new DOMMatrix();
+
+    // Zero out translation — it's already reflected in the bounding rect
+    // center, so we only need to invert the rotation+scale part.
+    matrix.e = 0;
+    matrix.f = 0;
+    const inverse = matrix.inverse();
+
+    // Offset from the visual center of the bounding rect
+    const rectCenterX = rect.left + rect.width / 2;
+    const rectCenterY = rect.top + rect.height / 2;
+    const dx = absoluteX - rectCenterX;
+    const dy = absoluteY - rectCenterY;
+
+    // Apply inverse rotation+scale to get local-space offset from center
+    const localOffset = inverse.transformPoint(new DOMPoint(dx, dy));
+
+    // Add back the local center (untransformed dimensions)
+    const localCenterX = localView.offsetWidth / 2;
+    const localCenterY = localView.offsetHeight / 2;
+    return {
+      x: localCenterX + localOffset.x,
+      y: localCenterY + localOffset.y
+    };
+  }
   reset() {
     this.eventManagers.forEach(manager => manager.resetManager());
   }
   tryResetCursor() {
-    const config = this.gestureHandler.config;
-    if (config.activeCursor && config.activeCursor !== 'auto' && this.gestureHandler.state === State.ACTIVE) {
+    const activeCursor = this.gestureHandler.activeCursor;
+    if (activeCursor && activeCursor !== 'auto' && this.gestureHandler.state === State.ACTIVE && this.view) {
       this.view.style.cursor = 'auto';
     }
   }
-  shouldDisableContextMenu(config) {
-    return config.enableContextMenu === undefined && this.gestureHandler.isButtonInConfig(MouseButton.RIGHT) || config.enableContextMenu === false;
+  shouldDisableContextMenu() {
+    return this.gestureHandler.enableContextMenu === undefined && this.gestureHandler.isButtonInConfig(MouseButton.RIGHT) || this.gestureHandler.enableContextMenu === false;
   }
-  addContextMenuListeners(config) {
-    if (this.shouldDisableContextMenu(config)) {
+  addContextMenuListeners() {
+    this.ensureView(this.view);
+    if (this.areContextMenuListenersAdded) {
+      return;
+    }
+    if (this.shouldDisableContextMenu()) {
+      this.wasContextMenuEnabled = false;
       this.view.addEventListener('contextmenu', this.disableContextMenu);
-    } else if (config.enableContextMenu) {
+      this.areContextMenuListenersAdded = true;
+    } else if (this.gestureHandler.enableContextMenu) {
+      this.wasContextMenuEnabled = true;
       this.view.addEventListener('contextmenu', this.enableContextMenu);
+      this.areContextMenuListenersAdded = true;
     }
   }
-  removeContextMenuListeners(config) {
-    if (this.shouldDisableContextMenu(config)) {
+  removeContextMenuListeners() {
+    if (!this.initialized || !this.areContextMenuListenersAdded) {
+      return;
+    }
+    this.ensureView(this.view);
+    if (!this.areContextMenuListenersAdded) {
+      return;
+    }
+    if (!this.wasContextMenuEnabled) {
       this.view.removeEventListener('contextmenu', this.disableContextMenu);
-    } else if (config.enableContextMenu) {
+      this.areContextMenuListenersAdded = false;
+    } else {
       this.view.removeEventListener('contextmenu', this.enableContextMenu);
+      this.areContextMenuListenersAdded = false;
     }
   }
   disableContextMenu(e) {
@@ -84,54 +173,46 @@ export class GestureHandlerWebDelegate {
   enableContextMenu(e) {
     e.stopPropagation();
   }
-  setUserSelect(isHandlerEnabled) {
-    const {
-      userSelect
-    } = this.gestureHandler.config;
-    this.view.style['userSelect'] = isHandlerEnabled ? userSelect ?? 'none' : this.defaultViewStyles.userSelect;
-    this.view.style['webkitUserSelect'] = isHandlerEnabled ? userSelect ?? 'none' : this.defaultViewStyles.userSelect;
+  setUserSelect() {
+    const userSelect = this.gestureHandler.userSelect;
+    this.ensureView(this.view);
+    const value = this.gestureHandler.enabled ? userSelect ?? 'none' : this.defaultViewStyles.userSelect;
+    this.setViewStyle('userSelect', value);
+    this.setViewStyle('webkitUserSelect', value);
   }
-  setTouchAction(isHandlerEnabled) {
-    const {
-      touchAction
-    } = this.gestureHandler.config;
-    this.view.style['touchAction'] = isHandlerEnabled ? touchAction ?? 'none' : this.defaultViewStyles.touchAction;
-
-    // @ts-ignore This one disables default events on Safari
-    this.view.style['WebkitTouchCallout'] = isHandlerEnabled ? touchAction ?? 'none' : this.defaultViewStyles.touchAction;
+  setTouchAction() {
+    const touchAction = this.gestureHandler.touchAction;
+    this.ensureView(this.view);
+    const value = this.gestureHandler.enabled ? touchAction ?? 'none' : this.defaultViewStyles.touchAction;
+    this.setViewStyle('touchAction', value);
+    this.setViewStyle('WebkitTouchCallout', value);
   }
-  setContextMenu(isHandlerEnabled) {
-    const config = this.gestureHandler.config;
-    if (isHandlerEnabled) {
-      this.addContextMenuListeners(config);
-    } else {
-      this.removeContextMenuListeners(config);
+  setContextMenu() {
+    if (!this.gestureHandler.enabled) {
+      this.removeContextMenuListeners();
+      return;
     }
+    if (!this.wasContextMenuEnabled) {
+      this.removeContextMenuListeners();
+    }
+    this.addContextMenuListeners();
   }
-  onEnabledChange(enabled) {
+  onEnabledChange() {
     if (!this.isInitialized) {
       return;
     }
-    this.setUserSelect(enabled);
-    this.setTouchAction(enabled);
-    this.setContextMenu(enabled);
-    if (enabled) {
-      this.eventManagers.forEach(manager => {
-        manager.registerListeners();
-      });
-    } else {
-      this.eventManagers.forEach(manager => {
-        manager.unregisterListeners();
-      });
-    }
+    this.updateDOM();
+    this.eventManagers.forEach(manager => {
+      manager.setEnabled(this.gestureHandler.enabled);
+    });
   }
   onBegin() {
     // no-op for now
   }
   onActivate() {
-    const config = this.gestureHandler.config;
-    if ((!this.view.style.cursor || this.view.style.cursor === 'auto') && config.activeCursor) {
-      this.view.style.cursor = config.activeCursor;
+    this.ensureView(this.view);
+    if ((!this.view.style.cursor || this.view.style.cursor === 'auto') && this.gestureHandler.activeCursor) {
+      this.view.style.cursor = this.gestureHandler.activeCursor;
     }
   }
   onEnd() {
@@ -143,17 +224,40 @@ export class GestureHandlerWebDelegate {
   onFail() {
     this.tryResetCursor();
   }
-  destroy(config) {
-    this.removeContextMenuListeners(config);
+  destroy() {
+    this.removeContextMenuListeners();
     this.eventManagers.forEach(manager => {
       manager.unregisterListeners();
     });
+    this.isInitialized = false;
+  }
+  setViewStyle(property, value) {
+    this.ensureView(this.view);
+    if (hasDisplayContents(this.view)) {
+      for (const child of Array.from(this.view.children)) {
+        if (child instanceof HTMLElement) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+          child.style[property] = value;
+        }
+      }
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+      this.view.style[property] = value;
+    }
+  }
+  ensureView(view) {
+    if (!view) {
+      throw new Error(tagMessage('Expected delegate view to be HTMLElement'));
+    }
   }
   get view() {
     return this._view;
   }
   set view(value) {
     this._view = value;
+  }
+  get initialized() {
+    return this.isInitialized;
   }
 }
 //# sourceMappingURL=GestureHandlerWebDelegate.js.map

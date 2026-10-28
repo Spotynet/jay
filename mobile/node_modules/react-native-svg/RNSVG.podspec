@@ -13,14 +13,14 @@ Pod::Spec.new do |s|
   s.license           = package['license']
   s.homepage          = package['homepage']
   s.authors           = 'Horcrux Chen'
-  s.source            = { :git => 'https://github.com/react-native-community/react-native-svg.git', :tag => "v#{s.version}" }
+  s.source            = { :git => 'https://github.com/software-mansion/react-native-svg.git', :tag => "v#{s.version}" }
   s.source_files      = 'apple/**/*.{h,m,mm}'
   s.ios.exclude_files = '**/*.macos.{h,m,mm}'
   s.tvos.exclude_files = '**/*.macos.{h,m,mm}'
   s.visionos.exclude_files = '**/*.macos.{h,m,mm}' if s.respond_to?(:visionos)
   s.osx.exclude_files = '**/*.ios.{h,m,mm}'
   s.requires_arc      = true
-  s.platforms         = { :osx => "10.14", :ios => "12.4", :tvos => "12.4", :visionos => "1.0" }
+  s.platforms         = { :osx => "14.0", :ios => "15.1", :tvos => "15.1", :visionos => "1.0" }
   
   s.osx.resource_bundles  = {'RNSVGFilters' => ['apple/**/*.macosx.metallib']}
   s.ios.resource_bundles  = {'RNSVGFilters' => ['apple/**/*.iphoneos.metallib']}

@@ -34,7 +34,7 @@ export default class Mask extends Shape {
       height,
       maskUnits: maskUnits !== undefined ? units[maskUnits] : 0,
       maskContentUnits: maskContentUnits !== undefined ? units[maskContentUnits] : 1,
-      maskType: maskType[(props === null || props === void 0 ? void 0 : props.maskType) || (style === null || style === void 0 ? void 0 : style.maskType) || 'luminance']
+      maskType: maskType[props?.maskType || style?.maskType || 'luminance']
     };
     return /*#__PURE__*/React.createElement(RNSVGMask, _extends({
       ref: ref => this.refMethod(ref)

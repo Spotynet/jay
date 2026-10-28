@@ -2,27 +2,26 @@
 
 #pragma once
 
-#include <fbjni/fbjni.h>
-
-#include <vector>
+#include "../ExpoHeader.pch"
 
 #include "JSDecorator.h"
-#include "../MethodMetadata.h"
 #include "../JNIFunctionBody.h"
 #include "../types/ExpectedType.h"
-
-#include "JSFunctionsDecorator.h"
-#include "JSPropertiesDecorator.h"
-#include "JSConstantsDecorator.h"
-#include "JSObjectDecorator.h"
-#include "JSClassesDecorator.h"
 
 namespace jni = facebook::jni;
 
 namespace expo {
 
+class JSFunctionsDecorator;
+class JSPropertiesDecorator;
+class JSConstantsDecorator;
+class JSObjectDecorator;
+class JSClassesDecorator;
+
 class JSDecoratorsBridgingObject : public jni::HybridClass<JSDecoratorsBridgingObject> {
 public:
+  ~JSDecoratorsBridgingObject();
+
   static auto constexpr
     kJavaDescriptor = "Lexpo/modules/kotlin/jni/decorators/JSDecoratorsBridgingObject;";
   static auto constexpr TAG = "JSDecoratorsBridgingObject";
@@ -51,6 +50,7 @@ public:
     jboolean takesOwner,
     jboolean enumerable,
     jni::alias_ref<jni::JArrayClass<ExpectedType>> expectedArgTypes,
+    jint cppReturnType,
     jni::alias_ref<JNIFunctionBody::javaobject> body
   );
 
@@ -72,6 +72,7 @@ public:
   void registerClass(
     jni::alias_ref<jstring> name,
     jni::alias_ref<JSDecoratorsBridgingObject::javaobject> jsDecoratorsBridgingObject,
+    jni::alias_ref<JSDecoratorsBridgingObject::javaobject> jsDecoratorsConstructor,
     jboolean takesOwner,
     jni::alias_ref<jclass> ownerClass,
     jboolean isSharedRef,
@@ -84,6 +85,11 @@ public:
    * @return vector of unique pointers to decorators
    */
   std::vector<std::unique_ptr<JSDecorator>> bridge();
+
+  /**
+   * Returns the class decorator, or nullptr if none was registered.
+   */
+  JSClassesDecorator* getClassDecorator() const;
 
 private:
   friend HybridBase;

@@ -2,18 +2,13 @@
 
 #pragma once
 
+#include "ExpoHeader.pch"
 #include "JSIObjectWrapper.h"
 #include "JSITypeConverter.h"
 #include "JavaScriptRuntime.h"
-#include "WeakRuntimeHolder.h"
 #include "JNIFunctionBody.h"
 #include "JNIDeallocator.h"
 #include "JSIUtils.h"
-
-#include <fbjni/fbjni.h>
-#include <jsi/jsi.h>
-
-#include <memory>
 
 namespace jni = facebook::jni;
 namespace jsi = facebook::jsi;
@@ -23,7 +18,7 @@ namespace expo {
 class JavaScriptFunction;
 class JavaScriptValue;
 class JavaScriptWeakObject;
-
+class JavaScriptArrayBuffer;
 
 /**
  * Represents any JavaScript object. Its purpose is to exposes `jsi::Object` API back to Kotlin.
@@ -47,14 +42,12 @@ public:
     std::shared_ptr<jsi::Object> jsObject
   );
 
-  JavaScriptObject(
-    WeakRuntimeHolder runtime,
-    std::shared_ptr<jsi::Object> jsObject
-  );
-
-  virtual ~JavaScriptObject() = default;
-
   std::shared_ptr<jsi::Object> get() override;
+
+  /**
+   * @return the `jsi::Runtime` this object is bound to.
+   */
+  jsi::Runtime &getRuntime();
 
   /**
    * @return a bool whether the object has a property with the given name
@@ -85,10 +78,15 @@ public:
   */
   void setExternalMemoryPressure(int size);
 
-protected:
-  WeakRuntimeHolder runtimeHolder;
-  std::shared_ptr<jsi::Object> jsObject;
+  [[nodiscard]] bool isArray();
+  [[nodiscard]] jni::local_ref<jni::JArrayClass<jni::HybridClass<JavaScriptValue, Destructible>::javaobject>> getArray();
 
+  [[nodiscard]] bool isArrayBuffer();
+  [[nodiscard]] jni::local_ref<jni::HybridClass<JavaScriptArrayBuffer, Destructible>::javaobject> getArrayBuffer();
+
+protected:
+  std::weak_ptr<JavaScriptRuntime> runtimeHolder;
+  std::shared_ptr<jsi::Object> jsObject;
 private:
   friend HybridBase;
 
@@ -124,13 +122,15 @@ private:
     typename = std::enable_if_t<is_jsi_type_converter_defined<T>>
   >
   void setProperty(jni::alias_ref<jstring> name, T value) {
-    jsi::Runtime &jsRuntime = runtimeHolder.getJSRuntime();
+    auto runtime = runtimeHolder.lock();
+    assert((runtime != nullptr) && "JS Runtime was used after deallocation");
+    auto &rawRuntime = runtime->get();
 
     auto cName = name->toStdString();
     jsObject->setProperty(
-      jsRuntime,
+      rawRuntime,
       cName.c_str(),
-      jsi_type_converter<T>::convert(jsRuntime, value)
+      jsi_type_converter<T>::convert(rawRuntime, value)
     );
   }
 
@@ -139,12 +139,14 @@ private:
     typename = std::enable_if_t<is_jsi_type_converter_defined<T>>
   >
   void defineProperty(jni::alias_ref<jstring> name, T value, int options) {
-    jsi::Runtime &jsRuntime = runtimeHolder.getJSRuntime();
+    auto runtime = runtimeHolder.lock();
+    assert((runtime != nullptr) && "JS Runtime was used after deallocation");
+    auto &rawRuntime = runtime->get();
 
     auto cName = name->toStdString();
-    jsi::Object descriptor = preparePropertyDescriptor(jsRuntime, options);
-    descriptor.setProperty(jsRuntime, "value", jsi_type_converter<T>::convert(jsRuntime, value));
-    common::defineProperty(jsRuntime, jsObject.get(), cName.c_str(), std::move(descriptor));
+    jsi::Object descriptor = preparePropertyDescriptor(rawRuntime, options);
+    descriptor.setProperty(rawRuntime, "value", jsi_type_converter<T>::convert(rawRuntime, value));
+    common::defineProperty(rawRuntime, jsObject.get(), cName.c_str(), std::move(descriptor));
   }
 };
 } // namespace expo

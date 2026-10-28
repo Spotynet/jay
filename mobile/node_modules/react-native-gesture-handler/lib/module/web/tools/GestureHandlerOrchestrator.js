@@ -15,7 +15,9 @@ export default class GestureHandlerOrchestrator {
   constructor() {}
   scheduleFinishedHandlersCleanup() {
     if (this.handlingChangeSemaphore === 0) {
-      this.cleanupFinishedHandlers();
+      queueMicrotask(() => {
+        this.cleanupFinishedHandlers();
+      });
     }
   }
   cleanHandler(handler) {
@@ -23,6 +25,13 @@ export default class GestureHandlerOrchestrator {
     handler.active = false;
     handler.awaiting = false;
     handler.activationIndex = Number.MAX_VALUE;
+  }
+  dropHandler(handler) {
+    this.cleanHandler(handler);
+    this.removeHandlerFromOrchestrator(handler);
+  }
+  isHandlerRecorded(handler) {
+    return this.gestureHandlers.includes(handler);
   }
   removeHandlerFromOrchestrator(handler) {
     const indexInGestureHandlers = this.gestureHandlers.indexOf(handler);
@@ -180,14 +189,31 @@ export default class GestureHandlerOrchestrator {
     handler.awaiting = true;
     handler.activationIndex = this.activationIndex++;
   }
+
+  // A handler whose pointer sequence ended before it began (e.g. a press
+  // outside a negative hit slop) never reaches a finished state, so
+  // `cleanupFinishedHandlers` never drops it and it would block or park every
+  // later gesture. Drop such idle entries before a new gesture consults them.
+  dropIdleHandlers() {
+    for (let i = this.gestureHandlers.length - 1; i >= 0; --i) {
+      const handler = this.gestureHandlers[i];
+      if (handler.state === State.UNDETERMINED && handler.tracker.trackedPointersCount === 0) {
+        this.removeHandlerFromOrchestrator(handler);
+      }
+    }
+  }
   recordHandlerIfNotPresent(handler) {
-    if (this.gestureHandlers.includes(handler)) {
+    this.dropIdleHandlers();
+    if (this.isHandlerRecorded(handler)) {
       return;
     }
-    this.gestureHandlers.push(handler);
     handler.active = false;
     handler.awaiting = false;
     handler.activationIndex = Number.MAX_SAFE_INTEGER;
+    if (!handler.shouldBeginWithRecordedHandlers(this.gestureHandlers)) {
+      handler.cancel();
+    }
+    this.gestureHandlers.push(handler);
   }
   shouldHandlerWaitForOther(handler, otherHandler) {
     return handler !== otherHandler && (handler.shouldWaitForHandlerFailure(otherHandler) || otherHandler.shouldRequireToWaitForFailure(handler));

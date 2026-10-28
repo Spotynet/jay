@@ -1,4 +1,4 @@
-import { AdaptedEvent } from '../interfaces';
+import type { AdaptedEvent } from '../interfaces';
 export default class VelocityTracker {
     private assumePointerMoveStoppedMilliseconds;
     private historySize;

@@ -1,24 +1,30 @@
 "use strict";
 
 import { State } from '../../State';
+import { SingleGestureName } from '../../v3/types';
 import GestureHandler from './GestureHandler';
 const DEFAULT_MIN_DURATION_MS = 500;
 const DEFAULT_MAX_DIST_DP = 10;
+const DEFAULT_NUMBER_OF_POINTERS = 1;
 const SCALING_FACTOR = 10;
 export default class LongPressGestureHandler extends GestureHandler {
   minDurationMs = DEFAULT_MIN_DURATION_MS;
   defaultMaxDistSq = DEFAULT_MAX_DIST_DP * SCALING_FACTOR;
   maxDistSq = this.defaultMaxDistSq;
-  numberOfPointers = 1;
+  numberOfPointers = DEFAULT_NUMBER_OF_POINTERS;
   startX = 0;
   startY = 0;
   startTime = 0;
   previousTime = 0;
-  init(ref, propsRef) {
-    if (this.config.enableContextMenu === undefined) {
-      this.config.enableContextMenu = false;
+  constructor(delegate) {
+    super(delegate);
+    this.name = SingleGestureName.LongPress;
+  }
+  init(ref, propsRef, actionType, hostDetector = null) {
+    if (this.enableContextMenu === undefined) {
+      this.enableContextMenu = false;
     }
-    super.init(ref, propsRef);
+    super.init(ref, propsRef, actionType, hostDetector);
   }
   transformNativeEvent() {
     return {
@@ -26,28 +32,23 @@ export default class LongPressGestureHandler extends GestureHandler {
       duration: Date.now() - this.startTime
     };
   }
-  updateGestureConfig({
-    enabled = true,
-    ...props
-  }) {
-    super.updateGestureConfig({
-      enabled: enabled,
-      ...props
-    });
-    if (this.config.minDurationMs !== undefined) {
-      this.minDurationMs = this.config.minDurationMs;
+  updateGestureConfig(config) {
+    super.updateGestureConfig(config);
+    if (config.minDurationMs !== undefined) {
+      this.minDurationMs = config.minDurationMs;
     }
-    if (this.config.maxDist !== undefined) {
-      this.maxDistSq = this.config.maxDist * this.config.maxDist;
+    if (config.maxDist !== undefined) {
+      this.maxDistSq = config.maxDist * config.maxDist;
     }
-    if (this.config.numberOfPointers !== undefined) {
-      this.numberOfPointers = this.config.numberOfPointers;
+    if (config.numberOfPointers !== undefined) {
+      this.numberOfPointers = config.numberOfPointers;
     }
   }
   resetConfig() {
     super.resetConfig();
     this.minDurationMs = DEFAULT_MIN_DURATION_MS;
     this.maxDistSq = this.defaultMaxDistSq;
+    this.numberOfPointers = DEFAULT_NUMBER_OF_POINTERS;
   }
   onStateChange(_newState, _oldState) {
     clearTimeout(this.activationTimeout);
@@ -62,7 +63,6 @@ export default class LongPressGestureHandler extends GestureHandler {
     this.startY = event.y;
     this.tryBegin();
     this.tryActivate();
-    this.tryToSendTouchEvent(event);
   }
   onPointerAdd(event) {
     super.onPointerAdd(event);

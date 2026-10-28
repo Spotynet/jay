@@ -1,9 +1,15 @@
 "use strict";
 
 import { State } from '../../State';
+import { SingleGestureName } from '../../v3/types';
 import GestureHandlerOrchestrator from '../tools/GestureHandlerOrchestrator';
 import GestureHandler from './GestureHandler';
 export default class HoverGestureHandler extends GestureHandler {
+  isContinuous = true;
+  constructor(delegate) {
+    super(delegate);
+    this.name = SingleGestureName.Hover;
+  }
   transformNativeEvent() {
     return {
       ...super.transformNativeEvent(),
@@ -30,10 +36,6 @@ export default class HoverGestureHandler extends GestureHandler {
     this.tracker.track(event);
     this.stylusData = event.stylusData;
     super.onPointerMove(event);
-  }
-  onPointerCancel(event) {
-    super.onPointerCancel(event);
-    this.reset();
   }
 }
 //# sourceMappingURL=HoverGestureHandler.js.map

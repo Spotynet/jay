@@ -1,6 +1,11 @@
 "use strict";
 
 import { ContinousBaseGesture } from './gesture';
+
+/**
+ * @deprecated `PinchGestureChangeEventPayload` is deprecated and will be removed in the future. Please use `PinchGestureActiveEvent` instead.
+ */
+
 function changeEventCalculator(current, previous) {
   'worklet';
 
@@ -19,6 +24,10 @@ function changeEventCalculator(current, previous) {
     ...changePayload
   };
 }
+
+/**
+ * @deprecated `PinchGesture` is deprecated and will be removed in the future. Please use `usePinchGesture` instead.
+ */
 export class PinchGesture extends ContinousBaseGesture {
   constructor() {
     super();
@@ -30,4 +39,8 @@ export class PinchGesture extends ContinousBaseGesture {
     return super.onChange(callback);
   }
 }
+
+/**
+ * @deprecated `PinchGestureType` is deprecated and will be removed in the future. Please use `PinchGesture` instead.
+ */
 //# sourceMappingURL=pinchGesture.js.map

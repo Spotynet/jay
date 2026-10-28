@@ -1,36 +1,21 @@
-import React from 'react';
+import type React from 'react';
 
-import { ActionType } from './ActionType';
-
-// GestureHandlers
-import PanGestureHandler from './web/handlers/PanGestureHandler';
-import TapGestureHandler from './web/handlers/TapGestureHandler';
-import LongPressGestureHandler from './web/handlers/LongPressGestureHandler';
-import PinchGestureHandler from './web/handlers/PinchGestureHandler';
-import RotationGestureHandler from './web/handlers/RotationGestureHandler';
-import FlingGestureHandler from './web/handlers/FlingGestureHandler';
-import NativeViewGestureHandler from './web/handlers/NativeViewGestureHandler';
-import ManualGestureHandler from './web/handlers/ManualGestureHandler';
-import { Config } from './web/interfaces';
+import type { ActionType } from './ActionType';
+import type { Gestures as WebGestures } from './web/Gestures';
+import type { Config } from './web/interfaces';
 
 export const Gestures = {
-  NativeViewGestureHandler,
-  PanGestureHandler,
-  TapGestureHandler,
-  LongPressGestureHandler,
-  PinchGestureHandler,
-  RotationGestureHandler,
-  FlingGestureHandler,
-  ManualGestureHandler,
-};
+  NativeViewGestureHandler: undefined,
+  PanGestureHandler: undefined,
+  TapGestureHandler: undefined,
+  LongPressGestureHandler: undefined,
+  PinchGestureHandler: undefined,
+  RotationGestureHandler: undefined,
+  FlingGestureHandler: undefined,
+  ManualGestureHandler: undefined,
+} satisfies Partial<Record<keyof typeof WebGestures, undefined>>;
 
 export default {
-  handleSetJSResponder(_tag: number, _blockNativeResponder: boolean) {
-    // NO-OP
-  },
-  handleClearJSResponder() {
-    // NO-OP
-  },
   createGestureHandler<T>(
     _handlerName: keyof typeof Gestures,
     _handlerTag: number,
@@ -47,7 +32,10 @@ export default {
   ) {
     // NO-OP
   },
-  updateGestureHandler(_handlerTag: number, _newConfig: Config) {
+  setGestureHandlerConfig(_handlerTag: number, _newConfig: Config) {
+    // NO-OP
+  },
+  updateGestureHandlerConfig(_handlerTag: number, _newConfig: Config) {
     // NO-OP
   },
   getGestureHandlerNode(_handlerTag: number) {

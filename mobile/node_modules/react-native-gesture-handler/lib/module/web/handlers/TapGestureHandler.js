@@ -1,6 +1,7 @@
 "use strict";
 
 import { State } from '../../State';
+import { SingleGestureName } from '../../v3/types';
 import { EventTypes } from '../interfaces';
 import GestureHandler from './GestureHandler';
 const DEFAULT_MAX_DURATION_MS = 500;
@@ -23,34 +24,32 @@ export default class TapGestureHandler extends GestureHandler {
   lastX = 0;
   lastY = 0;
   tapsSoFar = 0;
-  updateGestureConfig({
-    enabled = true,
-    ...props
-  }) {
-    super.updateGestureConfig({
-      enabled: enabled,
-      ...props
-    });
-    if (this.config.numberOfTaps !== undefined) {
-      this.numberOfTaps = this.config.numberOfTaps;
+  constructor(delegate) {
+    super(delegate);
+    this.name = SingleGestureName.Tap;
+  }
+  updateGestureConfig(config) {
+    super.updateGestureConfig(config);
+    if (config.numberOfTaps !== undefined) {
+      this.numberOfTaps = config.numberOfTaps;
     }
-    if (this.config.maxDurationMs !== undefined) {
-      this.maxDurationMs = this.config.maxDurationMs;
+    if (config.maxDurationMs !== undefined) {
+      this.maxDurationMs = config.maxDurationMs;
     }
-    if (this.config.maxDelayMs !== undefined) {
-      this.maxDelayMs = this.config.maxDelayMs;
+    if (config.maxDelayMs !== undefined) {
+      this.maxDelayMs = config.maxDelayMs;
     }
-    if (this.config.maxDeltaX !== undefined) {
-      this.maxDeltaX = this.config.maxDeltaX;
+    if (config.maxDeltaX !== undefined) {
+      this.maxDeltaX = config.maxDeltaX;
     }
-    if (this.config.maxDeltaY !== undefined) {
-      this.maxDeltaY = this.config.maxDeltaY;
+    if (config.maxDeltaY !== undefined) {
+      this.maxDeltaY = config.maxDeltaY;
     }
-    if (this.config.maxDist !== undefined) {
-      this.maxDistSq = this.config.maxDist * this.config.maxDist;
+    if (config.maxDist !== undefined) {
+      this.maxDistSq = config.maxDist * config.maxDist;
     }
-    if (this.config.minPointers !== undefined) {
-      this.minNumberOfPointers = this.config.minPointers;
+    if (config.minPointers !== undefined) {
+      this.minNumberOfPointers = config.minPointers;
     }
   }
   resetConfig() {
@@ -101,7 +100,6 @@ export default class TapGestureHandler extends GestureHandler {
     this.lastX = event.x;
     this.lastY = event.y;
     this.updateState(event);
-    this.tryToSendTouchEvent(event);
   }
   onPointerAdd(event) {
     super.onPointerAdd(event);
@@ -124,7 +122,7 @@ export default class TapGestureHandler extends GestureHandler {
     super.onPointerRemove(event);
     this.tracker.removeFromTracker(event.pointerId);
     this.offsetX += this.lastX - this.startX;
-    this.offsetY += this.lastY = this.startY;
+    this.offsetY += this.lastY - this.startY;
     this.updateLastCoords();
     this.startX = this.lastX;
     this.startY = this.lastY;

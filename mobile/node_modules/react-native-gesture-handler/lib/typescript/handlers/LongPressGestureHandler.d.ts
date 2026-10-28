@@ -1,5 +1,5 @@
-import { LongPressGestureHandlerEventPayload } from './GestureHandlerEventPayload';
-import { BaseGestureHandlerProps } from './gestureHandlerCommon';
+import type { BaseGestureHandlerProps } from './gestureHandlerCommon';
+import type { LongPressGestureHandlerEventPayload } from './GestureHandlerEventPayload';
 export declare const longPressGestureHandlerProps: readonly ["minDurationMs", "maxDist", "numberOfPointers"];
 export interface LongPressGestureConfig {
     /**

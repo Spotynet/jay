@@ -1,17 +1,13 @@
-import { BaseGestureConfig, ContinousBaseGesture } from './gesture';
-import { GestureUpdateEvent } from '../gestureHandlerCommon';
+import type { HoverEffect } from '../../HoverEffect';
+import type { GestureUpdateEvent } from '../gestureHandlerCommon';
 import type { HoverGestureHandlerEventPayload } from '../GestureHandlerEventPayload';
+import type { BaseGestureConfig } from './gesture';
+import { ContinousBaseGesture } from './gesture';
 
 export type HoverGestureChangeEventPayload = {
   changeX: number;
   changeY: number;
 };
-
-export enum HoverEffect {
-  NONE = 0,
-  LIFT = 1,
-  HIGHLIGHT = 2,
-}
 
 export interface HoverGestureConfig {
   hoverEffect?: HoverEffect;
@@ -40,11 +36,14 @@ function changeEventCalculator(
   return { ...current, ...changePayload };
 }
 
+/**
+ * @deprecated `HoverGesture` is deprecated and will be removed in the future. Please use `useHoverGesture` instead.
+ */
 export class HoverGesture extends ContinousBaseGesture<
   HoverGestureHandlerEventPayload,
   HoverGestureChangeEventPayload
 > {
-  public config: BaseGestureConfig & HoverGestureConfig = {};
+  public override config: BaseGestureConfig & HoverGestureConfig = {};
 
   constructor() {
     super();
@@ -61,7 +60,7 @@ export class HoverGesture extends ContinousBaseGesture<
     return this;
   }
 
-  onChange(
+  override onChange(
     callback: (
       event: GestureUpdateEvent<
         HoverGestureHandlerEventPayload & HoverGestureChangeEventPayload
@@ -74,4 +73,7 @@ export class HoverGesture extends ContinousBaseGesture<
   }
 }
 
+/**
+ * @deprecated `HoverGestureType` is deprecated and will be removed in the future. Please use `HoverGesture` instead.
+ */
 export type HoverGestureType = InstanceType<typeof HoverGesture>;

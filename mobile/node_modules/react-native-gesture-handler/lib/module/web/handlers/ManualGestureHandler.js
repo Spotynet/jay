@@ -1,12 +1,17 @@
 "use strict";
 
+import { SingleGestureName } from '../../v3/types';
 import GestureHandler from './GestureHandler';
 export default class ManualGestureHandler extends GestureHandler {
+  isContinuous = true;
+  constructor(delegate) {
+    super(delegate);
+    this.name = SingleGestureName.Manual;
+  }
   onPointerDown(event) {
     this.tracker.addToTracker(event);
     super.onPointerDown(event);
     this.begin();
-    this.tryToSendTouchEvent(event);
   }
   onPointerAdd(event) {
     this.tracker.addToTracker(event);

@@ -1,4 +1,5 @@
-import { AdaptedEvent, EventTypes } from '../interfaces';
+import type { AdaptedEvent } from '../interfaces';
+import { EventTypes } from '../interfaces';
 import EventManager from './EventManager';
 export default class KeyboardEventManager extends EventManager<HTMLElement> {
     private static activationKeys;

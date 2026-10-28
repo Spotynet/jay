@@ -1,11 +1,11 @@
-import React, { PropsWithChildren } from 'react';
-import { tagMessage } from '../utils';
+import type { PropsWithChildren } from 'react';
+import React from 'react';
+
 import PlatformConstants from '../PlatformConstants';
+import { tagMessage } from '../utils';
 import createHandler from './createHandler';
-import {
-  BaseGestureHandlerProps,
-  baseGestureHandlerProps,
-} from './gestureHandlerCommon';
+import type { BaseGestureHandlerProps } from './gestureHandlerCommon';
+import { baseGestureHandlerProps } from './gestureHandlerCommon';
 import type { ForceTouchGestureHandlerEventPayload } from './GestureHandlerEventPayload';
 
 export const forceTouchGestureHandlerProps = [
@@ -17,14 +17,14 @@ export const forceTouchGestureHandlerProps = [
 // implicit `children` prop has been removed in @types/react^18.0.0
 class ForceTouchFallback extends React.Component<PropsWithChildren<unknown>> {
   static forceTouchAvailable = false;
-  componentDidMount() {
+  override componentDidMount() {
     console.warn(
       tagMessage(
         'ForceTouchGestureHandler is not available on this platform. Please use ForceTouchGestureHandler.forceTouchAvailable to conditionally render other components that would provide a fallback behavior specific to your usecase'
       )
     );
   }
-  render() {
+  override render() {
     return this.props.children;
   }
 }

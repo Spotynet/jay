@@ -1,6 +1,8 @@
 import React from 'react';
 import { TouchableOpacity } from 'react-native';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
+import Swipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Icon } from './Icon';
 import { IconPlayerPause, IconPlayerPlay } from 'tabler-icons-react-native';
 
@@ -11,7 +13,7 @@ interface SwipeableRowProps {
 }
 
 export const SwipeableRow = ({ children, isActive = true, onToggleActive }: SwipeableRowProps) => {
-  const swipeRef = React.useRef<Swipeable>(null);
+  const swipeRef = React.useRef<SwipeableMethods>(null);
 
   const renderRightActions = () => (
     <TouchableOpacity

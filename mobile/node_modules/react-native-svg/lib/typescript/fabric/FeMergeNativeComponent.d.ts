@@ -11,6 +11,6 @@ interface FilterPrimitiveCommonProps {
 export interface NativeProps extends ViewProps, FilterPrimitiveCommonProps {
     nodes?: ReadonlyArray<string>;
 }
-declare const _default: import("react-native/Libraries/Utilities/codegenNativeComponent").NativeComponentType<NativeProps>;
+declare const _default: import("react-native").HostComponent<NativeProps>;
 export default _default;
 //# sourceMappingURL=FeMergeNativeComponent.d.ts.map

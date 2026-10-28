@@ -1,7 +1,9 @@
 import { Platform } from 'react-native';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 
 const PREFIX = 'journal-checkin';
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 export type JournalReminderSettings = {
   reminder_enabled?: boolean;
@@ -94,7 +96,17 @@ export async function syncJournalReminder(settings: JournalReminderSettings | nu
       },
     });
     return 'scheduled' as const;
-  } catch {
+  } catch (error) {
+    // Local reminders work in Expo Go; remote push and some native channels do not.
+    // Keep the app usable and avoid crashing startup/session restore.
+    if (__DEV__) {
+      console.warn(
+        isExpoGo
+          ? '[journalReminder] unavailable or limited in Expo Go; continuing without reminder schedule'
+          : '[journalReminder] failed to sync reminder',
+        error
+      );
+    }
     return 'off' as const;
   }
 }

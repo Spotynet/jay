@@ -10,6 +10,8 @@ export default class GestureHandlerOrchestrator {
     private constructor();
     private scheduleFinishedHandlersCleanup;
     private cleanHandler;
+    dropHandler(handler: IGestureHandler): void;
+    isHandlerRecorded(handler: IGestureHandler): boolean;
     removeHandlerFromOrchestrator(handler: IGestureHandler): void;
     private cleanupFinishedHandlers;
     private hasOtherHandlerToWaitFor;
@@ -20,6 +22,7 @@ export default class GestureHandlerOrchestrator {
     onHandlerStateChange(handler: IGestureHandler, newState: State, oldState: State, sendIfDisabled?: boolean): void;
     private makeActive;
     private addAwaitingHandler;
+    private dropIdleHandlers;
     recordHandlerIfNotPresent(handler: IGestureHandler): void;
     private shouldHandlerWaitForOther;
     private canRunSimultaneously;

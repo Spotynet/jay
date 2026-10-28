@@ -1,28 +1,44 @@
 "use strict";
 
 /* eslint-disable @typescript-eslint/no-empty-function */
+import { ActionType } from '../../ActionType';
+import { MouseButton } from '../../handlers/gestureHandlerCommon';
+import { PointerType } from '../../PointerType';
 import { State } from '../../State';
-import { TouchEventType, EventTypes } from '../interfaces';
+import { TouchEventType } from '../../TouchEventType';
+import { tagMessage } from '../../utils';
+import { EventTypes } from '../interfaces';
 import GestureHandlerOrchestrator from '../tools/GestureHandlerOrchestrator';
 import InteractionManager from '../tools/InteractionManager';
 import PointerTracker from '../tools/PointerTracker';
-import { MouseButton } from '../../handlers/gestureHandlerCommon';
-import { PointerType } from '../../PointerType';
 export default class GestureHandler {
   lastSentState = null;
   _state = State.UNDETERMINED;
   _shouldCancelWhenOutside = false;
-  hasCustomActivationCriteria = false;
-  _enabled = false;
-  _config = {
-    enabled: false
-  };
+  _enabled = null;
+  viewRef = null;
+  _hostDetectorView = null;
+  propsRef = null;
+  actionType = null;
+  forAnimated = false;
+  forReanimated = false;
+  _testID = undefined;
+  hitSlop = undefined;
+  manualActivation = false;
+  mouseButton = undefined;
+  needsPointerData = false;
   _tracker = new PointerTracker();
+  _enableContextMenu = false;
+  _activeCursor = undefined;
+  _touchAction = undefined;
+  _userSelect = undefined;
+  needsDOMUpdate = false;
 
   // Orchestrator properties
   _activationIndex = 0;
   _awaiting = false;
   _active = false;
+  _attached = false;
   _shouldResetProgress = false;
   _pointerType = PointerType.MOUSE;
   constructor(delegate) {
@@ -33,11 +49,35 @@ export default class GestureHandler {
   // Initializing handler
   //
 
-  init(viewRef, propsRef) {
+  init(viewRef, propsRef, actionType, hostDetector = null) {
+    if (this.attached) {
+      this.detach();
+    }
+    this.attached = true;
     this.propsRef = propsRef;
     this.viewRef = viewRef;
+    this.actionType = actionType;
+    this.hostDetectorView = hostDetector;
     this.state = State.UNDETERMINED;
     this.delegate.init(viewRef, this);
+  }
+  usesNativeOrVirtualDetector() {
+    return this.actionType === ActionType.NATIVE_DETECTOR || this.actionType === ActionType.VIRTUAL_DETECTOR;
+  }
+  detach() {
+    if (this.state === State.ACTIVE) {
+      this.cancel();
+    } else {
+      this.fail();
+    }
+    this.propsRef = null;
+    this.viewRef = null;
+    this.actionType = null;
+    this.state = State.UNDETERMINED;
+    this.forAnimated = false;
+    this.forReanimated = false;
+    this.attached = false;
+    this.delegate.detach();
   }
   attachEventManager(manager) {
     manager.setOnPointerDown(this.onPointerDown.bind(this));
@@ -52,7 +92,14 @@ export default class GestureHandler {
     manager.setOnPointerMoveOver(this.onPointerMoveOver.bind(this));
     manager.setOnPointerMoveOut(this.onPointerMoveOut.bind(this));
     manager.setOnWheel(this.onWheel.bind(this));
-    manager.registerListeners();
+    manager.setOnScroll(this.onScroll.bind(this));
+
+    // The initial config is applied before the handler is attached. Honor an
+    // initially disabled handler here because the delegate's enabled-change
+    // callback cannot update event managers until attachment has finished.
+    if (this.enabled) {
+      manager.registerListeners();
+    }
   }
 
   //
@@ -80,7 +127,7 @@ export default class GestureHandler {
     }
     const oldState = this.state;
     this.state = newState;
-    if (this.tracker.trackedPointersCount > 0 && this.config.needsPointerData && this.isFinished()) {
+    if (this.tracker.trackedPointersCount > 0 && this.needsPointerData && this.isFinished()) {
       this.cancelTouches();
     }
     GestureHandlerOrchestrator.instance.onHandlerStateChange(this, newState, oldState, sendIfDisabled);
@@ -105,7 +152,7 @@ export default class GestureHandler {
   fail(sendIfDisabled) {
     if (this.state === State.ACTIVE || this.state === State.BEGAN) {
       // Here the order of calling the delegate and moveToState is important.
-      // At this point we can use currentState as previuos state, because immediately after changing cursor we call moveToState method.
+      // At this point we can use currentState as previous state, because immediately after changing cursor we call moveToState method.
       this.delegate.onFail();
       this.moveToState(State.FAILED, sendIfDisabled);
     }
@@ -125,7 +172,7 @@ export default class GestureHandler {
     }
   }
   activate(force = false) {
-    if ((this.config.manualActivation !== true || force) && (this.state === State.UNDETERMINED || this.state === State.BEGAN)) {
+    if ((this.manualActivation !== true || force) && this.state === State.BEGAN) {
       this.delegate.onActivate();
       this.moveToState(State.ACTIVE);
     }
@@ -173,6 +220,12 @@ export default class GestureHandler {
     }
     return InteractionManager.instance.shouldHandlerBeCancelledBy(this, handler);
   }
+  shouldBeginWithRecordedHandlers(_recorded) {
+    return true;
+  }
+  shouldAttachGestureToChildView() {
+    return false;
+  }
 
   //
   // Event actions
@@ -180,12 +233,11 @@ export default class GestureHandler {
 
   onPointerDown(event) {
     GestureHandlerOrchestrator.instance.recordHandlerIfNotPresent(this);
-    this.pointerType = event.pointerType;
+    this._pointerType = event.pointerType;
     if (this.pointerType === PointerType.TOUCH) {
       GestureHandlerOrchestrator.instance.cancelMouseAndPenGestures(this);
     }
-
-    // TODO: Bring back touch events along with introducing `handleDown` method that will handle handler specific stuff
+    this.tryToSendTouchEvent(event);
   }
   // Adding another pointer to existing ones
   onPointerAdd(event) {
@@ -218,10 +270,12 @@ export default class GestureHandler {
   onPointerEnter(event) {
     this.tryToSendTouchEvent(event);
   }
-  onPointerCancel(event) {
-    this.tryToSendTouchEvent(event);
-    this.cancel();
-    this.reset();
+  onPointerCancel(_event) {
+    // No need to send a cancel touch event explicitly here. `cancel` will
+    // handle cancelling all tracked touches if the handler expects pointer data.
+    if (GestureHandlerOrchestrator.instance.isHandlerRecorded(this)) {
+      this.cancel();
+    }
   }
   onPointerOutOfBounds(event) {
     this.tryToSendMoveEvent(true, event);
@@ -235,17 +289,20 @@ export default class GestureHandler {
   onWheel(_event) {
     // Used only by pan gesture handler
   }
+  onScroll(_event) {
+    // Used only by native view gesture handler
+  }
   tryToSendMoveEvent(out, event) {
     if (out && this.shouldCancelWhenOutside || !this.enabled) {
       return;
     }
+    this.tryToSendTouchEvent(event);
     if (this.active) {
       this.sendEvent(this.state, this.state);
     }
-    this.tryToSendTouchEvent(event);
   }
   tryToSendTouchEvent(event) {
-    if (this.config.needsPointerData) {
+    if (this.needsPointerData) {
       this.sendTouchEvent(event);
     }
   }
@@ -253,12 +310,24 @@ export default class GestureHandler {
     if (!this.enabled) {
       return;
     }
+    this.ensurePropsRef();
     const {
-      onGestureHandlerEvent
+      onGestureHandlerEvent,
+      onGestureHandlerTouchEvent,
+      onGestureHandlerReanimatedTouchEvent
     } = this.propsRef.current;
     const touchEvent = this.transformTouchEvent(event);
-    if (touchEvent) {
-      invokeNullableMethod(onGestureHandlerEvent, touchEvent);
+    if (!touchEvent) {
+      return;
+    }
+    if (!this.usesNativeOrVirtualDetector()) {
+      onGestureHandlerEvent?.(touchEvent);
+      return;
+    }
+    if (this.forReanimated) {
+      onGestureHandlerReanimatedTouchEvent?.(touchEvent);
+    } else {
+      onGestureHandlerTouchEvent?.(touchEvent);
     }
   }
 
@@ -267,37 +336,95 @@ export default class GestureHandler {
   //
 
   sendEvent = (newState, oldState) => {
+    if (this.actionType === ActionType.NONE) {
+      return;
+    }
     const {
       onGestureHandlerEvent,
-      onGestureHandlerStateChange
+      onGestureHandlerStateChange,
+      onGestureHandlerAnimatedEvent,
+      onGestureHandlerReanimatedEvent,
+      onGestureHandlerReanimatedStateChange
     } = this.propsRef.current;
-    const resultEvent = this.transformEventData(newState, oldState);
+    const isStateChange = this.lastSentState !== newState;
+    const resultEvent = !this.usesNativeOrVirtualDetector() ? this.transformEventData(newState, oldState) : isStateChange ? this.transformStateChangeEvent(newState, oldState) : this.transformUpdateEvent(newState);
 
-    // In the new API oldState field has to be undefined, unless we send event state changed
+    // In the v2 API oldState field has to be undefined, unless we send event state changed
     // Here the order is flipped to avoid workarounds such as making backup of the state and setting it to undefined first, then changing it back
     // Flipping order with setting oldState to undefined solves issue, when events were being sent twice instead of once
     // However, this may cause trouble in the future (but for now we don't know that)
-
-    if (this.lastSentState !== newState) {
+    if (isStateChange) {
       this.lastSentState = newState;
-      invokeNullableMethod(onGestureHandlerStateChange, resultEvent);
+      if (this.forReanimated) {
+        onGestureHandlerReanimatedStateChange?.(resultEvent);
+      } else {
+        onGestureHandlerStateChange?.(resultEvent);
+      }
     }
-    if (this.state === State.ACTIVE) {
-      resultEvent.nativeEvent.oldState = undefined;
-      invokeNullableMethod(onGestureHandlerEvent, resultEvent);
+    if (this.state !== State.ACTIVE) {
+      return;
+    }
+
+    // Cover only V3 path due to different event shape
+    if (!isStateChange && this.usesNativeOrVirtualDetector()) {
+      const handlerData = resultEvent.nativeEvent.handlerData;
+      if (this.shouldSuppressActiveUpdate(handlerData)) {
+        return;
+      }
+    }
+    resultEvent.nativeEvent.oldState = undefined;
+    if (this.forReanimated) {
+      onGestureHandlerReanimatedEvent?.(resultEvent);
+    } else if (this.forAnimated) {
+      onGestureHandlerAnimatedEvent?.(resultEvent);
+    } else {
+      onGestureHandlerEvent?.(resultEvent);
     }
   };
+  shouldSuppressActiveUpdate(_handlerData) {
+    return false;
+  }
   transformEventData(newState, oldState) {
+    this.ensureViewRef(this.viewRef);
     return {
       nativeEvent: {
         numberOfPointers: this.tracker.trackedPointersCount,
         state: newState,
-        pointerInside: this.delegate.isPointerInBounds(this.tracker.getAbsoluteCoordsAverage()),
         ...this.transformNativeEvent(),
         handlerTag: this.handlerTag,
-        target: this.viewRef,
         oldState: newState !== oldState ? oldState : undefined,
         pointerType: this.pointerType
+      },
+      timeStamp: Date.now()
+    };
+  }
+  transformStateChangeEvent(newState, oldState) {
+    this.ensureViewRef(this.viewRef);
+    return {
+      nativeEvent: {
+        state: newState,
+        handlerTag: this.handlerTag,
+        oldState: oldState,
+        handlerData: {
+          numberOfPointers: this.tracker.trackedPointersCount,
+          pointerType: this.pointerType,
+          ...this.transformNativeEvent()
+        }
+      },
+      timeStamp: Date.now()
+    };
+  }
+  transformUpdateEvent(newState) {
+    this.ensureViewRef(this.viewRef);
+    return {
+      nativeEvent: {
+        state: newState,
+        handlerTag: this.handlerTag,
+        handlerData: {
+          pointerType: this.pointerType,
+          numberOfPointers: this.tracker.trackedPointersCount,
+          ...this.transformNativeEvent()
+        }
       },
       timeStamp: Date.now()
     };
@@ -352,17 +479,17 @@ export default class GestureHandler {
     switch (event.eventType) {
       case EventTypes.DOWN:
       case EventTypes.ADDITIONAL_POINTER_DOWN:
-        eventType = TouchEventType.DOWN;
+        eventType = TouchEventType.TOUCHES_DOWN;
         break;
       case EventTypes.UP:
       case EventTypes.ADDITIONAL_POINTER_UP:
-        eventType = TouchEventType.UP;
+        eventType = TouchEventType.TOUCHES_UP;
         break;
       case EventTypes.MOVE:
-        eventType = TouchEventType.MOVE;
+        eventType = TouchEventType.TOUCHES_MOVE;
         break;
       case EventTypes.CANCEL:
-        eventType = TouchEventType.CANCELLED;
+        eventType = TouchEventType.TOUCHES_CANCEL;
         break;
     }
 
@@ -387,6 +514,7 @@ export default class GestureHandler {
     };
   }
   cancelTouches() {
+    this.ensurePropsRef();
     const rect = this.delegate.measureView();
     const all = [];
     const changed = [];
@@ -415,7 +543,7 @@ export default class GestureHandler {
       nativeEvent: {
         handlerTag: this.handlerTag,
         state: this.state,
-        eventType: TouchEventType.CANCELLED,
+        eventType: TouchEventType.TOUCHES_CANCEL,
         changedTouches: changed,
         allTouches: all,
         numberOfTouches: all.length,
@@ -424,12 +552,32 @@ export default class GestureHandler {
       timeStamp: Date.now()
     };
     const {
-      onGestureHandlerEvent
+      onGestureHandlerEvent,
+      onGestureHandlerReanimatedTouchEvent,
+      onGestureHandlerTouchEvent
     } = this.propsRef.current;
-    invokeNullableMethod(onGestureHandlerEvent, cancelEvent);
+    if (this.actionType !== ActionType.NATIVE_DETECTOR) {
+      onGestureHandlerEvent?.(cancelEvent);
+      return;
+    }
+    if (this.forReanimated) {
+      onGestureHandlerReanimatedTouchEvent?.(cancelEvent);
+    } else {
+      onGestureHandlerTouchEvent?.(cancelEvent);
+    }
+  }
+  ensurePropsRef() {
+    if (!this.propsRef) {
+      throw new Error(tagMessage('Cannot handle event when component props are null'));
+    }
+  }
+  ensureViewRef(viewRef) {
+    if (!viewRef) {
+      throw new Error(tagMessage('Cannot handle event when target is null'));
+    }
   }
   transformNativeEvent() {
-    // Those properties are shared by most handlers and if not this method will be overriden
+    // Those properties are shared by most handlers and if not this method will be overridden
     const lastCoords = this.tracker.getAbsoluteCoordsAverage();
     const lastRelativeCoords = this.tracker.getRelativeCoordsAverage();
     return {
@@ -444,105 +592,132 @@ export default class GestureHandler {
   // Handling config
   //
 
-  updateGestureConfig({
-    enabled = true,
-    ...props
-  }) {
-    this._config = {
-      enabled: enabled,
-      ...props
-    };
-    if (this.enabled !== enabled) {
-      this.delegate.onEnabledChange(enabled);
+  // Helper function to correctly set enabled property
+  maybeUpdateEnabled(enabled) {
+    if (enabled === undefined) {
+      if (this._enabled !== null) {
+        return false;
+      }
+      this._enabled = true;
+      return true;
     }
-    this.enabled = enabled;
-    if (this.config.shouldCancelWhenOutside !== undefined) {
-      this.shouldCancelWhenOutside = this.config.shouldCancelWhenOutside;
+    const prevEnabled = this._enabled;
+    this._enabled = enabled;
+    return enabled !== prevEnabled;
+  }
+  setGestureConfig(config) {
+    this.resetConfig();
+    this.updateGestureConfig({
+      ...config,
+      enabled: config.enabled ?? true
+    });
+  }
+  updateGestureConfig(config) {
+    const enabledChanged = this.maybeUpdateEnabled(config.enabled);
+
+    // An explicit `null` clears the hit slop (no expansion on any edge),
+    // `undefined` means the property was not part of this update.
+    if (config.hitSlop !== undefined) {
+      this.hitSlop = config.hitSlop ?? undefined;
     }
-    this.validateHitSlops();
+    if (config.testID !== undefined) {
+      this._testID = config.testID;
+    }
+    if (config.dispatchesAnimatedEvents !== undefined) {
+      this.forAnimated = config.dispatchesAnimatedEvents;
+    }
+    if (config.dispatchesReanimatedEvents !== undefined) {
+      this.forReanimated = config.dispatchesReanimatedEvents;
+    }
+    if (config.manualActivation !== undefined) {
+      this.manualActivation = config.manualActivation;
+    }
+    if (config.mouseButton !== undefined) {
+      this.mouseButton = config.mouseButton;
+    }
+    if (config.needsPointerData !== undefined) {
+      this.needsPointerData = config.needsPointerData;
+    }
+    if (config.shouldCancelWhenOutside !== undefined) {
+      this.shouldCancelWhenOutside = config.shouldCancelWhenOutside;
+    }
+    if (config.activeCursor !== undefined) {
+      this._activeCursor = config.activeCursor;
+    }
+    if (config.enableContextMenu !== undefined) {
+      this.enableContextMenu = config.enableContextMenu;
+      this.needsDOMUpdate = true;
+    }
+    if (config.touchAction !== undefined) {
+      this._touchAction = config.touchAction;
+      this.needsDOMUpdate = true;
+    }
+    if (config.userSelect !== undefined) {
+      this._userSelect = config.userSelect;
+      this.needsDOMUpdate = true;
+    }
+    if (enabledChanged) {
+      this.delegate.onEnabledChange();
+    } else if (this.needsDOMUpdate) {
+      this.delegate.updateDOM();
+    }
+    this.needsDOMUpdate = false;
     if (this.enabled) {
       return;
     }
-    switch (this.state) {
-      case State.ACTIVE:
-        this.fail(true);
-        break;
-      case State.UNDETERMINED:
-        GestureHandlerOrchestrator.instance.removeHandlerFromOrchestrator(this);
-        break;
-      default:
-        this.cancel(true);
-        break;
+    if (this.state === State.ACTIVE) {
+      this.fail(true);
+    } else if (this.state !== State.UNDETERMINED) {
+      // `cancel` also fires from UNDETERMINED. Most disables hit a handler
+      // that never began (e.g. a button created disabled), and running the
+      // cancel pipeline for those only produces cancel side effects.
+      this.cancel(true);
     }
-  }
-  checkCustomActivationCriteria(criterias) {
-    for (const key in this.config) {
-      if (criterias.indexOf(key) >= 0) {
-        this.hasCustomActivationCriteria = true;
-      }
-    }
-  }
-  validateHitSlops() {
-    if (!this.config.hitSlop) {
-      return;
-    }
-    if (this.config.hitSlop.left !== undefined && this.config.hitSlop.right !== undefined && this.config.hitSlop.width !== undefined) {
-      throw new Error('HitSlop Error: Cannot define left, right and width at the same time');
-    }
-    if (this.config.hitSlop.width !== undefined && this.config.hitSlop.left === undefined && this.config.hitSlop.right === undefined) {
-      throw new Error('HitSlop Error: When width is defined, either left or right has to be defined');
-    }
-    if (this.config.hitSlop.height !== undefined && this.config.hitSlop.top !== undefined && this.config.hitSlop.bottom !== undefined) {
-      throw new Error('HitSlop Error: Cannot define top, bottom and height at the same time');
-    }
-    if (this.config.hitSlop.height !== undefined && this.config.hitSlop.top === undefined && this.config.hitSlop.bottom === undefined) {
-      throw new Error('HitSlop Error: When height is defined, either top or bottom has to be defined');
-    }
+
+    // The cancel/fail above lands in `moveToState`, which resets a disabled
+    // handler to UNDETERMINED right away. The orchestrator's finished-handler
+    // cleanup would then skip it and leave it recorded, so drop it now.
+    GestureHandlerOrchestrator.instance.dropHandler(this);
   }
   checkHitSlop() {
-    if (!this.config.hitSlop) {
+    if (!this.hitSlop) {
       return true;
     }
     const {
       width,
       height
     } = this.delegate.measureView();
+
+    // A uniform hit slop stays a plain number on the wire, so expand it here.
+    const [slopLeft, slopTop, slopRight, slopBottom, slopWidth, slopHeight] = typeof this.hitSlop === 'number' ? [this.hitSlop, this.hitSlop, this.hitSlop, this.hitSlop, null, null] : this.hitSlop;
     let left = 0;
     let top = 0;
     let right = width;
     let bottom = height;
-    if (this.config.hitSlop.horizontal !== undefined) {
-      left -= this.config.hitSlop.horizontal;
-      right += this.config.hitSlop.horizontal;
+    if (slopLeft !== null) {
+      left = -slopLeft;
     }
-    if (this.config.hitSlop.vertical !== undefined) {
-      top -= this.config.hitSlop.vertical;
-      bottom += this.config.hitSlop.vertical;
+    if (slopRight !== null) {
+      right = width + slopRight;
     }
-    if (this.config.hitSlop.left !== undefined) {
-      left = -this.config.hitSlop.left;
+    if (slopTop !== null) {
+      top = -slopTop;
     }
-    if (this.config.hitSlop.right !== undefined) {
-      right = width + this.config.hitSlop.right;
+    if (slopBottom !== null) {
+      bottom = height + slopBottom;
     }
-    if (this.config.hitSlop.top !== undefined) {
-      top = -this.config.hitSlop.top;
-    }
-    if (this.config.hitSlop.bottom !== undefined) {
-      bottom = height + this.config.hitSlop.bottom;
-    }
-    if (this.config.hitSlop.width !== undefined) {
-      if (this.config.hitSlop.left !== undefined) {
-        right = left + this.config.hitSlop.width;
-      } else if (this.config.hitSlop.right !== undefined) {
-        left = right - this.config.hitSlop.width;
+    if (slopWidth !== null) {
+      if (slopLeft !== null) {
+        right = left + slopWidth;
+      } else if (slopRight !== null) {
+        left = right - slopWidth;
       }
     }
-    if (this.config.hitSlop.height !== undefined) {
-      if (this.config.hitSlop.top !== undefined) {
-        bottom = top + this.config.hitSlop.height;
-      } else if (this.config.hitSlop.bottom !== undefined) {
-        top = bottom - this.config.hitSlop.height;
+    if (slopHeight !== null) {
+      if (slopTop !== null) {
+        bottom = top + slopHeight;
+      } else if (slopBottom !== null) {
+        top = bottom - slopHeight;
       }
     }
     const rect = this.delegate.measureView();
@@ -555,12 +730,26 @@ export default class GestureHandler {
     return offsetX >= left && offsetX <= right && offsetY >= top && offsetY <= bottom;
   }
   isButtonInConfig(mouseButton) {
-    return !mouseButton || !this.config.mouseButton && mouseButton === MouseButton.LEFT || this.config.mouseButton && mouseButton & this.config.mouseButton;
+    return !mouseButton || !this.mouseButton && mouseButton === MouseButton.LEFT || this.mouseButton && mouseButton & this.mouseButton;
   }
-  resetConfig() {}
+  resetConfig() {
+    this._testID = undefined;
+    this.manualActivation = false;
+    this.shouldCancelWhenOutside = false;
+    this.mouseButton = undefined;
+    this.hitSlop = undefined;
+    this.needsPointerData = false;
+    this.forAnimated = false;
+    this.forReanimated = false;
+    this.enableContextMenu = false;
+    this._activeCursor = undefined;
+    this._touchAction = undefined;
+    this._userSelect = undefined;
+    this.needsDOMUpdate = true;
+  }
   onDestroy() {
     GestureHandlerOrchestrator.instance.removeHandlerFromOrchestrator(this);
-    this.delegate.destroy(this.config);
+    this.delegate.destroy();
   }
 
   //
@@ -573,8 +762,8 @@ export default class GestureHandler {
   set handlerTag(value) {
     this._handlerTag = value;
   }
-  get config() {
-    return this._config;
+  get testID() {
+    return this._testID;
   }
   get delegate() {
     return this._delegate;
@@ -597,14 +786,8 @@ export default class GestureHandler {
   get enabled() {
     return this._enabled;
   }
-  set enabled(value) {
-    this._enabled = value;
-  }
   get pointerType() {
     return this._pointerType;
-  }
-  set pointerType(value) {
-    this._pointerType = value;
   }
   get active() {
     return this._active;
@@ -618,6 +801,18 @@ export default class GestureHandler {
   set awaiting(value) {
     this._awaiting = value;
   }
+  get attached() {
+    return this._attached;
+  }
+  set attached(value) {
+    this._attached = value;
+  }
+  get hostDetectorView() {
+    return this._hostDetectorView;
+  }
+  set hostDetectorView(value) {
+    this._hostDetectorView = value;
+  }
   get activationIndex() {
     return this._activationIndex;
   }
@@ -630,53 +825,37 @@ export default class GestureHandler {
   set shouldResetProgress(value) {
     this._shouldResetProgress = value;
   }
+  get enableContextMenu() {
+    return this._enableContextMenu;
+  }
+  set enableContextMenu(value) {
+    this._enableContextMenu = value;
+  }
+  get activeCursor() {
+    return this._activeCursor;
+  }
+  get touchAction() {
+    return this._touchAction;
+  }
+  get userSelect() {
+    return this._userSelect;
+  }
+  get name() {
+    return this._name;
+  }
+  set name(value) {
+    this._name = value;
+  }
+
+  /**
+   * Whether the handler represents a continuous gesture rather than a discrete one.
+   */
+  isContinuous = false;
   getTrackedPointersID() {
     return this.tracker.trackedPointersIDs;
   }
   isFinished() {
     return this.state === State.END || this.state === State.FAILED || this.state === State.CANCELLED;
   }
-}
-function invokeNullableMethod(method, event) {
-  if (!method) {
-    return;
-  }
-  if (typeof method === 'function') {
-    method(event);
-    return;
-  }
-  if ('__getHandler' in method && typeof method.__getHandler === 'function') {
-    const handler = method.__getHandler();
-    invokeNullableMethod(handler, event);
-    return;
-  }
-  if (!('__nodeConfig' in method)) {
-    return;
-  }
-  const {
-    argMapping
-  } = method.__nodeConfig;
-  if (!Array.isArray(argMapping)) {
-    return;
-  }
-  for (const [index, [key, value]] of argMapping.entries()) {
-    if (!(key in event.nativeEvent)) {
-      continue;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const nativeValue = event.nativeEvent[key];
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (value?.setValue) {
-      // Reanimated API
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      value.setValue(nativeValue);
-    } else {
-      // RN Animated API
-      method.__nodeConfig.argMapping[index] = [key, nativeValue];
-    }
-  }
-  return;
 }
 //# sourceMappingURL=GestureHandler.js.map

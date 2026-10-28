@@ -1,5 +1,7 @@
 "use strict";
 
+// Native event has to stay for v2 compatibility
+
 export let EventTypes = /*#__PURE__*/function (EventTypes) {
   EventTypes[EventTypes["DOWN"] = 0] = "DOWN";
   EventTypes[EventTypes["ADDITIONAL_POINTER_DOWN"] = 1] = "ADDITIONAL_POINTER_DOWN";
@@ -11,18 +13,16 @@ export let EventTypes = /*#__PURE__*/function (EventTypes) {
   EventTypes[EventTypes["CANCEL"] = 7] = "CANCEL";
   return EventTypes;
 }({});
-export let TouchEventType = /*#__PURE__*/function (TouchEventType) {
-  TouchEventType[TouchEventType["UNDETERMINED"] = 0] = "UNDETERMINED";
-  TouchEventType[TouchEventType["DOWN"] = 1] = "DOWN";
-  TouchEventType[TouchEventType["MOVE"] = 2] = "MOVE";
-  TouchEventType[TouchEventType["UP"] = 3] = "UP";
-  TouchEventType[TouchEventType["CANCELLED"] = 4] = "CANCELLED";
-  return TouchEventType;
-}({});
 export let WheelDevice = /*#__PURE__*/function (WheelDevice) {
   WheelDevice[WheelDevice["UNDETERMINED"] = 0] = "UNDETERMINED";
   WheelDevice[WheelDevice["MOUSE"] = 1] = "MOUSE";
   WheelDevice[WheelDevice["TOUCHPAD"] = 2] = "TOUCHPAD";
   return WheelDevice;
+}({});
+export let NativeGestureRole = /*#__PURE__*/function (NativeGestureRole) {
+  NativeGestureRole["Button"] = "GestureHandlerButton";
+  NativeGestureRole["Switch"] = "Switch";
+  NativeGestureRole["ScrollView"] = "ScrollView";
+  return NativeGestureRole;
 }({});
 //# sourceMappingURL=interfaces.js.map

@@ -1,4 +1,4 @@
-import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent';
+import { codegenNativeComponent } from 'react-native';
 // TODO: import ImageSource from codegen types when it is available
 
 export default codegenNativeComponent('RNSVGImage', {

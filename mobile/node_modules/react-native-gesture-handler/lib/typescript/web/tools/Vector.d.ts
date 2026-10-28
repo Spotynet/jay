@@ -1,5 +1,5 @@
 import { DiagonalDirections, Directions } from '../../Directions';
-import PointerTracker from './PointerTracker';
+import type PointerTracker from './PointerTracker';
 export default class Vector {
     private readonly x;
     private readonly y;

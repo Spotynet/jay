@@ -5,9 +5,14 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include "ConsoleTask.h"
+#include "ConsoleTaskContext.h"
+#include "ConsoleTaskOrchestrator.h"
+
 #include <jsinspector-modern/RuntimeTarget.h>
 #include <jsinspector-modern/tracing/PerformanceTracer.h>
 
+#include <reactperflogger/ReactPerfettoLogger.h>
 #include <concepts>
 #include <deque>
 #include <string>
@@ -18,6 +23,20 @@ using namespace std::string_literals;
 namespace facebook::react::jsinspector_modern {
 
 namespace {
+
+inline std::optional<HighResTimeStamp> getTimeStampForPerfetto(
+    const std::optional<tracing::ConsoleTimeStampEntry>& consoleTimeStampEntry,
+    const HighResTimeStamp now) {
+  if (consoleTimeStampEntry) {
+    if (std::holds_alternative<HighResTimeStamp>(*consoleTimeStampEntry)) {
+      return std::get<HighResTimeStamp>(*consoleTimeStampEntry);
+    } else {
+      return std::nullopt;
+    }
+  } else {
+    return now;
+  }
+}
 
 struct ConsoleState {
   /**
@@ -118,8 +137,9 @@ void consoleCount(
     it->second++;
   }
   std::vector<jsi::Value> vec;
-  vec.emplace_back(jsi::String::createFromUtf8(
-      runtime, label + ": "s + std::to_string(it->second)));
+  vec.emplace_back(
+      jsi::String::createFromUtf8(
+          runtime, label + ": "s + std::to_string(it->second)));
   runtimeTargetDelegate.addConsoleMessage(
       runtime,
       {timestampMs,
@@ -143,8 +163,9 @@ void consoleCountReset(
   auto it = state.countMap.find(label);
   if (it == state.countMap.end()) {
     std::vector<jsi::Value> vec;
-    vec.emplace_back(jsi::String::createFromUtf8(
-        runtime, "Count for '"s + label + "' does not exist"));
+    vec.emplace_back(
+        jsi::String::createFromUtf8(
+            runtime, "Count for '"s + label + "' does not exist"));
     runtimeTargetDelegate.addConsoleMessage(
         runtime,
         {timestampMs,
@@ -173,8 +194,9 @@ void consoleTime(
     state.timerTable.insert({label, timestampMs});
   } else {
     std::vector<jsi::Value> vec;
-    vec.emplace_back(jsi::String::createFromUtf8(
-        runtime, "Timer '"s + label + "' already exists"));
+    vec.emplace_back(
+        jsi::String::createFromUtf8(
+            runtime, "Timer '"s + label + "' already exists"));
     runtimeTargetDelegate.addConsoleMessage(
         runtime,
         {timestampMs,
@@ -199,8 +221,9 @@ void consoleTimeEnd(
   auto it = state.timerTable.find(label);
   if (it == state.timerTable.end()) {
     std::vector<jsi::Value> vec;
-    vec.emplace_back(jsi::String::createFromUtf8(
-        runtime, "Timer '"s + label + "' does not exist"));
+    vec.emplace_back(
+        jsi::String::createFromUtf8(
+            runtime, "Timer '"s + label + "' does not exist"));
     runtimeTargetDelegate.addConsoleMessage(
         runtime,
         {timestampMs,
@@ -209,9 +232,10 @@ void consoleTimeEnd(
          std::move(stackTrace)});
   } else {
     std::vector<jsi::Value> vec;
-    vec.emplace_back(jsi::String::createFromUtf8(
-        runtime,
-        label + ": "s + std::to_string(timestampMs - it->second) + " ms"));
+    vec.emplace_back(
+        jsi::String::createFromUtf8(
+            runtime,
+            label + ": "s + std::to_string(timestampMs - it->second) + " ms"));
     state.timerTable.erase(it);
     runtimeTargetDelegate.addConsoleMessage(
         runtime,
@@ -237,8 +261,9 @@ void consoleTimeLog(
   auto it = state.timerTable.find(label);
   if (it == state.timerTable.end()) {
     std::vector<jsi::Value> vec;
-    vec.emplace_back(jsi::String::createFromUtf8(
-        runtime, "Timer '"s + label + "' does not exist"));
+    vec.emplace_back(
+        jsi::String::createFromUtf8(
+            runtime, "Timer '"s + label + "' does not exist"));
     runtimeTargetDelegate.addConsoleMessage(
         runtime,
         {timestampMs,
@@ -247,9 +272,10 @@ void consoleTimeLog(
          std::move(stackTrace)});
   } else {
     std::vector<jsi::Value> vec;
-    vec.emplace_back(jsi::String::createFromUtf8(
-        runtime,
-        label + ": "s + std::to_string(timestampMs - it->second) + " ms"));
+    vec.emplace_back(
+        jsi::String::createFromUtf8(
+            runtime,
+            label + ": "s + std::to_string(timestampMs - it->second) + " ms"));
     if (count > 1) {
       for (size_t i = 1; i != count; ++i) {
         vec.emplace_back(runtime, args[i]);
@@ -376,7 +402,8 @@ void consoleTimeStamp(
     const jsi::Value* arguments,
     size_t argumentsCount) {
   auto& performanceTracer = tracing::PerformanceTracer::getInstance();
-  if (!performanceTracer.isTracing() || argumentsCount == 0) {
+  if ((!performanceTracer.isTracing() && !ReactPerfettoLogger::isTracing()) ||
+      argumentsCount == 0) {
     // If not tracing, just early return to avoid the cost of parsing.
     return;
   }
@@ -444,8 +471,40 @@ void consoleTimeStamp(
     }
   }
 
-  performanceTracer.reportTimeStamp(
-      label, start, end, trackName, trackGroup, color);
+  std::optional<folly::dynamic> detail;
+  if (performanceTracer.isTracing() && argumentsCount >= 7) {
+    const jsi::Value& detailArgument = arguments[6];
+    if (detailArgument.isObject()) {
+      detail =
+          tracing::getConsoleTimeStampDetailFromObject(runtime, detailArgument);
+    }
+  }
+
+  if (performanceTracer.isTracing()) {
+    auto taskContext = ConsoleTaskOrchestrator::getInstance().top();
+
+    performanceTracer.reportTimeStamp(
+        label,
+        start,
+        end,
+        trackName,
+        trackGroup,
+        color,
+        std::move(detail),
+        taskContext ? taskContext->getSerializedStackTrace() : nullptr);
+  }
+
+  if (ReactPerfettoLogger::isTracing()) {
+    std::optional<HighResTimeStamp> perfettoStart =
+        getTimeStampForPerfetto(start, now);
+    std::optional<HighResTimeStamp> perfettoEnd =
+        getTimeStampForPerfetto(end, now);
+
+    if (perfettoStart && perfettoEnd) {
+      ReactPerfettoLogger::measure(
+          label, *perfettoStart, *perfettoEnd, trackName, trackGroup);
+    }
+  }
 }
 
 /*
@@ -475,6 +534,71 @@ void installConsoleTimeStamp(
               })));
 }
 
+/**
+ * run method of the task object returned from console.createTask().
+ */
+jsi::Value consoleTaskRun(
+    jsi::Runtime& runtime,
+    const jsi::Value* args,
+    size_t count,
+    std::shared_ptr<ConsoleTaskContext> taskContext) {
+  if (count < 1 || !args[0].isObject()) {
+    throw JSError(runtime, "First argument must be a function");
+  }
+  auto fnObj = args[0].getObject(runtime);
+  if (!fnObj.isFunction(runtime)) {
+    throw JSError(runtime, "First argument must be a function");
+  }
+
+  ConsoleTask consoleTask{taskContext};
+
+  auto fn = fnObj.getFunction(runtime);
+  return fn.call(runtime);
+}
+
+/**
+ * console.createTask. Non-standardized.
+ * https://developer.chrome.com/docs/devtools/console/api#createtask
+ */
+jsi::Value consoleCreateTask(
+    jsi::Runtime& runtime,
+    const jsi::Value* args,
+    size_t count,
+    RuntimeTargetDelegate& runtimeTargetDelegate,
+    bool enabled) {
+  if (count < 1 || !args[0].isString()) {
+    throw JSError(runtime, "First argument must be a non-empty string");
+  }
+  auto name = args[0].asString(runtime).utf8(runtime);
+  if (name.empty()) {
+    throw JSError(runtime, "First argument must be a non-empty string");
+  }
+
+  jsi::Object task{runtime};
+  std::shared_ptr<ConsoleTaskContext> taskContext = nullptr;
+  if (enabled) {
+    taskContext = std::make_shared<ConsoleTaskContext>(
+        runtime, runtimeTargetDelegate, name);
+    taskContext->schedule();
+  }
+
+  task.setProperty(
+      runtime,
+      "run",
+      jsi::Function::createFromHostFunction(
+          runtime,
+          jsi::PropNameID::forAscii(runtime, "run"),
+          0,
+          [taskContext](
+              jsi::Runtime& runtime,
+              const jsi::Value& /*thisVal*/,
+              const jsi::Value* args,
+              size_t count) {
+            return consoleTaskRun(runtime, args, count, taskContext);
+          }));
+  return task;
+}
+
 } // namespace
 
 void RuntimeTarget::installConsoleHandler() {
@@ -496,30 +620,6 @@ void RuntimeTarget::installConsoleHandler() {
     auto state = std::make_shared<ConsoleState>();
 
     /**
-     * An executor that runs synchronously and provides a safe reference to our
-     * RuntimeTargetDelegate for use on the JS thread.
-     * \see RuntimeTargetDelegate for information on which methods are safe to
-     * call on the JS thread.
-     * \warning The callback will not run if the RuntimeTarget has been
-     * destroyed.
-     */
-    auto delegateExecutorSync =
-        [selfWeak,
-         selfExecutor](std::invocable<RuntimeTargetDelegate&> auto func) {
-          if (auto self = selfWeak.lock()) {
-            // Q: Why is it safe to use self->delegate_ here?
-            // A: Because the caller of InspectorTarget::registerRuntime
-            // is explicitly required to guarantee that the delegate not
-            // only outlives the target, but also outlives all JS code
-            // execution that occurs on the JS thread.
-            func(self->delegate_);
-            // To ensure we never destroy `self` on the JS thread, send
-            // our shared_ptr back to the inspector thread.
-            selfExecutor([self = std::move(self)](auto&) { (void)self; });
-          }
-        };
-
-    /**
      * Install a console method with the given name and body. The body receives
      * the usual JSI host function parameters plus a ConsoleState reference, a
      * reference to the RuntimeTargetDelegate for sending messages to the
@@ -539,20 +639,26 @@ void RuntimeTarget::installConsoleHandler() {
               forwardToOriginalConsole(
                   originalConsole,
                   methodName,
-                  [body = std::move(body), state, delegateExecutorSync](
+                  [body = std::move(body), state, selfWeak](
                       jsi::Runtime& runtime,
                       const jsi::Value& /*thisVal*/,
                       const jsi::Value* args,
                       size_t count) {
                     auto timestampMs = getTimestampMs();
-                    delegateExecutorSync([&](auto& runtimeTargetDelegate) {
-                      auto stackTrace = runtimeTargetDelegate.captureStackTrace(
+                    tryExecuteSync(selfWeak, [&](auto& self) {
+                      // Q: Why is it safe to use self->delegate_ here?
+                      // A: Because the caller of
+                      // InspectorTarget::registerRuntime is explicitly required
+                      // to guarantee that the delegate not only outlives the
+                      // target, but also outlives all JS code execution that
+                      // occurs on the JS thread.
+                      auto stackTrace = self.delegate_.captureStackTrace(
                           runtime, /* framesToSkip */ 1);
                       body(
                           runtime,
                           args,
                           count,
-                          runtimeTargetDelegate,
+                          self.delegate_,
                           *state,
                           timestampMs,
                           std::move(stackTrace));
@@ -595,6 +701,33 @@ void RuntimeTarget::installConsoleHandler() {
      * console.timeStamp
      */
     installConsoleTimeStamp(runtime, originalConsole, console);
+
+    /**
+     * console.createTask
+     */
+    console.setProperty(
+        runtime,
+        "createTask",
+        jsi::Function::createFromHostFunction(
+            runtime,
+            jsi::PropNameID::forAscii(runtime, "createTask"),
+            0,
+            [state, selfWeak](
+                jsi::Runtime& runtime,
+                const jsi::Value& /*thisVal*/,
+                const jsi::Value* args,
+                size_t count) {
+              jsi::Value task;
+              tryExecuteSync(selfWeak, [&](auto& self) {
+                task = consoleCreateTask(
+                    runtime,
+                    args,
+                    count,
+                    self.delegate_,
+                    self.isConsoleCreateTaskEnabled());
+              });
+              return task;
+            }));
 
     // Install forwarding console methods.
 #define FORWARDING_CONSOLE_METHOD(name, type) \

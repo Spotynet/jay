@@ -3,7 +3,7 @@
 import { ContinousBaseGesture } from './gesture';
 
 /**
- * @deprecated ForceTouch gesture is deprecated and will be removed in the future.
+ * @deprecated `ForceTouchGestureChangeEventPayload` is deprecated and will be removed in the future.
  */
 
 function changeEventCalculator(current, previous) {
@@ -26,7 +26,7 @@ function changeEventCalculator(current, previous) {
 }
 
 /**
- * @deprecated ForceTouch gesture is deprecated and will be removed in the future.
+ * @deprecated `ForceTouchGesture` is deprecated and will be removed in the future.
  */
 export class ForceTouchGesture extends ContinousBaseGesture {
   config = {};
@@ -71,6 +71,6 @@ export class ForceTouchGesture extends ContinousBaseGesture {
 }
 
 /**
- * @deprecated ForceTouch gesture is deprecated and will be removed in the future.
+ * @deprecated `ForceTouchGestureType` is deprecated and will be removed in the future.
  */
 //# sourceMappingURL=forceTouchGesture.js.map

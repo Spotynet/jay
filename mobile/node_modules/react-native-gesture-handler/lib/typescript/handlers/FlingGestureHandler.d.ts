@@ -1,5 +1,5 @@
+import type { BaseGestureHandlerProps } from './gestureHandlerCommon';
 import type { FlingGestureHandlerEventPayload } from './GestureHandlerEventPayload';
-import { BaseGestureHandlerProps } from './gestureHandlerCommon';
 export declare const flingGestureHandlerProps: readonly ["numberOfPointers", "direction"];
 export interface FlingGestureConfig {
     /**

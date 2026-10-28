@@ -4,8 +4,6 @@ export declare function withPrevAndCurrent<T, Transformed>(array: T[], mapFn: wi
 export declare function hasProperty(object: object, key: string): boolean;
 export declare function isTestEnv(): boolean;
 export declare function tagMessage(msg: string): string;
-export declare function isFabric(): boolean;
-export declare function isReact19(): boolean;
 export declare function isRemoteDebuggingEnabled(): boolean;
 /**
  * Recursively compares two objects for deep equality.

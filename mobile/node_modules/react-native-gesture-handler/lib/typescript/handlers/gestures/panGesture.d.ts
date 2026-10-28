@@ -1,11 +1,18 @@
-import { BaseGestureConfig, ContinousBaseGesture } from './gesture';
-import { GestureUpdateEvent } from '../gestureHandlerCommon';
-import { PanGestureConfig } from '../PanGestureHandler';
+import type { GestureUpdateEvent } from '../gestureHandlerCommon';
 import type { PanGestureHandlerEventPayload } from '../GestureHandlerEventPayload';
+import type { PanGestureConfig } from '../PanGestureHandler';
+import type { BaseGestureConfig } from './gesture';
+import { ContinousBaseGesture } from './gesture';
+/**
+ * @deprecated `PanGestureChangeEventPayload` is deprecated and will be removed in the future. Please use `PanGestureActiveEvent` instead.
+ */
 export type PanGestureChangeEventPayload = {
     changeX: number;
     changeY: number;
 };
+/**
+ * @deprecated `PanGesture` is deprecated and will be removed in the future. Please use `usePanGesture` instead.
+ */
 export declare class PanGesture extends ContinousBaseGesture<PanGestureHandlerEventPayload, PanGestureChangeEventPayload> {
     config: BaseGestureConfig & PanGestureConfig;
     constructor();
@@ -51,17 +58,20 @@ export declare class PanGesture extends ContinousBaseGesture<PanGestureHandlerEv
      */
     minDistance(distance: number): this;
     /**
-     * Minimum velocity the finger has to reach in order to activate handler.
+     * Minimum speed the pointer has to reach in order to activate handler.
+     * Expressed in points per second.
      * @param velocity
      */
     minVelocity(velocity: number): this;
     /**
-     * Minimum velocity along X axis the finger has to reach in order to activate handler.
+     * Minimum speed along X axis the pointer has to reach in order to activate handler.
+     * Expressed in points per second.
      * @param velocity
      */
     minVelocityX(velocity: number): this;
     /**
-     * Minimum velocity along Y axis the finger has to reach in order to activate handler.
+     * Minimum speed along Y axis the pointer has to reach in order to activate handler.
+     * Expressed in points per second.
      * @param velocity
      */
     minVelocityY(velocity: number): this;
@@ -87,5 +97,8 @@ export declare class PanGesture extends ContinousBaseGesture<PanGestureHandlerEv
     activateAfterLongPress(duration: number): this;
     onChange(callback: (event: GestureUpdateEvent<PanGestureHandlerEventPayload & PanGestureChangeEventPayload>) => void): this;
 }
+/**
+ * @deprecated `PanGestureType` is deprecated and will be removed in the future. Please use `PanGesture` instead.
+ */
 export type PanGestureType = InstanceType<typeof PanGesture>;
 //# sourceMappingURL=panGesture.d.ts.map

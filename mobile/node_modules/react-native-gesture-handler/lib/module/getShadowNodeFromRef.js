@@ -1,5 +1,7 @@
 "use strict";
 
+import { isHostInstance } from './hostInstance';
+
 // Used by GestureDetector (unsupported on web at the moment) to check whether the
 // attached view may get flattened on Fabric. This implementation causes errors
 // on web due to the static resolution of `require` statements by webpack breaking
@@ -7,8 +9,10 @@
 let findHostInstance_DEPRECATED;
 let getInternalInstanceHandleFromPublicInstance;
 export function getShadowNodeFromRef(ref) {
+  const isAlreadyHostInstance = isHostInstance(ref);
+
   // Load findHostInstance_DEPRECATED lazily because it may not be available before render
-  if (findHostInstance_DEPRECATED === undefined) {
+  if (!isAlreadyHostInstance && findHostInstance_DEPRECATED === undefined) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const ReactFabric = require('react-native/Libraries/Renderer/shims/ReactFabric');
@@ -40,8 +44,9 @@ export function getShadowNodeFromRef(ref) {
       ref._internalInstanceHandle;
     }
   }
+  const hostInstance = isAlreadyHostInstance ? ref : findHostInstance_DEPRECATED(ref);
 
   // @ts-ignore Fabric
-  return getInternalInstanceHandleFromPublicInstance(findHostInstance_DEPRECATED(ref)).stateNode.node;
+  return getInternalInstanceHandleFromPublicInstance(hostInstance).stateNode.node;
 }
 //# sourceMappingURL=getShadowNodeFromRef.js.map

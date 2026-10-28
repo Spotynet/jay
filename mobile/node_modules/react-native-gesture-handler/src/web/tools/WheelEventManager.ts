@@ -1,6 +1,7 @@
-import EventManager from './EventManager';
-import { AdaptedEvent, EventTypes } from '../interfaces';
 import { PointerType } from '../../PointerType';
+import type { AdaptedEvent } from '../interfaces';
+import { EventTypes } from '../interfaces';
+import EventManager from './EventManager';
 
 export default class WheelEventManager extends EventManager<HTMLElement> {
   private wheelDelta = { x: 0, y: 0 };
@@ -42,7 +43,8 @@ export default class WheelEventManager extends EventManager<HTMLElement> {
     };
   }
 
-  public resetManager(): void {
+  public override resetManager(): void {
     super.resetManager();
+    this.wheelDelta = { x: 0, y: 0 };
   }
 }

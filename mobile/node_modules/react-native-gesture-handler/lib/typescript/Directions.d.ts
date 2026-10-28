@@ -5,10 +5,10 @@ export declare const Directions: {
     readonly DOWN: 8;
 };
 export declare const DiagonalDirections: {
-    readonly UP_RIGHT: number;
-    readonly DOWN_RIGHT: number;
-    readonly UP_LEFT: number;
-    readonly DOWN_LEFT: number;
+    readonly UP_RIGHT: 5;
+    readonly DOWN_RIGHT: 9;
+    readonly UP_LEFT: 6;
+    readonly DOWN_LEFT: 10;
 };
 export type Directions = (typeof Directions)[keyof typeof Directions];
 export type DiagonalDirections = (typeof DiagonalDirections)[keyof typeof DiagonalDirections];

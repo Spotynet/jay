@@ -17,13 +17,13 @@ export const ColorPickerModal = ({ visible, onClose, onSelect, currentColor }: C
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity style={styles.modalOverlay} onPress={onClose} activeOpacity={1}>
-        <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+        <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
           <AppText bold style={[styles.modalTitle, { color: colors.text }]}>Select Accent Color</AppText>
           
           <ColorPicker 
             style={styles.picker} 
             value={currentColor}
-            onComplete={(color) => {
+            onCompleteJS={(color) => {
               onSelect(color.hex);
               onClose();
             }}

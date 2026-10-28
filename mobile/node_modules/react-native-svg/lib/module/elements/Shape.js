@@ -242,14 +242,13 @@ export default class Shape extends Component {
     return this.root;
   }
   setNativeProps = props => {
-    var _this$root;
     for (const key in props) {
       if (BrushProperties.includes(key)) {
         // @ts-ignore TypeScript doesn't know that `key` is a key of `props`
         props[key] = extractBrush(props[key]);
       }
     }
-    (_this$root = this.root) === null || _this$root === void 0 || _this$root.setNativeProps(props);
+    this.root?.setNativeProps(props);
   };
 
   /*

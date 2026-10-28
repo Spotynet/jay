@@ -1,7 +1,7 @@
+import type { CodegenTypes } from 'react-native';
 import { NumberProp } from '../lib/extract/types';
 import type { UnsafeMixed } from './codegenUtils';
 import type { ViewProps } from './utils';
-import { WithDefault } from 'react-native/Libraries/Types/CodegenTypes';
 type Units = 'userSpaceOnUse' | 'objectBoundingBox';
 interface NativeProps extends ViewProps {
     name?: string;
@@ -9,9 +9,9 @@ interface NativeProps extends ViewProps {
     y?: UnsafeMixed<NumberProp>;
     height?: UnsafeMixed<NumberProp>;
     width?: UnsafeMixed<NumberProp>;
-    filterUnits?: WithDefault<Units, 'objectBoundingBox'>;
-    primitiveUnits?: WithDefault<Units, 'userSpaceOnUse'>;
+    filterUnits?: CodegenTypes.WithDefault<Units, 'objectBoundingBox'>;
+    primitiveUnits?: CodegenTypes.WithDefault<Units, 'userSpaceOnUse'>;
 }
-declare const _default: import("react-native/Libraries/Utilities/codegenNativeComponent").NativeComponentType<NativeProps>;
+declare const _default: import("react-native").HostComponent<NativeProps>;
 export default _default;
 //# sourceMappingURL=FilterNativeComponent.d.ts.map

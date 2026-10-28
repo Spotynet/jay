@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
-import { AdaptedEvent, EventTypes } from '../interfaces';
+import type { AdaptedEvent, EventTypes } from '../interfaces';
 
 type PointerEventCallback = (event: AdaptedEvent) => void;
 
@@ -38,6 +38,7 @@ export default abstract class EventManager<T> {
   protected onPointerMoveOver(_event: AdaptedEvent): void {}
   protected onPointerMoveOut(_event: AdaptedEvent): void {}
   protected onWheel(_event: AdaptedEvent): void {}
+  protected onScroll(_event: AdaptedEvent): void {}
 
   public setOnPointerDown(callback: PointerEventCallback): void {
     this.onPointerDown = callback;
@@ -75,6 +76,9 @@ export default abstract class EventManager<T> {
   public setOnWheel(callback: PointerEventCallback): void {
     this.onWheel = callback;
   }
+  public setOnScroll(callback: PointerEventCallback): void {
+    this.onScroll = callback;
+  }
 
   protected markAsInBounds(pointerId: number): void {
     if (this.pointersInBounds.indexOf(pointerId) >= 0) {
@@ -92,6 +96,15 @@ export default abstract class EventManager<T> {
     }
 
     this.pointersInBounds.splice(index, 1);
+  }
+
+  public setEnabled(value: boolean | null) {
+    if (value) {
+      this.registerListeners();
+    } else {
+      this.resetManager();
+      this.unregisterListeners();
+    }
   }
 
   public resetManager(): void {

@@ -56,7 +56,7 @@ export function onGestureHandlerEvent(event) {
         case TouchEventType.TOUCHES_UP:
           handler.handlers?.onTouchesUp?.(event, manager);
           break;
-        case TouchEventType.TOUCHES_CANCELLED:
+        case TouchEventType.TOUCHES_CANCEL:
           handler.handlers?.onTouchesCancelled?.(event, manager);
           break;
       }

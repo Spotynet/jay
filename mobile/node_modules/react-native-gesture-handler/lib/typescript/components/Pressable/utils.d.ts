@@ -1,11 +1,14 @@
-import { Insets } from 'react-native';
-import { HoverGestureHandlerEventPayload, LongPressGestureHandlerEventPayload } from '../../handlers/GestureHandlerEventPayload';
-import { GestureStateChangeEvent, GestureTouchEvent } from '../../handlers/gestureHandlerCommon';
-import { PressableDimensions, InnerPressableEvent, PressableEvent } from './PressableProps';
+import type { Insets } from 'react-native';
+import type { GestureStateChangeEvent, GestureTouchEvent } from '../../handlers/gestureHandlerCommon';
+import type { HoverGestureHandlerEventPayload, LongPressGestureHandlerEventPayload } from '../../handlers/GestureHandlerEventPayload';
+import type { HoverGestureEvent, LongPressGestureEvent } from '../../v3';
+import type { HoverGestureActiveEvent } from '../../v3/hooks';
+import type { InnerPressableEvent, PressableDimensions, PressableEvent } from './PressableProps';
 declare const numberAsInset: (value: number) => Insets;
 declare const addInsets: (a: Insets, b: Insets) => Insets;
 declare const isTouchWithinInset: (dimensions: PressableDimensions, inset: Insets, touch?: InnerPressableEvent) => boolean;
-declare const gestureToPressableEvent: (event: GestureStateChangeEvent<HoverGestureHandlerEventPayload | LongPressGestureHandlerEventPayload>) => PressableEvent;
+declare const gestureToPressableEvent: (event: GestureStateChangeEvent<HoverGestureHandlerEventPayload | LongPressGestureHandlerEventPayload> | HoverGestureEvent | HoverGestureActiveEvent | LongPressGestureEvent) => PressableEvent;
 declare const gestureTouchToPressableEvent: (event: GestureTouchEvent) => PressableEvent;
-export { numberAsInset, addInsets, isTouchWithinInset, gestureToPressableEvent, gestureTouchToPressableEvent, };
+declare const viewCenterToPressableEvent: (dimensions: PressableDimensions) => PressableEvent;
+export { addInsets, gestureToPressableEvent, gestureTouchToPressableEvent, isTouchWithinInset, numberAsInset, viewCenterToPressableEvent, };
 //# sourceMappingURL=utils.d.ts.map

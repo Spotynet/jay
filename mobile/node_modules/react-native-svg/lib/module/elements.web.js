@@ -164,7 +164,7 @@ export class Svg extends WebShape {
       canvas.width = width;
       canvas.height = height;
       const context = canvas.getContext('2d');
-      context === null || context === void 0 || context.drawImage(img, 0, 0);
+      context?.drawImage(img, 0, 0);
       callback(canvas.toDataURL().replace('data:image/png;base64,', ''));
     };
     img.src = `data:image/svg+xml;utf8,${encodeSvg(new window.XMLSerializer().serializeToString(svg))}`;

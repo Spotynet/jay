@@ -1,5 +1,5 @@
+import type { BaseGestureHandlerProps } from './gestureHandlerCommon';
 import type { TapGestureHandlerEventPayload } from './GestureHandlerEventPayload';
-import { BaseGestureHandlerProps } from './gestureHandlerCommon';
 export declare const tapGestureHandlerProps: readonly ["maxDurationMs", "maxDelayMs", "numberOfTaps", "maxDeltaX", "maxDeltaY", "maxDist", "minPointers"];
 export interface TapGestureConfig {
     /**

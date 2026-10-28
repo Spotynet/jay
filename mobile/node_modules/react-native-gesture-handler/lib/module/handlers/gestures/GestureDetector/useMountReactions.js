@@ -1,8 +1,8 @@
 "use strict";
 
-import { transformIntoHandlerTags } from '../../utils';
-import { MountRegistry } from '../../../mountRegistry';
 import { useEffect } from 'react';
+import { MountRegistry } from '../../../mountRegistry';
+import { transformIntoHandlerTags } from '../../utils';
 function shouldUpdateDetector(relation, gesture) {
   if (relation === undefined) {
     return false;
@@ -17,6 +17,12 @@ function shouldUpdateDetector(relation, gesture) {
 export function useMountReactions(updateDetector, state) {
   useEffect(() => {
     return MountRegistry.addMountListener(gesture => {
+      // The detector may already be unmounted when this fires; bail out to avoid
+      // updating a detached detector.
+      if (!state.isMounted) {
+        return;
+      }
+
       // At this point the ref in the gesture config should be updated, so we can check if one of the gestures
       // set in a relation with the gesture got mounted. If so, we need to update the detector to propagate
       // the changes to the native side.

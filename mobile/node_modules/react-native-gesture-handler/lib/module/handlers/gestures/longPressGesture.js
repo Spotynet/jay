@@ -1,6 +1,10 @@
 "use strict";
 
 import { BaseGesture } from './gesture';
+
+/**
+ * @deprecated `LongPressGesture` is deprecated and will be removed in the future. Please use `useLongPressGesture` instead.
+ */
 export class LongPressGesture extends BaseGesture {
   config = {};
   constructor() {
@@ -38,4 +42,8 @@ export class LongPressGesture extends BaseGesture {
     return this;
   }
 }
+
+/**
+ * @deprecated `LongPressGestureType` is deprecated and will be removed in the future. Please use `LongPressGesture` instead.
+ */
 //# sourceMappingURL=longPressGesture.js.map

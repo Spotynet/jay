@@ -1,6 +1,9 @@
+import type { ActionType } from '../../ActionType';
 import { State } from '../../State';
-import { AdaptedEvent, Config } from '../interfaces';
+import type { AdaptedEvent, Config, HostDetector, PropsRef } from '../interfaces';
+import type { GestureHandlerDelegate } from '../tools/GestureHandlerDelegate';
 import GestureHandler from './GestureHandler';
+import type IGestureHandler from './IGestureHandler';
 export default class LongPressGestureHandler extends GestureHandler {
     private minDurationMs;
     private defaultMaxDistSq;
@@ -11,11 +14,12 @@ export default class LongPressGestureHandler extends GestureHandler {
     private startTime;
     private previousTime;
     private activationTimeout;
-    init(ref: number, propsRef: React.RefObject<unknown>): void;
+    constructor(delegate: GestureHandlerDelegate<unknown, IGestureHandler>);
+    init(ref: number, propsRef: React.RefObject<PropsRef>, actionType: ActionType, hostDetector?: HostDetector | null): void;
     protected transformNativeEvent(): {
         duration: number;
     };
-    updateGestureConfig({ enabled, ...props }: Config): void;
+    updateGestureConfig(config: Config): void;
     protected resetConfig(): void;
     protected onStateChange(_newState: State, _oldState: State): void;
     protected onPointerDown(event: AdaptedEvent): void;

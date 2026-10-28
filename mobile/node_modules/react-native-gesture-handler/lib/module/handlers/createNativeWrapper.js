@@ -13,8 +13,12 @@ import { NativeViewGestureHandler, nativeViewProps } from './NativeViewGestureHa
  */
 import { jsx as _jsx } from "react/jsx-runtime";
 const NATIVE_WRAPPER_PROPS_FILTER = [...nativeViewProps, 'onGestureHandlerEvent', 'onGestureHandlerStateChange'];
+
+/**
+ * @deprecated `createNativeWrapper` is deprecated and will be removed in favor of using `GestureDetector` with `Native` gesture directly.
+ */
 export default function createNativeWrapper(Component, config = {}) {
-  const ComponentWrapper = /*#__PURE__*/React.forwardRef((props, ref) => {
+  const ComponentWrapper = props => {
     // Filter out props that should be passed to gesture handler wrapper
     const {
       gestureHandlerProps,
@@ -43,7 +47,7 @@ export default function createNativeWrapper(Component, config = {}) {
     });
     const _ref = useRef(null);
     const _gestureHandlerRef = useRef(null);
-    useImperativeHandle(ref,
+    useImperativeHandle(props.ref,
     // @ts-ignore TODO(TS) decide how nulls work in this context
     () => {
       const node = _gestureHandlerRef.current;
@@ -64,7 +68,7 @@ export default function createNativeWrapper(Component, config = {}) {
         ref: _ref
       })
     });
-  });
+  };
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   ComponentWrapper.displayName = Component?.displayName ||

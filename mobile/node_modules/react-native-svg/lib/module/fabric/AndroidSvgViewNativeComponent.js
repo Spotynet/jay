@@ -1,4 +1,4 @@
-import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent';
+import { codegenNativeComponent } from 'react-native';
 export default codegenNativeComponent('RNSVGSvgViewAndroid', {
   excludedPlatforms: ['iOS']
 });

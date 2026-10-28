@@ -2,6 +2,7 @@ import { useCallback, useEffect, useImperativeHandle, type DependencyList, type 
 
 import type { DOMImperativeFactory } from './dom.types';
 import { REGISTER_DOM_IMPERATIVE_HANDLE_PROPS } from './injection';
+import { getWebViewBridge, hasWebViewBridge } from './webview-bridge';
 
 declare namespace globalThis {
   let _domRefProxy: undefined | unknown;
@@ -16,12 +17,10 @@ export function useDOMImperativeHandle<T extends DOMImperativeFactory>(
   init: () => T,
   deps?: DependencyList
 ) {
-  const isTargetWeb =
-    // @ts-expect-error: Added via react-native-webview
-    typeof window.ReactNativeWebView === 'undefined' &&
-    // @ts-expect-error: Added via expo/dom
-    typeof window.$$EXPO_INITIAL_PROPS === 'undefined';
+  const isTargetWeb = !hasWebViewBridge() && typeof window.$$EXPO_INITIAL_PROPS === 'undefined';
 
+  // This generic hook forwards the caller-provided dependency list, which cannot be an array literal.
+  // oxlint-disable-next-line react/use-memo
   const stubHandlerFactory = useCallback(() => ({}) as T, deps ?? []);
 
   // This standard useImperativeHandle hook is serving for web
@@ -31,9 +30,7 @@ export function useDOMImperativeHandle<T extends DOMImperativeFactory>(
   useEffect(() => {
     if (!isTargetWeb) {
       globalThis._domRefProxy = init();
-      // TODO(@kitten): Type `ReactNativeWebView` and the message data
-      // @ts-expect-error: Added via react-native-webview
-      window.ReactNativeWebView.postMessage(
+      getWebViewBridge().postMessage(
         JSON.stringify({
           type: REGISTER_DOM_IMPERATIVE_HANDLE_PROPS,
           data: Object.keys(globalThis._domRefProxy as any),

@@ -1,6 +1,5 @@
 "use strict";
 
-import React from 'react';
 export function toArray(object) {
   if (!Array.isArray(object)) {
     return [object];
@@ -27,25 +26,17 @@ export function hasProperty(object, key) {
 }
 export function isTestEnv() {
   // @ts-ignore Do not use `@types/node` because it will prioritise Node types over RN types which breaks the types (ex. setTimeout) in React Native projects.
-  return hasProperty(global, 'process') && process.env.NODE_ENV === 'test';
+  return hasProperty(globalThis, 'process') && process.env.NODE_ENV === 'test';
 }
 export function tagMessage(msg) {
-  return `[react-native-gesture-handler] ${msg}`;
-}
+  'worklet';
 
-// Helper method to check whether Fabric is enabled, however global.nativeFabricUIManager
-// may not be initialized before the first render
-export function isFabric() {
-  // @ts-expect-error nativeFabricUIManager is not yet included in the RN types
-  return !!global?.nativeFabricUIManager;
-}
-export function isReact19() {
-  return React.version.startsWith('19.');
+  return `[react-native-gesture-handler] ${msg}`;
 }
 export function isRemoteDebuggingEnabled() {
   // react-native-reanimated checks if in remote debugging in the same way
-  // @ts-ignore global is available but node types are not included
-  const localGlobal = global;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
+  const localGlobal = globalThis;
   return (!localGlobal.nativeCallSyncHook || !!localGlobal.__REMOTEDEV__) && !localGlobal.RN$Bridgeless;
 }
 
