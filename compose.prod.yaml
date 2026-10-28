@@ -1,9 +1,72 @@
-# Dedicated / production override: project nginx owns host port 80.
-# Usage: docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+# Production: pull pre-built images from ECR (no build on host).
+# Project nginx publishes 127.0.0.1:8080 only; host nginx + Certbot own :80/:443.
+# Usage: JAY_IMAGE_TAG=<sha|main> ./deploy.sh
+# TLS:   sudo ./deploy/setup-prod-nginx.sh --certbot
+# Do NOT use on the shared Spotynet multi-app EC2.
 #
-# !override replaces the shared-host bind (127.0.0.1:3010:80) from compose.yaml.
+# JAY_IMAGE_REGISTRY example:
+#   123456789012.dkr.ecr.us-east-1.amazonaws.com/apps/jay
+# Images: ${JAY_IMAGE_REGISTRY}/api|mobile:${JAY_IMAGE_TAG}
+# Published by ./build.sh (not GitHub Actions)
 
 services:
+  api:
+    image: ${JAY_IMAGE_REGISTRY}/api:${JAY_IMAGE_TAG:-main}
+    build: !reset null
+    pull_policy: always
+    volumes: !override []
+    user: "1001:1001"
+    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:3012", "--workers", "3"]
+    environment:
+      DEBUG: ${DEBUG:-False}
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3012/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  mobile:
+    image: ${JAY_IMAGE_REGISTRY}/mobile:${JAY_IMAGE_TAG:-main}
+    build: !reset null
+    pull_policy: always
+    volumes: !override []
+    command: !override ["nginx", "-g", "daemon off;"]
+    environment: !override
+      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-https://jay-api.spotynet.com}
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+        reservations:
+          memory: 32M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3011/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   nginx:
+    # Host nginx + Certbot own :80/:443; Compose only on localhost.
     ports: !override
-      - "80:80"
+      - "127.0.0.1:8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+      mobile:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

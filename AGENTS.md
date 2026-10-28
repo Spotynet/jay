@@ -1,5 +1,15 @@
 # JAY — Project Rules
 
+## Platform priority — native iOS first
+Unless the user explicitly requests web or Android work:
+- Design, implement, and validate for **native iOS** first (physical device / Expo Go).
+- Prefer React Native `StyleSheet` layout (`flexDirection: 'row'`, explicit sizes) over
+  browser-only CSS or fragile utility combinations for critical layout primitives.
+- Do not treat a web preview screenshot as proof that native layout works.
+- Preserve other platforms where practical; do not break them for iOS-only polish.
+- Keep Expo Go testable — avoid new native modules that require a custom build unless
+  the user approves. Preserve the app’s custom premium dark visual identity.
+
 ## Create/Edit Form Pages (mobile)
 All create/edit (entry) forms must pin the submit button to the bottom of the screen,
 never inside the scrollable content.

@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Jay DEVELOPMENT — shared EC2 / local compose (project nginx on 127.0.0.1:3010).
+# Jay DEVELOPMENT — shared EC2 (project nginx on 127.0.0.1:3010).
 #
-# After initial host setup (packages + sudo ./deploy/bootstrap-shared.sh once):
-#   ./dev.sh
+# After initial host setup: sudo ./deploy/bootstrap-shared.sh (once)
+# Day-to-day: ./dev.sh
 #
-# Domains are defined below (not in .env). Secrets stay in backend/.env.
+# Release flow (separate machines/scripts):
+#   ./dev.sh     → hot reload on this box
+#   ./build.sh   → build + push images to ECR (builder/dev)
+#   ./deploy.sh  → pull + run on prod
 #
-# For production, use ./deploy.sh instead.
+# Domains are defined below. Secrets stay in backend/.env.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -38,6 +41,7 @@ if [[ ! -f backend/.env ]]; then
   exit 1
 fi
 
+echo "Cleaning old Jay PM2 processes (if any)..."
 pm2 delete jay-api-dev 2>/dev/null || true
 pm2 delete jay-dev 2>/dev/null || true
 pm2 save 2>/dev/null || true
@@ -55,3 +59,6 @@ echo "  https://${JAY_API_HOST}/"
 echo
 echo "Logs: docker compose -f compose.yaml logs -f"
 echo "Stop: docker compose -f compose.yaml down"
+echo
+echo "If host nginx still points at 3011/3012, run once:"
+echo "  sudo ./deploy/apply-nginx.sh"

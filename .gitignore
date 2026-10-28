@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+deploy.env
 
 # Python
 backend/venv/

@@ -1,4 +1,4 @@
-# Jay: develop vs production
+# Jay: develop / build / deploy
 
 ## Workflow
 
@@ -6,22 +6,26 @@
 |------|--------|---------|
 | First time on shared EC2 | Dev host | Install Docker; `sudo ./deploy/bootstrap-shared.sh` (once) |
 | Day-to-day / refresh | Dev host | `./dev.sh` |
-| First time on prod machine | Prod host | Docker + `backend/.env` (secrets) + DNS; edit domains at top of `deploy.sh` if needed |
-| After merge to `main` | Prod host | `./deploy.sh` (`git pull` + rebuild) |
+| Release images | Builder (often shared EC2) | `./build.sh` (default branch only for push) |
+| First time on prod | Prod host | `backend/.env` + `deploy.env` + `sudo ./deploy/setup-prod-nginx.sh --certbot` |
+| After image push | Prod host | `JAY_IMAGE_TAG=<sha\|main> ./deploy.sh` |
 
 **Domains** live in the scripts (committed):
 
 - `dev.sh` → `jay-dev.spotynet.com` / `jay-api-dev.spotynet.com`
-- `deploy.sh` → edit `JAY_WEB_HOST` / `JAY_API_HOST` at the top (or pass as args)
+- `deploy.sh` → `jay.spotynet.com` / `jay-api.spotynet.com` (or CLI args)
 
-**Secrets** (`SECRET_KEY`, `DATABASE_URL`, …) stay in gitignored `backend/.env`.
+**Secrets** stay in gitignored `backend/.env`.  
+**Registry config** stays in gitignored `deploy.env` (see `deploy.env.example`) — no AWS access keys.
 
 ## Commands
 
 ```bash
-./dev.sh                                    # development
-./deploy.sh                                 # production (uses domains in deploy.sh)
-./deploy.sh app.example.com api.example.com # production with one-off hosts
+./dev.sh                                    # development (compose build + mounts)
+./build.sh                                  # build + push ECR (default branch)
+PUSH=0 ./build.sh                           # local build/tag only
+./deploy.sh                                 # prod: pull ECR + up + migrate
+./deploy.sh jay.example.com jay-api.example.com
 ./deploy.sh down                            # stop production
 ```
 
@@ -32,15 +36,12 @@ sudo ./deploy/bootstrap-shared.sh
 ./dev.sh
 ```
 
-## Dedicated production — once, then only deploy
+## Dedicated production — once, then deploy
 
-1. Edit domains at the top of `deploy.sh` (or pass them as args).
-2. Create `backend/.env` with `SECRET_KEY`, `DATABASE_URL`, `DEBUG=False`, etc.
-3. DNS → machine IP; open port 80 (and 443 if TLS).
-4. `./deploy.sh`
+1. Create ECR repos + IAM (see [`aws-ecr.md`](aws-ecr.md)).
+2. `cp deploy.env.example deploy.env` and set `AWS_ACCOUNT_ID`.
+3. Create `backend/.env` with `SECRET_KEY`, `DATABASE_URL`, `DEBUG=False`, etc.
+4. DNS → machine IP; `sudo ./deploy/setup-prod-nginx.sh --certbot`.
+5. On builder: `./build.sh`. On prod: `./deploy.sh`.
 
-After each merge to main:
-
-```bash
-./deploy.sh
-```
+Do **not** run `./deploy.sh` on the shared Spotynet multi-app EC2.

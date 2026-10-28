@@ -1,37 +1,49 @@
 services:
   api:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: docker/api/Dockerfile
+    # Bind-mount hot reload needs root; prod image runs as uid 1001.
+    user: "0:0"
     env_file:
       - ./backend/.env
     environment:
-      # Overridden by ./dev.sh / ./deploy.sh when those scripts export them
+      DEBUG: ${DEBUG:-True}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,jay-api-dev.spotynet.com,jay-dev.spotynet.com}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-https://jay-api-dev.spotynet.com,https://jay-dev.spotynet.com}
     volumes:
       - ./backend:/app
+    command: ["python", "manage.py", "runserver", "0.0.0.0:3012"]
     expose:
       - "3012"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3012/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
 
   mobile:
     build:
-      context: ./mobile
-      dockerfile: Dockerfile.dev
-    env_file:
-      - ./mobile/.env
+      context: .
+      dockerfile: docker/mobile/Dockerfile
+      target: development
+    user: "0:0"
     environment:
       EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-https://jay-api-dev.spotynet.com}
     volumes:
       - ./mobile:/app
       - mobile_node_modules:/app/node_modules
+    command: ["npx", "expo", "start", "--web", "--port", "3011", "--host", "lan"]
     expose:
       - "3011"
-    stdin_open: true
-    tty: true
-    depends_on:
-      - api
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3011/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
     restart: unless-stopped
 
   nginx:
@@ -39,13 +51,13 @@ services:
     ports:
       - "127.0.0.1:3010:80"
     environment:
-      JAY_WEB_HOST: ${JAY_WEB_HOST:-jay-dev.spotynet.com}
       JAY_API_HOST: ${JAY_API_HOST:-jay-api-dev.spotynet.com}
+      JAY_WEB_HOST: ${JAY_WEB_HOST:-jay-dev.spotynet.com}
     volumes:
       - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
     depends_on:
-      - mobile
       - api
+      - mobile
     restart: unless-stopped
 
 volumes:

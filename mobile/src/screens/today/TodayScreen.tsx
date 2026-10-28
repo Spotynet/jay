@@ -14,7 +14,12 @@ import { ActionButton } from '../../components/common/ActionButton';
 import CalendarPickerModal from '../../components/common/CalendarPickerModal';
 import { TimelineAgenda } from '../../components/common/TimelineAgenda';
 import { CreateNewModal } from './components/CreateNewModal';
-import { DayMetricStrip, DayMetric } from '../../components/timeline/DayMetricStrip';
+import { DayMetricStrip } from '../../components/timeline/DayMetricStrip';
+import {
+  buildDueCountMetric,
+  buildEventCountMetric,
+  buildTaskHabitMetrics,
+} from '../../utils/dayMetrics';
 import { FINANCE_ICONS } from '../../constants/financeIcons';
 import { getJournalTimelineState, JournalSettings } from '../../utils/journalScheduling';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
@@ -260,49 +265,19 @@ export default function TodayScreen() {
     ('0' + (selectedDate.getMonth() + 1)).slice(-2) + '-' + 
     ('0' + selectedDate.getDate()).slice(-2);
 
-  const doneTasks = tasks.filter((t: any) => t.status === 'COMPLETED').length;
-  const doneHabits = habits.filter((h: any) => h.completed).length;
-
-  const metrics: DayMetric[] = useMemo(
+  const metrics = useMemo(
     () => [
-      {
-        id: 'tasks',
-        label: 'tasks',
-        value: doneTasks,
-        max: Math.max(tasks.length, 1),
-        color: entityColors.tasks,
-      },
-      {
-        id: 'habits',
-        label: 'habits',
-        value: doneHabits,
-        max: Math.max(habits.length, 1),
-        color: entityColors.habits,
-      },
-      {
-        id: 'events',
-        label: 'events',
-        value: events.length,
-        max: Math.max(events.length, 1),
-        color: entityColors.events,
-      },
-      {
-        id: 'due',
-        label: 'due',
-        value: budgetDueDates.length,
-        max: Math.max(budgetDueDates.length, 1),
-        color: entityColors.finance,
-      },
+      ...buildTaskHabitMetrics({
+        tasks,
+        habits,
+        entityColors: { tasks: entityColors.tasks, habits: entityColors.habits },
+      }),
+      // Events have no completion state — honest count only.
+      buildEventCountMetric(events, entityColors.events),
+      // Finance dues are outstanding reminders, not a completion ring.
+      buildDueCountMetric(budgetDueDates, entityColors.finance),
     ],
-    [
-      doneTasks,
-      tasks.length,
-      doneHabits,
-      habits.length,
-      events.length,
-      budgetDueDates.length,
-      entityColors,
-    ],
+    [tasks, habits, events, budgetDueDates, entityColors],
   );
 
   const agendaItems: AgendaItem[] = useMemo(() => {

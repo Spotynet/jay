@@ -90,16 +90,29 @@ export const AppHeader = ({ title, showBack = false, rightOption, onTitlePress, 
 
 const styles = StyleSheet.create({
   container: { width: '100%' },
-  content: { height: 85, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15 },
+  // Header row only — safe-area inset is applied once via paddingTop on container.
+  content: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 6,
+  },
   leftContainer: { width: 50, alignItems: 'flex-start' },
   rightContainer: { width: 50, alignItems: 'flex-end' },
-  leftAlignedContent: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  textGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  separator: { width: 1, height: 18 },
+  leftAlignedContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minWidth: 0,
+  },
+  textGroup: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, minWidth: 0 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', marginLeft: 8 },
+  separator: { width: 1, height: 18, marginHorizontal: 8 },
   brandTitle: { fontSize: 16, fontWeight: '600', letterSpacing: 1.5, textTransform: 'uppercase' },
-  pageTitle: { fontSize: 14, fontWeight: '400', letterSpacing: 3, textTransform: 'uppercase' },
-  title: { fontSize: 14, fontWeight: '400', letterSpacing: 1.5, textTransform: 'uppercase' },
+  pageTitle: { fontSize: 13, fontWeight: '400', letterSpacing: 2, textTransform: 'uppercase' },
+  title: { fontSize: 13, fontWeight: '400', letterSpacing: 1.5, textTransform: 'uppercase' },
   titleCenter: { flex: 1, textAlign: 'center' },
-  chevron: { marginLeft: 2 }
+  chevron: { marginLeft: 2 },
 });

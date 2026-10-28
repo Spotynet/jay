@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   iconWash: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   category: {
     fontSize: 12,

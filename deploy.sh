@@ -1,22 +1,32 @@
 #!/usr/bin/env bash
-# Jay PRODUCTION deploy — dedicated machine (project nginx on host :80).
+# Jay PRODUCTION deploy — dedicated machine.
 #
-# After each merge to main:
-#   ./deploy.sh
+# Pulls pre-built images from Amazon ECR (no build on host).
+# Build/push images first with ./build.sh on a builder/dev machine.
 #
-# Domains are defined below (edit once for your prod hostnames).
-# Optional override: ./deploy.sh app.example.com api.example.com
-# Secrets stay in backend/.env (gitignored).
+#   JAY_IMAGE_TAG=<sha|main> ./deploy.sh
+#   ./deploy.sh jay.spotynet.com jay-api.spotynet.com
+#   SKIP_GIT_PULL=1 JAY_IMAGE_TAG=$SHA ./deploy.sh
 #
-# For shared-EC2 development, use ./dev.sh instead.
+# Non-secret registry config: deploy.env (see deploy.env.example).
+# App secrets stay in backend/.env (gitignored).
+# For development, use ./dev.sh. Do NOT run this on the shared Spotynet EC2.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
-# === Production domains (edit once; committed with the repo) ===
-JAY_WEB_HOST="jay.spotynet.com"
-JAY_API_HOST="jay-api.spotynet.com"
+# shellcheck source=deploy/lib-ecr.sh
+source "$ROOT/deploy/lib-ecr.sh"
+
+load_deploy_env "$ROOT"
+resolve_ecr_registry
+
+JAY_IMAGE_TAG="${JAY_IMAGE_TAG:-main}"
+
+# === Production domains (edit once; committed defaults) ===
+JAY_WEB_HOST="${JAY_WEB_HOST:-jay.spotynet.com}"
+JAY_API_HOST="${JAY_API_HOST:-jay-api.spotynet.com}"
 
 compose() {
   if docker info >/dev/null 2>&1; then
@@ -42,6 +52,7 @@ if [[ $# -ge 2 ]]; then
 fi
 
 export JAY_WEB_HOST JAY_API_HOST
+export JAY_IMAGE_REGISTRY JAY_IMAGE_TAG AWS_REGION
 export ALLOWED_HOSTS="localhost,127.0.0.1,${JAY_API_HOST},${JAY_WEB_HOST}"
 export CSRF_TRUSTED_ORIGINS="https://${JAY_API_HOST},https://${JAY_WEB_HOST}"
 export EXPO_PUBLIC_API_URL="https://${JAY_API_HOST}"
@@ -51,19 +62,40 @@ if [[ ! -f backend/.env ]]; then
   exit 1
 fi
 
-echo "Pulling latest from git..."
-git pull --ff-only
+if [[ "${SKIP_GIT_PULL:-0}" != "1" ]]; then
+  echo "Pulling latest from git..."
+  git pull --ff-only
+fi
 
-echo "Deploying Jay PRODUCTION (compose.yaml + compose.prod.yaml → :80)..."
-echo "  web: ${JAY_WEB_HOST}"
-echo "  api: ${JAY_API_HOST}"
-compose -f compose.yaml -f compose.prod.yaml up -d --build
+echo "Deploying Jay PRODUCTION (pull ECR images → 127.0.0.1:8080)..."
+echo "  registry: ${JAY_IMAGE_REGISTRY}"
+echo "  tag:      ${JAY_IMAGE_TAG}"
+echo "  web:      ${JAY_WEB_HOST}"
+echo "  api:      ${JAY_API_HOST}"
+
+ecr_login
+
+echo "Pulling images..."
+if ! compose -f compose.yaml -f compose.prod.yaml pull api mobile nginx; then
+  echo "Image pull failed. Check EC2 instance role ECR pull permissions (see deploy/aws-ecr.md)." >&2
+  exit 1
+fi
+
+echo "Starting stack..."
+compose -f compose.yaml -f compose.prod.yaml up -d --remove-orphans
+echo
+echo "Running database migrations..."
+compose -f compose.yaml -f compose.prod.yaml exec -T api \
+  python manage.py migrate --noinput
 echo
 compose -f compose.yaml -f compose.prod.yaml ps
 echo
-echo "PRODUCTION URLs (add TLS in front of :80 if needed):"
-echo "  http://${JAY_WEB_HOST}/"
-echo "  http://${JAY_API_HOST}/"
+echo "Compose nginx is on 127.0.0.1:8080 (host nginx should own :80/:443)."
+echo "First-time TLS: sudo ./deploy/setup-prod-nginx.sh --certbot"
+echo
+echo "PRODUCTION URLs:"
+echo "  https://${JAY_WEB_HOST}/"
+echo "  https://${JAY_API_HOST}/"
 echo
 echo "Logs: docker compose -f compose.yaml -f compose.prod.yaml logs -f"
 echo "Stop: ./deploy.sh down"

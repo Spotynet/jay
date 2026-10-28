@@ -74,12 +74,10 @@ export const TimelineAgenda = ({
 
   const contentWidth = Math.min(windowWidth, T.maxContentWidth);
   const railColor = isDark ? T.railColorDark : T.railColorLight;
-  const untimedInnerWidth = contentWidth - T.pageInset * 2;
-  const untimedColumns = untimedInnerWidth < 280 ? 1 : 2;
-  const untimedCellWidth =
-    untimedColumns === 1
-      ? untimedInnerWidth
-      : (untimedInnerWidth - T.untimedGridGap) / 2;
+  const untimedMixedTypes = useMemo(() => {
+    const types = new Set(allDayItems.map((i) => i.type));
+    return types.size > 1;
+  }, [allDayItems]);
 
   const onRowLayout = useCallback((id: string, e: LayoutChangeEvent) => {
     rowOffsets.current[id] = e.nativeEvent.layout.y;
@@ -118,23 +116,49 @@ export const TimelineAgenda = ({
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {allDayItems.length > 0 && (
         <View style={styles.allDayContainer}>
-          <View style={styles.allDayHeader}>
+          <View
+            style={styles.allDayHeader}
+            accessible
+            accessibilityRole="header"
+            accessibilityLabel={`No time, ${allDayItems.length} ${
+              allDayItems.length === 1 ? 'item' : 'items'
+            }`}
+          >
             <Text style={[styles.noTimeLabel, { color: colors.subtext }]}>No time</Text>
             <Text style={[styles.noTimeCount, { color: colors.subtext }]}>
               {allDayItems.length}
             </Text>
           </View>
-          <View style={styles.allDayGrid}>
-            {allDayItems.map((item) => (
-              <View key={item.id} style={{ width: untimedCellWidth }}>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+            directionalLockEnabled
+            style={styles.allDayScroll}
+            contentContainerStyle={styles.allDayScrollContent}
+            accessibilityRole="list"
+          >
+            {allDayItems.map((item, index) => (
+              <View
+                key={item.id}
+                style={[
+                  styles.allDayCardWrap,
+                  index < allDayItems.length - 1 && {
+                    marginRight: T.untimedCardGap,
+                  },
+                ]}
+              >
                 <TimelineEventCard
                   compact
+                  showTypeIcon={untimedMixedTypes}
                   item={item}
                   onPress={() => onItemPress?.(item)}
                 />
               </View>
             ))}
-          </View>
+          </ScrollView>
         </View>
       )}
 
@@ -244,23 +268,28 @@ export const TimelineAgenda = ({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   allDayContainer: {
-    paddingTop: 4,
+    paddingTop: 2,
     paddingBottom: T.untimedSectionBottom,
-    paddingHorizontal: T.pageInset,
   },
   allDayHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
+    paddingHorizontal: T.pageInset,
+    marginBottom: 5,
   },
-  noTimeLabel: { fontSize: 11, fontWeight: '500' },
+  noTimeLabel: { fontSize: 11, fontWeight: '500', marginRight: 6 },
   noTimeCount: { fontSize: 11, fontWeight: '400', opacity: 0.8 },
-  allDayGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    columnGap: T.untimedGridGap,
-    rowGap: T.untimedRowGap,
+  allDayScroll: {
+    flexGrow: 0,
+    width: '100%',
+  },
+  allDayScrollContent: {
+    paddingHorizontal: T.pageInset,
+    alignItems: 'center',
+  },
+  allDayCardWrap: {
+    minWidth: T.untimedCardMinWidth,
+    maxWidth: T.untimedCardMaxWidth,
   },
   timelineScroll: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingTop: 2 },

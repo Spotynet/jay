@@ -38,22 +38,26 @@ export const TIMELINE_TOKENS = {
   headerGuideCountGap: 8,
   cardGap: 7,
 
-  // Untimed ("No time") grid
-  untimedGridGap: 8,
-  untimedRowGap: 7,
-  untimedCardMinHeight: 44,
-  untimedCardRadius: 13,
-  untimedCardPaddingH: 11,
-  untimedIconSize: 15,
-  untimedTitleSize: 13,
-  untimedCheckboxSize: 17,
-  untimedSectionBottom: 12,
+  // Untimed ("No time") checklist — single horizontal scroll row
+  untimedCardGap: 7,
+  untimedCardMinHeight: 34,
+  untimedCardRadius: 9,
+  untimedCardPaddingH: 9,
+  untimedCardPaddingV: 3,
+  untimedCardMinWidth: 120,
+  untimedCardMaxWidth: 168,
+  untimedIconSize: 13,
+  untimedIconContainer: 14,
+  untimedTitleSize: 12,
+  untimedCheckboxSize: 15,
+  /** Gap after untimed row before timeline. */
+  untimedSectionBottom: 10,
 
-  // Scheduled cards
-  scheduledCardMinHeight: 50,
-  scheduledCardRadius: 15,
+  // Scheduled cards — native iOS horizontal row
+  scheduledCardMinHeight: 54,
+  scheduledCardRadius: 16,
   scheduledCardPaddingH: 12,
-  scheduledCardPaddingV: 10,
+  scheduledCardPaddingV: 11,
   scheduledIconSize: 17,
   scheduledIconContainer: 28,
   scheduledTitleSize: 15,

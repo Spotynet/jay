@@ -35,13 +35,12 @@ path = Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
 
 new_map = """JAY (Docker Compose — per-project nginx)
-- Start: cd /home/spotynet/projects/apps/jay && docker compose up -d --build
-  (or ./dev.sh)
+- Start: cd /home/spotynet/projects/apps/jay && ./dev.sh
 - Project nginx gateway (host bind): 127.0.0.1:3010 → container :80
 - API (Compose service api, internal): 3012 — domain jay-api-dev.spotynet.com
 - Expo mobile web (Compose service mobile, internal): 3011 — domain jay-dev.spotynet.com
 - Host nginx proxies BOTH Jay domains to http://127.0.0.1:3010 (Host header selects upstream)
-- Dedicated/prod machine: docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+- Release: ./build.sh (ECR) then on prod ./deploy.sh (pull only)
 - Apply/fix host nginx for Jay: sudo ./deploy/apply-nginx.sh
 """
 
@@ -91,11 +90,10 @@ new_start = """JAY
   pm2 delete jay-dev 2>/dev/null || true
   pm2 save 2>/dev/null || true
 
-  docker compose up -d --build
+  ./dev.sh
   # First time / after gateway port change:
   #   sudo ./deploy/apply-nginx.sh
-  # Dedicated machine (owns :80):
-  #   docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+  # Prod (dedicated machine): ./build.sh on builder, then ./deploy.sh on prod
 """
 if old_start in text:
     text = text.replace(old_start, new_start)
