@@ -52,6 +52,35 @@ export function DetailRow({ icon, iconColor, label, value, isLast }: DetailRowPr
   );
 }
 
+/** Compact label/value without decorative icon boxes — for dense Schedule groups. */
+export function DetailMetaRow({
+  label,
+  value,
+  isLast,
+}: {
+  label: string;
+  value: string;
+  isLast?: boolean;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={[
+        styles.metaRow,
+        !isLast && {
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+      ]}
+      accessible
+      accessibilityLabel={`${label}, ${value}`}
+    >
+      <AppText style={[styles.metaLabel, { color: colors.subtext }]}>{label}</AppText>
+      <AppText style={[styles.metaValue, { color: colors.text }]}>{value}</AppText>
+    </View>
+  );
+}
+
 interface DetailPlainProps {
   children: React.ReactNode;
 }
@@ -149,6 +178,15 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, gap: 2 },
   rowLabel: { fontSize: 12 },
   rowValue: { fontSize: 15, fontWeight: '500' },
+  metaRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 48,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  metaLabel: { fontSize: 12, fontWeight: '500' },
+  metaValue: { fontSize: 15, fontWeight: '500' },
   daysRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

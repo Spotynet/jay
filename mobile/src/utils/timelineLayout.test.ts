@@ -7,7 +7,9 @@ import {
   AgendaItem,
   buildHourIntervals,
   buildTimelineRows,
+  buildTimelineSections,
   countAgendaItemTypes,
+  findNowSectionIndex,
   formatAgendaTypeSummary,
   groupTimedItems,
 } from './timelineLayout';
@@ -78,9 +80,12 @@ function item(
   ]);
 
   const hourRows = rows.filter((r) => r.kind === 'hour');
-  // Every hour 0–23 has a boundary, including populated ones
-  assert.equal(hourRows.length, 24);
-  assert.ok(hourRows.some((r) => r.kind === 'hour' && r.hour === 6));
+  // Every o’clock 0–23 plus occupied off-hour boundaries (06:30 here)
+  const oclockRows = hourRows.filter(
+    (r) => r.kind === 'hour' && r.minutesFromMidnight % 60 === 0,
+  );
+  assert.equal(oclockRows.length, 24);
+  assert.ok(hourRows.some((r) => r.kind === 'hour' && r.timestampLabel === '06:30'));
   assert.ok(hourRows.some((r) => r.kind === 'hour' && r.hour === 9));
   assert.ok(hourRows.some((r) => r.kind === 'hour' && r.hour === 13));
 
@@ -89,7 +94,7 @@ function item(
   assert.equal(lunch.items.length, 4);
 }
 
-// --- intervals ---
+// --- intervals (legacy hour buckets still include off-hour groups) ---
 {
   const intervals = buildHourIntervals([
     item('gym', 7, 0, { groupId: 'gym' }),
@@ -101,6 +106,157 @@ function item(
   assert.equal(intervals[7].groups.length, 1);
   assert.equal(intervals[7].groups[0].items[0].title, 'gym');
   assert.equal(intervals[8].groups.length, 0);
+}
+
+// --- exact-minute sections ---
+{
+  const sections = buildTimelineSections([
+    item('creatine', 7, 0, { type: 'habit', title: 'Creatine' }),
+    item('gym', 7, 30, { type: 'event', title: 'Gym' }),
+  ]);
+  const s700 = sections.find((s) => s.hour === 7 && s.minute === 0);
+  const s730 = sections.find((s) => s.hour === 7 && s.minute === 30);
+  const s800 = sections.find((s) => s.hour === 8 && s.minute === 0);
+  assert.ok(s700?.occupied);
+  assert.equal(s700?.groups.flatMap((g) => g.items).length, 1);
+  assert.equal(s700?.timestampLabel, '07:00');
+  assert.ok(s730?.occupied);
+  assert.equal(s730?.timestampLabel, '07:30');
+  assert.equal(s730?.groups.flatMap((g) => g.items).length, 1);
+  assert.equal(s800?.occupied, false);
+  assert.equal(s800?.groups.length, 0);
+  // Counts stay local to each exact minute (not hour-aggregated)
+  assert.deepEqual(countAgendaItemTypes(s700!.groups.flatMap((g) => g.items)), [
+    { type: 'habit', count: 1 },
+  ]);
+  assert.deepEqual(countAgendaItemTypes(s730!.groups.flatMap((g) => g.items)), [
+    { type: 'event', count: 1 },
+  ]);
+  // Empty non-o'clock minutes are not emitted
+  assert.equal(
+    sections.filter((s) => s.hour === 7 && s.minute !== 0 && s.minute !== 30).length,
+    0,
+  );
+
+  // Flat row sequence: each occupied minute is its own hour marker + group,
+  // not a secondary label nested under 07:00.
+  const rows = buildTimelineRows([
+    item('creatine', 7, 0, { type: 'habit', title: 'Creatine' }),
+    item('gym', 7, 30, { type: 'event', title: 'Gym' }),
+  ]);
+  const aroundSeven = rows.filter(
+    (r) =>
+      (r.kind === 'hour' && (r.hour === 7 || r.hour === 8)) ||
+      (r.kind === 'group' && (r.hour === 7 || r.hour === 8)),
+  );
+  assert.deepEqual(
+    aroundSeven.map((r) =>
+      r.kind === 'hour'
+        ? `hour:${r.timestampLabel}`
+        : `group:${r.timestampLabel}:${r.items.map((i) => i.title).join(',')}`,
+    ),
+    [
+      'hour:07:00',
+      'group:07:00:Creatine',
+      'hour:07:30',
+      'group:07:30:Gym',
+      'hour:08:00',
+    ],
+  );
+}
+
+{
+  // Same groupId across different minutes must not collapse into one section
+  const sections = buildTimelineSections([
+    item('a', 7, 0, { groupId: 'workout' }),
+    item('b', 7, 30, { groupId: 'workout' }),
+  ]);
+  assert.equal(sections.find((s) => s.timestampLabel === '07:00')?.groups.length, 1);
+  assert.equal(sections.find((s) => s.timestampLabel === '07:30')?.groups.length, 1);
+}
+
+{
+  // Seconds are ignored — 07:30:45 belongs to the 07:30 section
+  const withSeconds = item('late', 7, 30);
+  withSeconds.startTime = (() => {
+    const d = at(7, 30);
+    d.setSeconds(45);
+    return d;
+  })();
+  const sections = buildTimelineSections([item('on', 7, 30), withSeconds]);
+  const s730 = sections.find((s) => s.hour === 7 && s.minute === 30)!;
+  assert.equal(s730.groups.flatMap((g) => g.items).length, 2);
+  assert.equal(
+    sections.filter((s) => s.hour === 7 && s.minute !== 0 && s.minute !== 30).length,
+    0,
+  );
+}
+
+{
+  const sections = buildTimelineSections([
+    item('a', 7, 30, { type: 'task', title: 'A' }),
+    item('b', 7, 34, { type: 'task', title: 'B' }),
+    item('c', 7, 34, { type: 'habit', title: 'C' }),
+  ]);
+  const s700 = sections.find((s) => s.hour === 7 && s.minute === 0)!;
+  const s730 = sections.find((s) => s.hour === 7 && s.minute === 30)!;
+  const s734 = sections.find((s) => s.hour === 7 && s.minute === 34)!;
+  assert.equal(s700.occupied, false);
+  assert.ok(s730.occupied);
+  assert.equal(s730.groups.flatMap((g) => g.items).length, 1);
+  assert.ok(s734.occupied);
+  assert.equal(s734.groups.flatMap((g) => g.items).length, 2);
+  assert.equal(s734.timestampLabel, '07:34');
+  // Counts are local — 07:30 does not include 07:34 items
+  assert.deepEqual(
+    countAgendaItemTypes(s730.groups.flatMap((g) => g.items)),
+    [{ type: 'task', count: 1 }],
+  );
+  assert.deepEqual(
+    countAgendaItemTypes(s734.groups.flatMap((g) => g.items)),
+    [
+      { type: 'habit', count: 1 },
+      { type: 'task', count: 1 },
+    ],
+  );
+}
+
+{
+  const sections = buildTimelineSections([
+    item('late', 7, 59, { type: 'task' }),
+    item('next', 8, 0, { type: 'habit' }),
+  ]);
+  const labels = sections
+    .filter((s) => s.occupied || s.minute === 0)
+    .filter((s) => s.hour === 7 || s.hour === 8)
+    .map((s) => s.timestampLabel);
+  assert.deepEqual(labels, ['07:00', '07:59', '08:00']);
+  assert.equal(sections.find((s) => s.timestampLabel === '07:59')?.occupied, true);
+  assert.equal(sections.find((s) => s.timestampLabel === '08:00')?.occupied, true);
+}
+
+{
+  // Moving the last item off a non-o'clock minute drops that section
+  const before = buildTimelineSections([item('x', 7, 30)]);
+  assert.ok(before.some((s) => s.hour === 7 && s.minute === 30));
+  const after = buildTimelineSections([item('x', 7, 34)]);
+  assert.equal(
+    after.some((s) => s.hour === 7 && s.minute === 30),
+    false,
+  );
+  assert.ok(after.some((s) => s.hour === 7 && s.minute === 34 && s.occupied));
+}
+
+{
+  const sections = buildTimelineSections([
+    item('a', 7, 0),
+    item('b', 7, 30),
+  ]);
+  const now715 = at(7, 15);
+  const idx = findNowSectionIndex(sections, now715);
+  assert.equal(sections[idx].timestampLabel, '07:00');
+  const now745 = at(7, 45);
+  assert.equal(sections[findNowSectionIndex(sections, now745)].timestampLabel, '07:30');
 }
 
 // --- fixtures ---

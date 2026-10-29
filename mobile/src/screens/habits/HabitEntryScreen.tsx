@@ -1,22 +1,35 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  TextInput,
+  Switch,
+  Platform,
+} from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../../components/ui/AppText';
 import { Icon } from '../../components/ui/Icon';
 import FormScreen from '../../components/common/FormScreen';
-import Box from '../../components/ui/Box';
-import Label from '../../components/ui/Label';
-import Input from '../../components/ui/Input';
-import IconCircle from '../../components/ui/IconCircle';
-import ToggleBox from '../../components/ui/ToggleBox';
 import { IconPickerModal } from './components/IconPickerModal';
 import { HABIT_ICONS } from '../../constants/habitIcons';
 import { createHabit, updateHabit, deleteHabit } from '../../api/habits';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppTimePicker } from '../../components/common/AppTimePicker';
-import { IconTrash, IconEdit } from 'tabler-icons-react-native';
 import DeleteConfirm from '../../components/ui/DeleteConfirm';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
+import { DetailSection } from '../../components/itemDetails/DetailRows';
+
+const DAY_SHORT = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const DAY_FULL = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
 
 function snapshotHabitDraft(values: {
   name: string;
@@ -34,19 +47,25 @@ function snapshotHabitDraft(values: {
   });
 }
 
+function formatReminderTime(date: Date): string {
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
 export default function HabitEntryScreen() {
-  const { colors, entityColors } = useTheme();
+  const { colors, entityColors, isDark } = useTheme();
   const habitColor = entityColors.habits;
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const habit = route.params?.habit;
-  const occurrenceDate = route.params?.occurrenceDate as string | undefined;
+  const isEditing = !!habit;
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const [name, setName] = useState(habit?.name || '');
   const [targetValue, setTargetValue] = useState(habit?.target_value || 1);
   const [hasTarget, setHasTarget] = useState(habit?.has_target || false);
-  const [targetType, setTargetType] = useState<'COUNT' | 'TIME'>(habit?.target_type || 'COUNT');
+  const [targetType, setTargetType] = useState<'COUNT' | 'TIME'>(
+    habit?.target_type || 'COUNT',
+  );
   const [reminderTime, setReminderTime] = useState(
     habit?.reminder_time ? new Date(`1970-01-01T${habit.reminder_time}`) : new Date(),
   );
@@ -93,37 +112,14 @@ export default function HabitEntryScreen() {
   const isDirty = !allowLeave && currentSnapshot !== initialSnapshot;
   useUnsavedChangesGuard(isDirty);
 
-  const days = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-
   const toggleDay = (day: number) => {
     setSelectedDays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
     );
   };
 
-  const getTargetSummary = () => {
-    if (!hasTarget) return 'No daily goal';
-    const unit = targetType === 'COUNT' ? (targetValue === 1 ? 'time' : 'times') : 'mins';
-    return `${targetValue} ${unit} per day`;
-  };
-
-  const getReminderSummary = () => {
-    if (!hasReminder) return 'No reminder';
-    const time = reminderTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (selectedDays.length === 7) return `${time} daily`;
-
-    const isWeekdays =
-      selectedDays.length === 5 && [0, 1, 2, 3, 4].every((d) => selectedDays.includes(d));
-    if (isWeekdays) return `${time} on weekdays`;
-
-    const isWeekends =
-      selectedDays.length === 2 && [5, 6].every((d) => selectedDays.includes(d));
-    if (isWeekends) return `${time} on weekends`;
-
-    return `${time} on selected days`;
-  };
-
-  const selectedIcon = HABIT_ICONS.find((i) => i.name === iconName)?.icon || HABIT_ICONS[0].icon;
+  const selectedIcon =
+    HABIT_ICONS.find((i) => i.name === iconName)?.icon || HABIT_ICONS[0].icon;
 
   const saveHabit = async () => {
     if (loading) return;
@@ -144,13 +140,15 @@ export default function HabitEntryScreen() {
         has_target: hasTarget,
         target_type: hasTarget ? targetType : 'COUNT',
         category: 'General',
-        reminder_time: hasReminder ? reminderTime.toTimeString().slice(0, 5) : null,
+        reminder_time: hasReminder
+          ? reminderTime.toTimeString().slice(0, 5)
+          : null,
       };
       if (habit) await updateHabit(habit.id, data);
       else await createHabit(data);
       setAllowLeave(true);
       navigation.goBack();
-    } catch (e) {
+    } catch {
       setError("Couldn't save this habit.");
     } finally {
       setLoading(false);
@@ -163,34 +161,32 @@ export default function HabitEntryScreen() {
       await deleteHabit(habit.id);
       setAllowLeave(true);
       navigation.goBack();
-    } catch (e) {
+    } catch {
       setDeleteModalVisible(false);
       setError("Couldn't delete this habit.");
     }
   };
 
+  const rowDivider = {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  };
+
   return (
     <FormScreen
-      title={habit ? 'Habit details' : 'New habit'}
-      showBack
-      rightOption={
-        habit
-          ? {
-              icon: () => <Icon name={IconTrash} size={20} color={colors.error} />,
-              onPress: () => setDeleteModalVisible(true),
-            }
-          : undefined
-      }
+      title={isEditing ? 'Edit Habit' : 'New Habit'}
+      submitPlacement="header"
+      cancelLabel="Cancel"
       submitTitle={loading ? 'Saving…' : 'Save'}
       onSubmit={saveHabit}
       loading={loading}
       error={error}
-      submitStyle={{ backgroundColor: habitColor }}
+      scrollContentStyle={styles.scrollPad}
     >
       <DeleteConfirm
         visible={deleteModalVisible}
         title="Delete Habit"
-        message="Are you sure you want to delete this habit?"
+        message="Delete this habit and all of its completion history? This cannot be undone."
         onConfirm={handleDelete}
         onCancel={() => setDeleteModalVisible(false)}
       />
@@ -198,167 +194,316 @@ export default function HabitEntryScreen() {
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         onSelect={setIconName}
-        currentColor={iconName}
+      />
+      <AppTimePicker
+        visible={showTimePicker}
+        onClose={() => setShowTimePicker(false)}
+        value={reminderTime}
+        onChange={(date: Date) => setReminderTime(date)}
+        label="Reminder Time"
       />
 
+      {/* Identity — editable counterpart of DetailsIdentity */}
       <View style={styles.identity}>
-        <IconCircle
-          icon={selectedIcon}
-          accentColor={habitColor}
+        <Pressable
           onPress={() => setModalVisible(true)}
-        />
-        <View style={styles.identityText}>
-          <AppText style={[styles.typeLabel, { color: habitColor }]}>Habit</AppText>
-          <Input
-            style={styles.nameInput}
-            placeholder="Habit name"
+          style={({ pressed }) => [
+            styles.iconBox,
+            {
+              backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : colors.surface,
+              borderColor: colors.border,
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Choose habit icon"
+        >
+          <Icon name={selectedIcon} size={22} color={habitColor} stroke={1.7} />
+        </Pressable>
+
+        <View style={styles.nameCol}>
+          <TextInput
+            style={[styles.nameInput, { color: colors.text }]}
             value={name}
             onChangeText={setName}
+            placeholder="Habit name"
+            placeholderTextColor={colors.subtext}
             autoFocus={false}
+            autoCorrect
+            returnKeyType="done"
+            accessibilityLabel="Habit name"
+            {...(Platform.OS === 'android' ? { includeFontPadding: false } : null)}
           />
-          {occurrenceDate ? (
-            <AppText style={[styles.occurrenceHint, { color: colors.subtext }]}>
-              Scheduled for {occurrenceDate}
-            </AppText>
-          ) : null}
         </View>
       </View>
 
-      <Label>Repeat days</Label>
-      <Box style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-        <View style={[styles.row, { width: '100%', justifyContent: 'space-between' }]}>
-          {days.map((day, idx) => {
-            const selected = selectedDays.includes(idx);
-            return (
-              <TouchableOpacity
-                key={day}
-                onPress={() => toggleDay(idx)}
-                style={[
-                  styles.dayItem,
-                  {
-                    backgroundColor: selected ? habitColor + '22' : 'transparent',
-                    borderColor: selected ? habitColor : colors.border,
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`${day}${selected ? ', selected' : ''}`}
-              >
-                <AppText
-                  style={{
-                    color: selected ? colors.text : colors.subtext,
-                    fontWeight: selected ? '600' : '400',
-                    fontSize: 13,
-                  }}
+      <DetailSection title="Schedule">
+        <View style={styles.daysBlock}>
+          <AppText style={[styles.rowLabel, { color: colors.subtext }]}>Repeat</AppText>
+          <View style={styles.daysRow}>
+            {DAY_SHORT.map((label, idx) => {
+              const selected = selectedDays.includes(idx);
+              return (
+                <Pressable
+                  key={label}
+                  onPress={() => toggleDay(idx)}
+                  style={({ pressed }) => [
+                    styles.dayChip,
+                    {
+                      backgroundColor: selected ? habitColor + '22' : 'transparent',
+                      borderColor: selected ? habitColor : colors.border,
+                      opacity: pressed ? 0.75 : 1,
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`${DAY_FULL[idx]}${selected ? ', selected' : ''}`}
                 >
-                  {day}
-                </AppText>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </Box>
-
-      <ToggleBox
-        label="Daily goal"
-        summary={getTargetSummary()}
-        value={hasTarget}
-        onValueChange={setHasTarget}
-        accentColor={habitColor}
-      >
-        <View style={styles.frequencyInput}>
-          <TextInput
-            style={[styles.smallInput, { color: colors.text, borderColor: colors.border, height: 44 }]}
-            keyboardType="numeric"
-            value={targetValue.toString()}
-            onChangeText={(t) => setTargetValue(parseInt(t) || 1)}
-            accessibilityLabel="Daily goal value"
-          />
-          <TouchableOpacity
-            style={[
-              styles.smallInput,
-              { width: 120, borderColor: colors.border, justifyContent: 'center', height: 44 },
-            ]}
-            onPress={() => setTargetType(targetType === 'COUNT' ? 'TIME' : 'COUNT')}
-            accessibilityRole="button"
-            accessibilityLabel={`Goal unit, ${targetType === 'COUNT' ? 'count' : 'minutes'}`}
-          >
-            <AppText style={{ color: colors.text, letterSpacing: 1, textAlign: 'center', fontSize: 14 }}>
-              {targetType === 'COUNT' ? 'Count' : 'Mins'}
-            </AppText>
-          </TouchableOpacity>
-        </View>
-      </ToggleBox>
-
-      <ToggleBox
-        label="Reminders"
-        summary={getReminderSummary()}
-        value={hasReminder}
-        onValueChange={setHasReminder}
-        accentColor={habitColor}
-      >
-        <TouchableOpacity
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            width: '100%',
-            minHeight: 48,
-          }}
-          onPress={() => setShowTimePicker(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Set notification time"
-        >
-          <AppText style={{ color: colors.text, fontSize: 16, fontWeight: '500' }}>
-            Notification time
-          </AppText>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <AppText style={{ color: habitColor, fontSize: 16, fontWeight: '600' }}>
-              {reminderTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </AppText>
-            <Icon name={IconEdit} size={18} color={colors.subtext} />
+                  <AppText
+                    style={{
+                      fontSize: 12,
+                      fontWeight: selected ? '600' : '400',
+                      color: selected ? colors.text : colors.subtext,
+                    }}
+                  >
+                    {label}
+                  </AppText>
+                </Pressable>
+              );
+            })}
           </View>
-        </TouchableOpacity>
-        <AppTimePicker
-          visible={showTimePicker}
-          onClose={() => setShowTimePicker(false)}
-          value={reminderTime}
-          onChange={(date: Date) => setReminderTime(date)}
-          label="Reminder Time"
-        />
-      </ToggleBox>
+        </View>
+      </DetailSection>
+
+      <DetailSection title="Daily goal">
+        <View style={[styles.configRow, hasTarget && rowDivider]}>
+          <AppText style={[styles.configLabel, { color: colors.text }]}>Daily goal</AppText>
+          <Switch
+            value={hasTarget}
+            onValueChange={setHasTarget}
+            trackColor={{ true: habitColor, false: colors.border }}
+            thumbColor="#FFFFFF"
+            ios_backgroundColor={colors.border}
+            accessibilityLabel="Daily goal"
+          />
+        </View>
+        {hasTarget ? (
+          <View style={styles.goalFields}>
+            <TextInput
+              style={[
+                styles.goalValue,
+                {
+                  color: colors.text,
+                  borderColor: colors.border,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : colors.background,
+                },
+              ]}
+              keyboardType="number-pad"
+              value={String(targetValue)}
+              onChangeText={(t) => setTargetValue(parseInt(t, 10) || 1)}
+              accessibilityLabel="Daily goal target value"
+            />
+            <Pressable
+              style={({ pressed }) => [
+                styles.goalUnit,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : colors.background,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+              onPress={() =>
+                setTargetType(targetType === 'COUNT' ? 'TIME' : 'COUNT')
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`Goal unit, ${targetType === 'COUNT' ? 'count' : 'minutes'}. Tap to switch.`}
+            >
+              <AppText style={{ color: colors.text, fontSize: 15, fontWeight: '500' }}>
+                {targetType === 'COUNT' ? 'Count' : 'Mins'}
+              </AppText>
+            </Pressable>
+          </View>
+        ) : null}
+      </DetailSection>
+
+      <DetailSection title="Reminder">
+        <View style={[styles.configRow, hasReminder && rowDivider]}>
+          <AppText style={[styles.configLabel, { color: colors.text }]}>Reminder</AppText>
+          <Switch
+            value={hasReminder}
+            onValueChange={setHasReminder}
+            trackColor={{ true: habitColor, false: colors.border }}
+            thumbColor="#FFFFFF"
+            ios_backgroundColor={colors.border}
+            accessibilityLabel="Reminder"
+          />
+        </View>
+        {hasReminder ? (
+          <Pressable
+            onPress={() => setShowTimePicker(true)}
+            style={({ pressed }) => [
+              styles.configRow,
+              pressed && { opacity: 0.7 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Reminder time, ${formatReminderTime(reminderTime)}`}
+          >
+            <AppText style={[styles.configLabel, { color: colors.text }]}>Time</AppText>
+            <AppText style={[styles.timeValue, { color: habitColor }]}>
+              {formatReminderTime(reminderTime)}
+            </AppText>
+          </Pressable>
+        ) : null}
+      </DetailSection>
+
+      {isEditing ? (
+        <View style={styles.destructiveBlock}>
+          <Pressable
+            onPress={() => setDeleteModalVisible(true)}
+            style={({ pressed }) => [
+              styles.deleteRow,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Delete habit"
+          >
+            <AppText style={[styles.deleteLabel, { color: colors.error }]}>
+              Delete Habit
+            </AppText>
+          </Pressable>
+          <AppText style={[styles.deleteHint, { color: colors.subtext }]}>
+            Removes the habit and all completion history—not only one day.
+          </AppText>
+        </View>
+      ) : null}
     </FormScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollPad: {
+    paddingTop: 4,
+  },
   identity: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    width: '100%',
-    marginBottom: 8,
-    marginTop: 8,
+    gap: 12,
+    marginBottom: 20,
+    marginTop: 4,
   },
-  identityText: { flex: 1, gap: 4 },
-  typeLabel: { fontSize: 12, fontWeight: '600', letterSpacing: 0.3 },
-  nameInput: { flex: 0, width: '100%' },
-  occurrenceHint: { fontSize: 12 },
-  row: { flexDirection: 'row', gap: 6, alignSelf: 'flex-start' },
-  dayItem: {
+  iconBox: {
     width: 40,
     height: 40,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
+  },
+  nameCol: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+  },
+  nameInput: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    lineHeight: 28,
+    paddingVertical: Platform.OS === 'ios' ? 4 : 0,
+    paddingHorizontal: 0,
+    margin: 0,
+  },
+  daysBlock: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 14,
+    gap: 10,
+  },
+  rowLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  daysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  dayChip: {
+    width: 36,
+    height: 36,
     borderRadius: 10,
     borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  frequencyInput: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  smallInput: {
-    padding: 8,
+  configRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    minHeight: 52,
+    gap: 12,
+  },
+  configLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    flexShrink: 1,
+  },
+  timeValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  goalFields: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    paddingTop: 4,
+  },
+  goalValue: {
+    width: 72,
+    height: 44,
     borderRadius: 12,
-    borderWidth: 1,
-    width: 70,
+    borderWidth: StyleSheet.hairlineWidth,
     textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  goalUnit: {
+    minWidth: 88,
+    height: 44,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  destructiveBlock: {
+    marginTop: 8,
+    marginBottom: 8,
+    gap: 8,
+  },
+  deleteRow: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  deleteLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteHint: {
+    fontSize: 12,
+    lineHeight: 16,
+    paddingHorizontal: 4,
   },
 });

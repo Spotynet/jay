@@ -1,23 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, Pressable, ScrollView, useWindowDimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  Modal,
+  Pressable,
+  Platform,
+  TouchableOpacity,
+  useWindowDimensions,
+} from 'react-native';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { AppText } from '../ui/AppText';
-import { Icon } from '../ui/Icon';
-import { IconChevronLeft, IconChevronRight } from 'tabler-icons-react-native';
-import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
-
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-const SHEET_MAX_WIDTH = 480;
-const GRID_PADDING = 12;
-const WEEKDAY_BLOCK = 32;
-// Handle, month navigation, and footer stay outside the scrolling grid.
-const SHEET_CHROME = 188;
+import { ActionButton } from './ActionButton';
+import { IconX } from 'tabler-icons-react-native';
+import { toLocalDateString } from '../../utils/date';
+import { startOfLocalDay } from './CalendarPickerContent';
 
 interface CalendarPickerModalProps {
   visible: boolean;
@@ -26,161 +26,246 @@ interface CalendarPickerModalProps {
   onSelect: (date: Date) => void;
 }
 
-export default function CalendarPickerModal({ visible, onClose, selectedDate, onSelect }: CalendarPickerModalProps) {
-  const { colors, accentColor } = useTheme();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const today = new Date();
-  const [displayMonth, setDisplayMonth] = useState(selectedDate.getMonth());
-  const [displayYear, setDisplayYear] = useState(selectedDate.getFullYear());
-  const [gridWidth, setGridWidth] = useState(0);
+/**
+ * Today / Journal day navigator.
+ *
+ * iOS: native-stack `formSheet` + `sheetAllowedDetents: 'fitToContents'`
+ *      (CalendarPickerScreen) — content-height sheet, not pageSheet fill.
+ * Android: system date dialog.
+ * Web: restrained custom grid fallback.
+ */
+export default function CalendarPickerModal({
+  visible,
+  onClose,
+  selectedDate,
+  onSelect,
+}: CalendarPickerModalProps) {
+  if (Platform.OS === 'android') {
+    return (
+      <AndroidDateDialog
+        visible={visible}
+        selectedDate={selectedDate}
+        onSelect={onSelect}
+        onClose={onClose}
+      />
+    );
+  }
 
-  useEffect(() => {
-    if (visible) {
-      setDisplayMonth(selectedDate.getMonth());
-      setDisplayYear(selectedDate.getFullYear());
-    }
-  }, [visible, selectedDate]);
-
-  const fallbackGridWidth = Math.min(windowWidth, SHEET_MAX_WIDTH) - GRID_PADDING * 2;
-  const measuredWidth = gridWidth > 0 ? gridWidth : fallbackGridWidth;
-  const cellSize = Math.max(1, Math.floor(measuredWidth / 7));
-  const markerSize = Math.max(28, Math.min(42, cellSize - 6));
-  const markerRadius = Math.round(markerSize * (14 / 42));
-
-  const daysInMonth = new Date(displayYear, displayMonth + 1, 0).getDate();
-  const firstDayOfWeek = new Date(displayYear, displayMonth, 1).getDay();
-  const rowCount = Math.ceil((firstDayOfWeek + daysInMonth) / 7);
-  const gridBlockHeight = WEEKDAY_BLOCK + rowCount * cellSize;
-  const scrollMaxHeight = Math.max(96, Math.floor(windowHeight * 0.85 - SHEET_CHROME));
-  const scrollHeight = Math.min(gridBlockHeight, scrollMaxHeight);
-  const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-  const emptyDays = Array.from({ length: firstDayOfWeek }, (_, i) => i);
-
-  const isToday = (day: number) =>
-    day === today.getDate() && displayMonth === today.getMonth() && displayYear === today.getFullYear();
-
-  const isSelected = (day: number) =>
-    day === selectedDate.getDate() && displayMonth === selectedDate.getMonth() && displayYear === selectedDate.getFullYear();
-
-  const prevMonth = () => {
-    if (displayMonth === 0) {
-      setDisplayMonth(11);
-      setDisplayYear(displayYear - 1);
-    } else {
-      setDisplayMonth(displayMonth - 1);
-    }
-  };
-
-  const nextMonth = () => {
-    if (displayMonth === 11) {
-      setDisplayMonth(0);
-      setDisplayYear(displayYear + 1);
-    } else {
-      setDisplayMonth(displayMonth + 1);
-    }
-  };
-
-  const goToToday = () => {
-    setDisplayMonth(today.getMonth());
-    setDisplayYear(today.getFullYear());
-    onSelect(today);
-    onClose();
-  };
-
-  const handleDayPress = (day: number) => {
-    const newDate = new Date(displayYear, displayMonth, day);
-    onSelect(newDate);
-    onClose();
-  };
-
-  const cellStyle = { width: cellSize, height: cellSize, flexShrink: 0 as const };
-  const markerStyle = { width: markerSize, height: markerSize, borderRadius: markerRadius };
+  if (Platform.OS === 'ios') {
+    return (
+      <IOSCalendarStackBridge
+        visible={visible}
+        selectedDate={selectedDate}
+        onSelect={onSelect}
+        onClose={onClose}
+      />
+    );
+  }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose} onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true}>
-        <Pressable style={styles.sheetHost}>
-          <Animated.View
-            entering={FadeInDown.duration(300).springify()}
-            exiting={FadeOut.duration(200)}
-            style={[styles.container, { backgroundColor: colors.surface }]}
-          >
-            <View style={[styles.handle, { backgroundColor: colors.border }]} />
+    <WebCalendarSheet
+      visible={visible}
+      selectedDate={selectedDate}
+      onSelect={onSelect}
+      onClose={onClose}
+    />
+  );
+}
 
-            <View style={styles.monthNav}>
-              <TouchableOpacity onPress={prevMonth} style={[styles.navBtn, { backgroundColor: colors.surfaceElevated }]} activeOpacity={0.7}>
-                <Icon name={IconChevronLeft} size={20} color={colors.text} />
-              </TouchableOpacity>
-              <View style={styles.monthCenter}>
-                <AppText bold style={[styles.monthText, { color: colors.text }]}>{MONTHS[displayMonth]}</AppText>
-                <AppText style={[styles.yearText, { color: colors.subtext }]}>{displayYear}</AppText>
-              </View>
-              <TouchableOpacity onPress={nextMonth} style={[styles.navBtn, { backgroundColor: colors.surfaceElevated }]} activeOpacity={0.7}>
-                <Icon name={IconChevronRight} size={20} color={colors.text} />
-              </TouchableOpacity>
-            </View>
+/** Opens the content-fitting CalendarPicker stack screen while `visible`. */
+function IOSCalendarStackBridge({
+  visible,
+  selectedDate,
+  onSelect,
+  onClose,
+}: CalendarPickerModalProps) {
+  const navigation = useNavigation<any>();
+  const openedRef = useRef(false);
+  const onSelectRef = useRef(onSelect);
+  const onCloseRef = useRef(onClose);
+  onSelectRef.current = onSelect;
+  onCloseRef.current = onClose;
 
-            <ScrollView
-              style={[styles.scroll, { height: scrollHeight }]}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              bounces={false}
+  useEffect(() => {
+    if (!visible) {
+      openedRef.current = false;
+      return;
+    }
+    if (openedRef.current) return;
+    openedRef.current = true;
+
+    navigation.navigate('CalendarPicker', {
+      selectedDateMs: startOfLocalDay(selectedDate).getTime(),
+      onPicked: (ms: number) => {
+        onSelectRef.current(startOfLocalDay(new Date(ms)));
+        onCloseRef.current();
+      },
+      onDismiss: () => {
+        onCloseRef.current();
+      },
+    });
+  }, [visible, selectedDate, navigation]);
+
+  return null;
+}
+
+function AndroidDateDialog({
+  visible,
+  selectedDate,
+  onSelect,
+  onClose,
+}: CalendarPickerModalProps) {
+  if (!visible) return null;
+
+  const onChange = (event: DateTimePickerEvent, date?: Date) => {
+    if (event.type === 'dismissed') {
+      onClose();
+      return;
+    }
+    if (event.type === 'set' && date) {
+      onSelect(startOfLocalDay(date));
+      onClose();
+    }
+  };
+
+  return (
+    <DateTimePicker
+      value={startOfLocalDay(selectedDate)}
+      mode="date"
+      display="calendar"
+      onChange={onChange}
+    />
+  );
+}
+
+/** Web-only fallback — not claimed as native. Compact chrome. */
+function WebCalendarSheet({
+  visible,
+  selectedDate,
+  onSelect,
+  onClose,
+}: CalendarPickerModalProps) {
+  const { colors, accentColor } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
+  const [cursor, setCursor] = useState(() => startOfLocalDay(selectedDate));
+
+  useEffect(() => {
+    if (visible) setCursor(startOfLocalDay(selectedDate));
+  }, [visible, selectedDate]);
+
+  if (!visible) return null;
+
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow = new Date(year, month, 1).getDay();
+  const todayStr = toLocalDateString(new Date());
+  const selectedStr = toLocalDateString(selectedDate);
+  const sheetWidth = Math.min(windowWidth, 400);
+
+  const monthLabel = cursor.toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const commitDay = (day: number) => {
+    onSelect(new Date(year, month, day));
+    onClose();
+  };
+
+  const shiftMonth = (delta: number) => {
+    setCursor(new Date(year, month + delta, 1));
+  };
+
+  const cells: (number | null)[] = [
+    ...Array.from({ length: firstDow }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.webOverlay} onPress={onClose}>
+        <Pressable
+          style={[
+            styles.webSheet,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              width: sheetWidth,
+            },
+          ]}
+          onPress={(e) => e.stopPropagation()}
+        >
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <ActionButton
+              icon={IconX}
+              onPress={onClose}
+              size={36}
+              variant="plain"
+              accessibilityLabel="Close"
+            />
+            <AppText style={[styles.headerTitle, { color: colors.subtext }]}>
+              Choose date
+            </AppText>
+            <TouchableOpacity
+              onPress={() => {
+                onSelect(startOfLocalDay(new Date()));
+                onClose();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Go to today"
+              style={styles.todayHit}
             >
-              <View style={styles.gridPad}>
-                <View
-                  style={styles.gridMeasure}
-                  onLayout={(event) => {
-                    const next = Math.floor(event.nativeEvent.layout.width);
-                    setGridWidth((prev) => (prev === next ? prev : next));
-                  }}
+              <AppText style={[styles.todayAction, { color: accentColor }]}>Today</AppText>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.webMonthRow}>
+            <TouchableOpacity onPress={() => shiftMonth(-1)} accessibilityLabel="Previous month">
+              <AppText style={{ color: accentColor, fontSize: 15 }}>Prev</AppText>
+            </TouchableOpacity>
+            <AppText style={{ color: colors.text, fontWeight: '600' }}>{monthLabel}</AppText>
+            <TouchableOpacity onPress={() => shiftMonth(1)} accessibilityLabel="Next month">
+              <AppText style={{ color: accentColor, fontSize: 15 }}>Next</AppText>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.webGrid}>
+            {cells.map((day, idx) => {
+              if (day == null) {
+                return <View key={`e-${idx}`} style={styles.webCell} />;
+              }
+              const date = new Date(year, month, day);
+              const key = toLocalDateString(date);
+              const selected = key === selectedStr;
+              const isToday = key === todayStr;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.webCell,
+                    selected && { backgroundColor: accentColor, borderRadius: 10 },
+                    !selected &&
+                      isToday && {
+                        borderColor: accentColor,
+                        borderWidth: 1,
+                        borderRadius: 10,
+                      },
+                  ]}
+                  onPress={() => commitDay(day)}
                 >
-                  <View style={styles.weekdayRow}>
-                    {WEEKDAYS.map((day) => (
-                      <View key={day} style={[styles.weekdayCell, { width: cellSize }]}>
-                        <AppText style={[styles.weekdayText, { color: colors.subtext }]}>{day}</AppText>
-                      </View>
-                    ))}
-                  </View>
-
-                  <View style={[styles.grid, { height: rowCount * cellSize, width: cellSize * 7 }]}>
-                    {emptyDays.map((_, i) => (
-                      <View key={`empty-${i}`} style={cellStyle} />
-                    ))}
-                    {daysArray.map((day) => {
-                      const selected = isSelected(day);
-                      const todayMark = isToday(day);
-                      return (
-                        <TouchableOpacity
-                          key={day}
-                          onPress={() => handleDayPress(day)}
-                          activeOpacity={0.7}
-                          style={[styles.dayCell, cellStyle]}
-                        >
-                          {selected ? (
-                            <View style={[styles.marker, markerStyle, { backgroundColor: accentColor }]}>
-                              <AppText bold style={[styles.selectedDayText, { color: '#FFFFFF' }]}>{day}</AppText>
-                            </View>
-                          ) : todayMark ? (
-                            <View style={[styles.marker, styles.todayDay, markerStyle, { borderColor: accentColor }]}>
-                              <AppText bold style={[styles.todayDayText, { color: accentColor }]}>{day}</AppText>
-                            </View>
-                          ) : (
-                            <AppText style={[styles.dayText, { color: colors.text }]}>{day}</AppText>
-                          )}
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              </View>
-            </ScrollView>
-
-            <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
-              <TouchableOpacity onPress={goToToday} style={[styles.todayBtn, { backgroundColor: accentColor }]} activeOpacity={0.7}>
-                <AppText bold style={[styles.todayBtnText, { color: '#FFFFFF' }]}>Today</AppText>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
+                  <AppText
+                    style={{
+                      color: selected ? '#fff' : colors.text,
+                      fontWeight: selected || isToday ? '600' : '400',
+                    }}
+                  >
+                    {day}
+                  </AppText>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </Pressable>
       </Pressable>
     </Modal>
@@ -188,127 +273,62 @@ export default function CalendarPickerModal({ visible, onClose, selectedDate, on
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+  header: {
+    minHeight: 48,
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  sheetHost: {
-    width: '100%',
-    maxWidth: SHEET_MAX_WIDTH,
-    alignSelf: 'center',
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
-  container: {
-    width: '100%',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingBottom: 0,
+  todayHit: {
+    minWidth: 56,
+    minHeight: 36,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  todayAction: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  webOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  webSheet: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+    maxWidth: '100%',
   },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 8,
-  },
-  monthNav: {
+  webMonthRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  navBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  monthCenter: {
-    alignItems: 'center',
-  },
-  monthText: {
-    fontSize: 20,
-  },
-  yearText: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  scroll: {
-    flexGrow: 0,
-    flexShrink: 0,
-    width: '100%',
-  },
-  scrollContent: {
-    width: '100%',
-  },
-  gridPad: {
-    width: '100%',
-    paddingHorizontal: GRID_PADDING,
-  },
-  gridMeasure: {
-    width: '100%',
-  },
-  weekdayRow: {
-    flexDirection: 'row',
-    height: 24,
-    marginBottom: 8,
-  },
-  weekdayCell: {
-    flexShrink: 0,
-    alignItems: 'center',
-  },
-  weekdayText: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  grid: {
+  webGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    paddingHorizontal: 8,
+    paddingBottom: 16,
   },
-  dayCell: {
-    justifyContent: 'center',
+  webCell: {
+    width: '14.28%',
+    aspectRatio: 1,
     alignItems: 'center',
-  },
-  dayText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  marker: {
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectedDayText: {
-    fontSize: 16,
-  },
-  todayDay: {
-    borderWidth: 2,
-  },
-  todayDayText: {
-    fontSize: 16,
-  },
-  footer: {
-    borderTopWidth: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginTop: 8,
-  },
-  todayBtn: {
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  todayBtnText: {
-    fontSize: 15,
-    letterSpacing: 0.5,
   },
 });

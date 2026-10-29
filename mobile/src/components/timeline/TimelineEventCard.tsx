@@ -1,11 +1,20 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Text, Pressable } from 'react-native';
+import Animated, {
+  Easing,
+  interpolateColor,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { IconCheck, IconMinus, IconArrowUp } from 'tabler-icons-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { Icon } from '../ui/Icon';
 import { ENTITY_ICONS } from '../../constants/entityIcons';
 import { AgendaItem } from '../../utils/timelineLayout';
-import { TIMELINE_TOKENS as T } from '../../utils/timelineTokens';
+import { useTimelineTokens } from '../../layout/useTimelineTokens';
 import { NutrientInlineValue } from './NutrientInlineValue';
 
 interface TimelineEventCardProps {
@@ -19,7 +28,12 @@ interface TimelineEventCardProps {
    * Habit-only / single-type groups omit the decorative category icon.
    */
   showTypeIcon?: boolean;
+  /** Brief scroll-to destination emphasis (scheduled cards only). */
+  highlighted?: boolean;
 }
+
+const COMPLETE_MS = 180;
+const COMPLETE_EASE = Easing.out(Easing.cubic);
 
 function formatDuration(minutes?: number): string | null {
   if (!minutes || minutes <= 0) return null;
@@ -48,6 +62,195 @@ function entityColorFor(item: AgendaItem, entityColors: any, fallback: string) {
   return entityColors[entityKey] || fallback;
 }
 
+type UntimedChecklistCardProps = {
+  item: AgendaItem;
+  onPress?: () => void;
+  showTypeIcon: boolean;
+  entityColor: string;
+  cardBg: string;
+  borderColor: string;
+  muted: string;
+  textColor: string;
+  icon: any;
+};
+
+/** Compact “No time” cell with a short completion-state animation. */
+function UntimedChecklistCard({
+  item,
+  onPress,
+  showTypeIcon,
+  entityColor,
+  cardBg,
+  borderColor,
+  muted,
+  textColor,
+  icon,
+}: UntimedChecklistCardProps) {
+  const T = useTimelineTokens();
+  const reduceMotion = useReducedMotion();
+  const completed = !!item.isCompleted;
+  const canToggle = (item.type === 'task' || item.type === 'habit') && !!item.onToggle;
+  const checkboxSize = T.untimedCheckboxSize;
+  const iconSize = T.untimedIconSize;
+  const typeIconVisible = showTypeIcon;
+
+  const progress = useSharedValue(completed ? 1 : 0);
+  const pulse = useSharedValue(1);
+  const skipMountAnim = useRef(true);
+  const prevCompleted = useRef(completed);
+
+  useEffect(() => {
+    if (skipMountAnim.current) {
+      skipMountAnim.current = false;
+      prevCompleted.current = completed;
+      progress.value = completed ? 1 : 0;
+      pulse.value = 1;
+      return;
+    }
+    if (prevCompleted.current === completed) return;
+    prevCompleted.current = completed;
+
+    const duration = reduceMotion ? 0 : COMPLETE_MS;
+    progress.value = withTiming(completed ? 1 : 0, {
+      duration,
+      easing: COMPLETE_EASE,
+    });
+
+    if (completed && !reduceMotion) {
+      pulse.value = withSequence(
+        withTiming(1.08, { duration: 90, easing: COMPLETE_EASE }),
+        withTiming(1, { duration: 90, easing: COMPLETE_EASE }),
+      );
+    } else {
+      pulse.value = withTiming(1, { duration: reduceMotion ? 0 : 100, easing: COMPLETE_EASE });
+    }
+  }, [completed, reduceMotion, progress, pulse]);
+
+  const boxAnimStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(progress.value, [0, 1], [muted, entityColor]),
+    transform: [{ scale: pulse.value }],
+  }));
+
+  const fillAnimStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+  }));
+
+  const checkAnimStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ scale: 0.65 + 0.35 * progress.value }],
+  }));
+
+  const titleAnimStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(progress.value, [0, 1], [textColor, muted]),
+  }));
+
+  const accessibilityLabel = `${item.title}${completed ? ', completed' : ''}`;
+
+  return (
+    <View
+        style={[
+          styles.untimedCard,
+          {
+            backgroundColor: cardBg,
+            borderColor,
+            minHeight: T.untimedCardMinHeight,
+            borderRadius: T.untimedCardRadius,
+            paddingHorizontal: T.untimedCardPaddingH,
+            paddingVertical: T.untimedCardPaddingV,
+          },
+        ]}
+      >
+      {canToggle ? (
+        <Pressable
+          style={[
+            styles.checkboxHit,
+            {
+              width: checkboxSize,
+              height: checkboxSize,
+            },
+          ]}
+          onPress={item.onToggle}
+          // Modest hit area only — avoid overlapping neighbor cards/title.
+          hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: completed }}
+          accessibilityLabel={`Mark ${item.title} ${completed ? 'incomplete' : 'complete'}`}
+        >
+          <Animated.View
+            style={[
+              styles.checkbox,
+              {
+                width: checkboxSize,
+                height: checkboxSize,
+                borderRadius: checkboxSize / 2,
+              },
+              boxAnimStyle,
+            ]}
+          >
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  borderRadius: checkboxSize / 2,
+                  backgroundColor: entityColor,
+                },
+                fillAnimStyle,
+              ]}
+            />
+            <Animated.View style={checkAnimStyle} pointerEvents="none">
+              <Icon name={IconCheck} size={9} color={cardBg} stroke={2.5} />
+            </Animated.View>
+          </Animated.View>
+        </Pressable>
+      ) : null}
+
+      {typeIconVisible ? (
+        <View
+          style={[
+            styles.untimedTypeIcon,
+            {
+              width: iconSize,
+              height: iconSize,
+              marginLeft: canToggle ? 6 : 0,
+            },
+          ]}
+          accessible={false}
+          importantForAccessibility="no"
+        >
+          <Icon
+            name={icon}
+            size={iconSize}
+            color={completed ? muted : entityColor}
+            stroke={1.6}
+          />
+        </View>
+      ) : null}
+
+      <Pressable
+        onPress={onPress}
+        disabled={!onPress}
+        style={[styles.untimedTitlePress, { marginLeft: typeIconVisible || canToggle ? 6 : 0 }]}
+        accessibilityRole={onPress ? 'button' : undefined}
+        accessibilityLabel={accessibilityLabel}
+      >
+        <Animated.Text
+          style={[
+            styles.untimedTitle,
+            { fontSize: T.untimedTitleSize },
+            titleAnimStyle,
+            completed && { textDecorationLine: 'line-through' },
+          ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {item.title}
+        </Animated.Text>
+      </Pressable>
+    </View>
+  );
+}
+
 /**
  * Native-first horizontal card.
  * Scheduled: [icon] [title…] [○]
@@ -58,8 +261,10 @@ export function TimelineEventCard({
   onPress,
   compact = false,
   showTypeIcon = false,
+  highlighted = false,
 }: TimelineEventCardProps) {
   const { colors, entityColors, isDark } = useTheme();
+  const T = useTimelineTokens();
   const entityColor = entityColorFor(item, entityColors, colors.accent);
   const icon = item.icon || ENTITY_ICONS[item.type as keyof typeof ENTITY_ICONS];
   const showCompleted = !!item.isCompleted;
@@ -71,13 +276,15 @@ export function TimelineEventCard({
   // Quieter than scheduled cards — soft lift over page charcoal, no loud border.
   const untimedBg = isDark ? '#25272C' : colors.surface;
   const cardBg = compact ? untimedBg : scheduledBg;
-  const borderColor = compact
-    ? isDark
-      ? 'rgba(255,255,255,0.03)'
-      : 'rgba(0,0,0,0.04)'
-    : isDark
-      ? 'rgba(255,255,255,0.04)'
-      : colors.border;
+  const borderColor = highlighted
+    ? entityColor
+    : compact
+      ? isDark
+        ? 'rgba(255,255,255,0.03)'
+        : 'rgba(0,0,0,0.04)'
+      : isDark
+        ? 'rgba(255,255,255,0.04)'
+        : colors.border;
   const muted = colors.subtext;
 
   const checkboxSize = compact ? T.untimedCheckboxSize : T.scheduledCheckboxSize;
@@ -95,87 +302,18 @@ export function TimelineEventCard({
 
   // ── Untimed checklist cell ─────────────────────────────────────────────
   if (compact) {
-    // Habit-only / single-type: no decorative type icon.
-    // Mixed types: small inline type icon to distinguish; never a trailing checkbox.
-    const typeIconVisible = showTypeIcon;
-
     return (
-      <View
-        style={[
-          styles.untimedCard,
-          {
-            backgroundColor: cardBg,
-            borderColor,
-          },
-        ]}
-      >
-        {canToggle ? (
-          <Pressable
-            style={[
-              styles.checkbox,
-              {
-                width: checkboxSize,
-                height: checkboxSize,
-                borderRadius: checkboxSize / 2,
-                borderColor: showCompleted ? entityColor : muted,
-                backgroundColor: showCompleted ? entityColor : 'transparent',
-              },
-            ]}
-            onPress={item.onToggle}
-            // Modest hit area only — avoid overlapping neighbor cards/title.
-            hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: showCompleted }}
-            accessibilityLabel={`Mark ${item.title} ${showCompleted ? 'incomplete' : 'complete'}`}
-          >
-            {showCompleted ? (
-              <Icon name={IconCheck} size={9} color={cardBg} stroke={2.5} />
-            ) : null}
-          </Pressable>
-        ) : null}
-
-        {typeIconVisible ? (
-          <View
-            style={[
-              styles.untimedTypeIcon,
-              {
-                width: iconSize,
-                height: iconSize,
-                marginLeft: canToggle ? 6 : 0,
-              },
-            ]}
-            accessible={false}
-            importantForAccessibility="no"
-          >
-            <Icon
-              name={icon}
-              size={iconSize}
-              color={showCompleted ? muted : entityColor}
-              stroke={1.6}
-            />
-          </View>
-        ) : null}
-
-        <Pressable
-          onPress={onPress}
-          disabled={!onPress}
-          style={[styles.untimedTitlePress, { marginLeft: typeIconVisible || canToggle ? 6 : 0 }]}
-          accessibilityRole={onPress ? 'button' : undefined}
-          accessibilityLabel={accessibilityLabel}
-        >
-          <Text
-            style={[
-              styles.untimedTitle,
-              { color: showCompleted ? muted : colors.text },
-              showCompleted && { textDecorationLine: 'line-through' },
-            ]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {item.title}
-          </Text>
-        </Pressable>
-      </View>
+      <UntimedChecklistCard
+        item={item}
+        onPress={onPress}
+        showTypeIcon={showTypeIcon}
+        entityColor={entityColor}
+        cardBg={cardBg}
+        borderColor={borderColor}
+        muted={muted}
+        textColor={colors.text}
+        icon={icon}
+      />
     );
   }
 
@@ -187,7 +325,12 @@ export function TimelineEventCard({
         {
           backgroundColor: cardBg,
           borderColor,
+          borderWidth: highlighted ? 1.5 : StyleSheet.hairlineWidth,
           opacity: showCompleted ? 0.78 : 1,
+          minHeight: T.scheduledCardMinHeight,
+          borderRadius: T.scheduledCardRadius,
+          paddingHorizontal: T.scheduledCardPaddingH,
+          paddingVertical: T.scheduledCardPaddingV,
         },
       ]}
     >
@@ -249,11 +392,11 @@ export function TimelineEventCard({
             ) : null}
           </View>
 
-          <View style={[styles.body, { marginLeft: 10 }]}>
+          <View style={[styles.body, { marginLeft: 8 }]}>
             <Text
               style={[
                 styles.scheduledTitle,
-                { color: colors.text },
+                { color: colors.text, fontSize: T.scheduledTitleSize },
                 showCompleted && { textDecorationLine: 'line-through', color: muted },
               ]}
               numberOfLines={1}
@@ -290,7 +433,10 @@ export function TimelineEventCard({
                 />
               </View>
             ) : subtitle ? (
-              <Text style={[styles.subtitle, { color: muted }]} numberOfLines={1}>
+              <Text
+                style={[styles.subtitle, { color: muted, fontSize: T.scheduledSubtitleSize }]}
+                numberOfLines={1}
+              >
                 {subtitle}
               </Text>
             ) : null}
@@ -308,7 +454,7 @@ export function TimelineEventCard({
               borderRadius: checkboxSize / 2,
               borderColor: showCompleted ? entityColor : muted,
               backgroundColor: showCompleted ? entityColor : 'transparent',
-              marginLeft: 10,
+              marginLeft: 8,
             },
           ]}
           onPress={item.onToggle}
@@ -322,7 +468,7 @@ export function TimelineEventCard({
           ) : null}
         </Pressable>
       ) : (
-        <View style={{ width: checkboxSize, marginLeft: 10, flexShrink: 0 }} />
+        <View style={{ width: checkboxSize, marginLeft: 8, flexShrink: 0 }} />
       )}
     </View>
   );
@@ -332,11 +478,7 @@ const styles = StyleSheet.create({
   untimedCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: T.untimedCardMinHeight,
-    borderRadius: T.untimedCardRadius,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: T.untimedCardPaddingH,
-    paddingVertical: T.untimedCardPaddingV,
     // Intrinsic width for horizontal scroll row (clamped by parent).
     alignSelf: 'flex-start',
   },
@@ -346,7 +488,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   untimedTitle: {
-    fontSize: T.untimedTitleSize,
     fontWeight: '500',
   },
   untimedTypeIcon: {
@@ -354,17 +495,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
+  checkboxHit: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    overflow: 'visible',
+  },
   scheduledCard: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'stretch',
     width: '100%',
     minWidth: 0,
-    minHeight: T.scheduledCardMinHeight,
-    borderRadius: T.scheduledCardRadius,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: T.scheduledCardPaddingH,
-    paddingVertical: T.scheduledCardPaddingV,
   },
   pressFlex: {
     flex: 1,
@@ -387,9 +530,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -2,
     bottom: -2,
-    width: T.badgeSize,
-    height: T.badgeSize,
-    borderRadius: T.badgeSize / 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -400,12 +543,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scheduledTitle: {
-    fontSize: T.scheduledTitleSize,
     fontWeight: '600',
     letterSpacing: -0.15,
   },
   subtitle: {
-    fontSize: T.scheduledSubtitleSize,
     fontWeight: '400',
     marginTop: 2,
   },

@@ -4,12 +4,14 @@ import { TIMELINE_TOKENS as T } from '../../utils/timelineTokens';
 /**
  * Shared three-column row geometry for hour boundaries and content.
  * [ time label ] [ rail / add ] [ flexible content ]
+ *
+ * Horizontal inset is applied by callers via `pageInset` so tablet widths
+ * can widen margins without forking column geometry.
  */
 export const timelineColumnStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: T.pageInset,
   },
   timeColumn: {
     width: T.timeColumnWidth,
@@ -38,8 +40,12 @@ export const timelineColumnStyles = StyleSheet.create({
   },
 });
 
-export function railAbsoluteLeft(): number {
-  return T.pageInset + T.railCenterX - T.railThickness / 2;
+export function rowInsetStyle(pageInset: number = T.pageInset): ViewStyle {
+  return { paddingHorizontal: pageInset };
+}
+
+export function railAbsoluteLeft(pageInset: number = T.pageInset): number {
+  return pageInset + T.railCenterX - T.railThickness / 2;
 }
 
 export function contentColumnStyle(extra?: ViewStyle): ViewStyle {

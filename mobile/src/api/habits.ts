@@ -24,8 +24,9 @@ export async function getHabitsForDate(date: string) {
   return res.json();
 }
 
-export async function getHabitById(habitId: number) {
-  const res = await fetch(`${getApiUrl()}/api/habits/habits/${habitId}/`, {
+export async function getHabitById(habitId: number, date?: string) {
+  const qs = date ? `?date=${encodeURIComponent(date)}` : '';
+  const res = await fetch(`${getApiUrl()}/api/habits/habits/${habitId}/${qs}`, {
     headers: await getAuthHeaders(),
   });
   if (!res.ok) throw new Error('Failed to fetch habit');
@@ -39,7 +40,10 @@ export async function createHabit(habit: {
   days_of_week: number[];
   target_value: number;
   category: string;
-  reminder_time?: string;
+  reminder_time?: string | null;
+  icon?: string;
+  has_target?: boolean;
+  target_type?: string;
 }) {
   const res = await fetch(`${getApiUrl()}/api/habits/habits/`, {
     method: 'POST',

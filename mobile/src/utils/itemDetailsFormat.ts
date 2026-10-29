@@ -87,6 +87,34 @@ export function formatDuration(value: string | null | undefined): string | null 
   return `${h}h ${m}m`;
 }
 
+/**
+ * Start clock + duration → end clock (local wall time, same calendar day).
+ * Returns null when either value is missing/unparseable.
+ * Does not invent midnight for untimed items.
+ */
+export function formatEndClockTime(
+  start: string | null | undefined,
+  duration: string | null | undefined,
+): string | null {
+  if (!start || !duration) return null;
+  const startMatch = String(start).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  const durParts = String(duration).trim().split(':');
+  if (!startMatch || durParts.length < 2) return null;
+  const startH = parseInt(startMatch[1], 10);
+  const startM = parseInt(startMatch[2], 10);
+  const startS = parseInt(startMatch[3] || '0', 10);
+  const durH = parseInt(durParts[0], 10) || 0;
+  const durM = parseInt(durParts[1], 10) || 0;
+  const durS = parseInt(durParts[2] || '0', 10) || 0;
+  if ([startH, startM, startS, durH, durM, durS].some((n) => Number.isNaN(n))) {
+    return null;
+  }
+  if (durH === 0 && durM === 0 && durS === 0) return null;
+  const end = new Date(1970, 0, 1, startH, startM, startS, 0);
+  end.setSeconds(end.getSeconds() + durH * 3600 + durM * 60 + durS);
+  return formatClockTime(end);
+}
+
 export function formatHabitGoal(habit: {
   has_target?: boolean;
   target_value?: number;

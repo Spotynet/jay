@@ -1,19 +1,22 @@
 # Jay Mobile - Theme & Coloring Guide
 
-This guide defines the dynamic coloring system used to maintain a consistent native look across iOS and Android, supporting both Light/Dark modes and user-defined Accent colors.
+Dynamic coloring for light/dark modes and user accent. **Policy:** repo-root
+[`AGENTS.md`](../../AGENTS.md). **Source of truth for keys:**
+`src/context/ThemeContext.tsx` (if this table drifts, trust the code).
 
-## 🎨 Theme Variables
+Always use `useTheme()`. **Do not hardcode hex values.**
 
-Always consume these variables via the `useTheme()` hook. **Do not use hardcoded hex values** in components.
+## Theme variables
 
-| Variable | Usage | Light Mode | Dark Mode |
-| :--- | :--- | :--- | :--- |
-| `colors.accent` | **Primary actions**, active icons, toggles, highlights. | *User Selected* | *User Selected* |
-| `colors.background` | **Main screen** background. | `#F2F2F7` | `#000000` |
-| `colors.card` | **Containers**, list items, modals, inputs, cards. | `#FFFFFF` | `#1C1C1E` |
-| `colors.text` | **Primary text** and main titles. | `#000000` | `#FFFFFF` |
-| `colors.subtext` | **Secondary text**, descriptions, labels, hints. | `#636366` | `#8E8E93` |
-| `colors.border` | **Dividers**, borders, and thin lines. | `#C6C6C8` | `#38383A` |
+| Variable | Usage |
+| :--- | :--- |
+| `colors.accent` | Primary actions, active icons, toggles, highlights (user-selected). |
+| `colors.background` | Main screen background. |
+| `colors.surface` | Containers, list items, modals, inputs, cards. **There is no `colors.card`.** |
+| `colors.surfaceElevated` | Slightly raised chrome / Reduce Transparency fallbacks. |
+| `colors.text` | Primary text and titles. |
+| `colors.subtext` | Secondary text, labels, hints. |
+| `colors.border` | Dividers and thin lines. |
 
 ## 🛠 Usage Example
 
@@ -26,7 +29,7 @@ export default function ExampleComponent() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.text }]}>Consistent Header</Text>
         <Text style={[styles.body, { color: colors.subtext }]}>This is secondary text.</Text>
         
@@ -50,7 +53,7 @@ const styles = StyleSheet.create({
 
 ## 📐 Design Rules
 
-1. **Hierarchy**: Use `colors.background` for the base layer and `colors.card` for elevated elements (cards, inputs, list rows).
+1. **Hierarchy**: Use `colors.background` for the base layer and `colors.surface` for elevated elements (cards, inputs, list rows).
 2. **Interactive Elements**: Use `colors.accent` to signify that an element is interactive or active (e.g., a selected tab or a primary "Save" button).
 3. **Contrast**: Ensure text remains readable by using `colors.text` for content and `colors.subtext` only for non-essential information.
 4. **Icons**:

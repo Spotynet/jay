@@ -4,8 +4,8 @@ import { IconPlus } from 'tabler-icons-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { Icon } from '../ui/Icon';
 import { AgendaTypeCount } from '../../utils/timelineLayout';
-import { TIMELINE_TOKENS as T } from '../../utils/timelineTokens';
-import { timelineColumnStyles } from './timelineColumns';
+import { useTimelineTokens } from '../../layout/useTimelineTokens';
+import { timelineColumnStyles, rowInsetStyle } from './timelineColumns';
 import { HourTypeSummary } from './HourTypeSummary';
 
 interface TimelineHourMarkerProps {
@@ -18,7 +18,7 @@ interface TimelineHourMarkerProps {
 }
 
 /**
- * Hour START boundary header.
+ * Exact-time section header (o’clock or occupied non-o’clock).
  * Columns: [ time ] [ + ] [ full guide | flex-line + type summary ]
  */
 export function TimelineHourMarker({
@@ -28,13 +28,22 @@ export function TimelineHourMarker({
   typeCounts,
 }: TimelineHourMarkerProps) {
   const { colors, isDark } = useTheme();
+  const T = useTimelineTokens();
   const [pressed, setPressed] = useState(false);
   const guideColor = isDark ? T.hourGuideColorDark : T.hourGuideColorLight;
   const mask = colors.background;
   const showSummary = Array.isArray(typeCounts) && typeCounts.length > 0;
 
   return (
-    <View style={[timelineColumnStyles.row, styles.boundary]} pointerEvents="box-none">
+    <View
+      style={[
+        timelineColumnStyles.row,
+        rowInsetStyle(T.pageInset),
+        styles.boundary,
+        { minHeight: T.boundaryHeight },
+      ]}
+      pointerEvents="box-none"
+    >
       <View style={[timelineColumnStyles.timeColumn, styles.baseline]}>
         <Text style={[timelineColumnStyles.timeLabel, styles.timeLabel, { color: colors.subtext }]}>
           {label}
@@ -107,7 +116,6 @@ export function TimelineHourMarker({
 
 const styles = StyleSheet.create({
   boundary: {
-    minHeight: T.boundaryHeight,
     alignItems: 'center',
   },
   baseline: {
@@ -119,8 +127,8 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   addHit: {
-    width: T.addMaskSize + 2,
-    height: T.addMaskSize + 2,
+    width: 18,
+    height: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },

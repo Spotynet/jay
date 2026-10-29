@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useIsFocused, useRoute } from '@react-navigation/native';
@@ -12,7 +12,7 @@ import { getEventsForDate } from '../../api/events';
 import { getCategories, getTransactions } from '../../api/finance';
 import { ActionButton } from '../../components/common/ActionButton';
 import CalendarPickerModal from '../../components/common/CalendarPickerModal';
-import { TimelineAgenda } from '../../components/common/TimelineAgenda';
+import { TimelineAgenda } from '../../components/timeline/TimelineAgenda';
 import { CreateNewModal } from './components/CreateNewModal';
 import { DayMetricStrip } from '../../components/timeline/DayMetricStrip';
 import {
@@ -21,15 +21,18 @@ import {
   buildTaskHabitMetrics,
 } from '../../utils/dayMetrics';
 import { FINANCE_ICONS } from '../../constants/financeIcons';
+import { HABIT_ICONS } from '../../constants/habitIcons';
+import { ENTITY_ICONS } from '../../constants/entityIcons';
 import { getJournalTimelineState, JournalSettings } from '../../utils/journalScheduling';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { toLocalDateString, parseLocalDate } from '../../utils/date';
 import { AgendaItem } from '../../utils/timelineLayout';
 import { resolveAgendaEditorTarget } from '../../utils/agendaNavigation';
-import {
-  ItemDetailsModal,
-  ItemDetailsPayload,
-} from '../../components/itemDetails/ItemDetailsModal';
+
+function resolveHabitIcon(iconName?: string | null) {
+  if (!iconName) return ENTITY_ICONS.habit;
+  return HABIT_ICONS.find((i) => i.name === iconName)?.icon || ENTITY_ICONS.habit;
+}
 
 function durationMinutesFromField(value: string | null | undefined): number | undefined {
   if (!value) return undefined;
@@ -56,10 +59,9 @@ export default function TodayScreen() {
   const [categories, setCategories] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [detailsPayload, setDetailsPayload] = useState<ItemDetailsPayload | null>(null);
-  const [detailsVisible, setDetailsVisible] = useState(false);
   const [pendingHour, setPendingHour] = useState<{ hour: number; minute: number } | null>(null);
-  
+  const completionLockRef = useRef(new Set<string>());
+
   const isFocused = useIsFocused();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -329,14 +331,32 @@ export default function TodayScreen() {
         isCompleted: t.status === 'COMPLETED',
         badge: t.status === 'COMPLETED' ? ('check' as const) : null,
         onToggle: async () => {
+          const key = `task-${t.id}`;
+          if (completionLockRef.current.has(key)) return;
+          completionLockRef.current.add(key);
+          const wasCompleted = t.status === 'COMPLETED';
+          setTasks((prev) =>
+            prev.map((task) =>
+              task.id === t.id
+                ? { ...task, status: wasCompleted ? 'PENDING' : 'COMPLETED' }
+                : task,
+            ),
+          );
           try {
             await toggleTaskCompletion(t.id);
-            fetchEntries();
-          } catch (e) {
             await fetchEntries();
+          } catch (e) {
+            setTasks((prev) =>
+              prev.map((task) =>
+                task.id === t.id
+                  ? { ...task, status: wasCompleted ? 'COMPLETED' : 'PENDING' }
+                  : task,
+              ),
+            );
             setError("Couldn't update this task.");
+          } finally {
+            completionLockRef.current.delete(key);
           }
-          fetchEntries();
         },
       })),
       ...habits.map((h: any) => ({
@@ -345,18 +365,33 @@ export default function TodayScreen() {
         startTime: h.reminder_time ? new Date(`${dateStr}T${h.reminder_time}`) : null,
         type: 'habit' as const,
         timeRange: h.reminder_time || '',
+        icon: resolveHabitIcon(h.icon),
         isActive: false,
         isCompleted: h.completed,
         badge: h.completed ? ('check' as const) : null,
         onToggle: async () => {
+          const key = `habit-${h.id}`;
+          if (completionLockRef.current.has(key)) return;
+          completionLockRef.current.add(key);
+          const wasCompleted = !!h.completed;
+          setHabits((prev) =>
+            prev.map((habit) =>
+              habit.id === h.id ? { ...habit, completed: !wasCompleted } : habit,
+            ),
+          );
           try {
             await toggleHabitCompletion(h.id, dateStr);
-            fetchEntries();
-          } catch (e) {
             await fetchEntries();
+          } catch (e) {
+            setHabits((prev) =>
+              prev.map((habit) =>
+                habit.id === h.id ? { ...habit, completed: wasCompleted } : habit,
+              ),
+            );
             setError("Couldn't update this habit.");
+          } finally {
+            completionLockRef.current.delete(key);
           }
-          fetchEntries();
         },
       })),
       ...budgetDueDates,
@@ -378,10 +413,15 @@ export default function TodayScreen() {
   return (
     <ScreenLayout 
       title={isToday ? 'Today' : formatDate(selectedDate)}
-      rightOption={{ 
+      rightOption={{
         render: () => (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <ActionButton icon={IconUser} onPress={() => navigation.navigate('Profile')} size={40} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ActionButton
+              icon={IconUser}
+              onPress={() => navigation.navigate('Profile')}
+              size={40}
+              accessibilityLabel="Profile"
+            />
             <ActionButton
               icon={IconPlus}
               onPress={() => {
@@ -389,13 +429,15 @@ export default function TodayScreen() {
                 setModalVisible(true);
               }}
               size={40}
+              accessibilityLabel="Add item"
             />
           </View>
-        )
+        ),
       }}
       onTitlePress={() => setShowPicker(!showPicker)}
       showPicker={showPicker}
       contentStyle={{ paddingHorizontal: 0 }}
+      constrainWidth={false}
     >
       <View style={styles.root}>
         <View style={{ paddingHorizontal: 16 }}>
@@ -417,28 +459,18 @@ export default function TodayScreen() {
               }
               if (target.kind === 'unsupported') return;
 
-              setDetailsPayload({
+              // MainStack modal (same pattern as Profile) — keeps Today mounted underneath.
+              navigation.navigate('ItemDetails', {
                 kind: target.kind,
                 entityId: target.entityId,
                 occurrenceDate: dateStr,
                 projectName: item.projectName,
                 isCompleted: !!item.isCompleted,
               });
-              setDetailsVisible(true);
             }}
           />
         </View>
       </View>
-
-      <ItemDetailsModal
-        visible={detailsVisible}
-        payload={detailsPayload}
-        onClose={() => {
-          setDetailsVisible(false);
-          setDetailsPayload(null);
-        }}
-        onTimelineRefresh={fetchEntries}
-      />
 
       <CreateNewModal 
         visible={modalVisible} 

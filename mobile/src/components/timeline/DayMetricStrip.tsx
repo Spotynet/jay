@@ -1,16 +1,33 @@
-import React from 'react';
-import { View, StyleSheet, Text, ScrollView, Pressable } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  Text,
+  ScrollView,
+  Pressable,
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { IconCalendarDue } from 'tabler-icons-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { Icon } from '../ui/Icon';
 import { ENTITY_ICONS } from '../../constants/entityIcons';
-import { TIMELINE_TOKENS as T } from '../../utils/timelineTokens';
+import { useResponsiveLayout } from '../../layout/responsive';
+import { useTimelineTokens } from '../../layout/useTimelineTokens';
 import {
   DayMetricModel,
   accessibilityMetricLabel,
   clampProgress,
 } from '../../utils/dayMetrics';
+import {
+  DAY_METRIC_ITEM_GAP,
+  DAY_METRIC_ITEM_WIDTH,
+  ringsRequiredWidth,
+  ringsShouldFit,
+} from '../../utils/dayMetricStripLayout';
 
 /** @deprecated Prefer DayMetricModel — kept as alias for existing imports. */
 export type DayMetric = DayMetricModel;
@@ -19,11 +36,15 @@ interface DayMetricStripProps {
   metrics: DayMetricModel[];
 }
 
+/** Fixed square ring geometry — never derived independently. */
 const RING = 52;
 const STROKE = 3;
 const R = (RING - STROKE) / 2;
 const C = 2 * Math.PI * R;
 const LABEL_ICON = 12;
+const METRIC_WIDTH = DAY_METRIC_ITEM_WIDTH;
+const METRIC_GAP = DAY_METRIC_ITEM_GAP;
+const SCROLL_EDGE_EPS = 1;
 
 const METRIC_ICONS: Record<string, any> = {
   tasks: ENTITY_ICONS.task,
@@ -32,7 +53,23 @@ const METRIC_ICONS: Record<string, any> = {
   due: IconCalendarDue,
 };
 
-function MetricRing({ metric }: { metric: DayMetricModel }) {
+const withAlpha = (hex: string, alpha: number): string => {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return hex;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
+
+function MetricRing({
+  metric,
+  fillColumn = false,
+}: {
+  metric: DayMetricModel;
+  /** When true, outer wrapper expands; circle stays fixed and centered. */
+  fillColumn?: boolean;
+}) {
   const { colors, isDark } = useTheme();
   const muted = colors.subtext;
   const track = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
@@ -90,7 +127,7 @@ function MetricRing({ metric }: { metric: DayMetricModel }) {
       </View>
 
       <View
-        style={styles.labelRow}
+        style={[styles.labelRow, fillColumn && styles.labelRowFill]}
         accessible={false}
         importantForAccessibility="no"
         accessibilityElementsHidden
@@ -103,10 +140,12 @@ function MetricRing({ metric }: { metric: DayMetricModel }) {
     </>
   );
 
+  const metricStyle = fillColumn ? styles.metricFill : styles.metric;
+
   if (metric.onPress) {
     return (
       <Pressable
-        style={styles.metric}
+        style={metricStyle}
         onPress={metric.onPress}
         accessibilityRole="button"
         accessibilityLabel={a11y}
@@ -117,56 +156,244 @@ function MetricRing({ metric }: { metric: DayMetricModel }) {
   }
 
   return (
-    <View style={styles.metric} accessibilityRole="text" accessibilityLabel={a11y}>
+    <View style={metricStyle} accessibilityRole="text" accessibilityLabel={a11y}>
       {body}
     </View>
   );
 }
 
 export function DayMetricStrip({ metrics }: DayMetricStripProps) {
+  const { colors } = useTheme();
+  const layout = useResponsiveLayout();
+  const T = useTimelineTokens();
+  const scrollRef = useRef<ScrollView>(null);
+  const [rowWidth, setRowWidth] = useState(0);
+  const [fits, setFits] = useState(false);
+  const [showLeadingFade, setShowLeadingFade] = useState(false);
+  const [showTrailingFade, setShowTrailingFade] = useState(false);
+  const scrollMetrics = useRef({ offset: 0, contentW: 0, layoutW: 0 });
+  const fitsRef = useRef(false);
+
+  const requiredWidth = useMemo(
+    () => ringsRequiredWidth(metrics.length),
+    [metrics.length],
+  );
+
+  const updateFit = useCallback(
+    (available: number) => {
+      const next = ringsShouldFit(available, metrics.length, fitsRef.current);
+      if (next === fitsRef.current) return;
+      fitsRef.current = next;
+      setFits(next);
+      if (next) {
+        setShowLeadingFade(false);
+        setShowTrailingFade(false);
+        scrollMetrics.current.offset = 0;
+        scrollRef.current?.scrollTo({ x: 0, animated: false });
+      }
+    },
+    [metrics.length],
+  );
+
+  const updateFades = useCallback(() => {
+    if (fitsRef.current) {
+      setShowLeadingFade(false);
+      setShowTrailingFade(false);
+      return;
+    }
+    const { offset, contentW, layoutW } = scrollMetrics.current;
+    const overflow = contentW > layoutW + SCROLL_EDGE_EPS && layoutW > 0;
+    if (!overflow) {
+      setShowLeadingFade(false);
+      setShowTrailingFade(false);
+      return;
+    }
+    const maxOffset = contentW - layoutW;
+    setShowLeadingFade(offset > SCROLL_EDGE_EPS);
+    setShowTrailingFade(offset < maxOffset - SCROLL_EDGE_EPS);
+  }, []);
+
+  const onScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollMetrics.current.offset = e.nativeEvent.contentOffset.x;
+      updateFades();
+    },
+    [updateFades],
+  );
+
+  const onContentSizeChange = useCallback(
+    (w: number) => {
+      scrollMetrics.current.contentW = w;
+      updateFades();
+    },
+    [updateFades],
+  );
+
+  const onRowLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const w = e.nativeEvent.layout.width;
+      setRowWidth(w);
+      scrollMetrics.current.layoutW = w;
+      updateFit(w);
+      updateFades();
+    },
+    [updateFit, updateFades],
+  );
+
+  useEffect(() => {
+    if (rowWidth > 0) updateFit(rowWidth);
+  }, [metrics.length, rowWidth, updateFit]);
+
   if (metrics.length === 0) return null;
 
+  const contentWidth = Math.min(layout.width, T.maxContentWidth);
+  const bg = colors.background as string;
+  const fadeClear = withAlpha(bg, 0);
+  const fadeWidth = T.untimedEdgeFadeWidth;
+  const useFit = fits && rowWidth >= requiredWidth;
+
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.scroll}
-      style={styles.container}
+    <View
+      style={[
+        styles.wrap,
+        {
+          width: contentWidth,
+          alignSelf: 'center',
+          paddingHorizontal: T.pageInset,
+        },
+      ]}
     >
-      {metrics.map((m) => (
-        <MetricRing key={m.id} metric={m} />
-      ))}
-      <View style={styles.spacer} />
-    </ScrollView>
+      <View style={styles.scrollWrap} onLayout={onRowLayout}>
+        {useFit ? (
+          <View style={styles.fitRow} accessibilityRole="summary">
+            {metrics.map((m) => (
+              <View key={m.id} style={styles.fitColumn}>
+                <MetricRing metric={m} fillColumn />
+              </View>
+            ))}
+          </View>
+        ) : (
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            scrollEnabled
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+            directionalLockEnabled
+            bounces
+            style={styles.container}
+            contentContainerStyle={styles.scroll}
+            onScroll={onScroll}
+            onScrollEndDrag={onScroll}
+            onMomentumScrollEnd={onScroll}
+            scrollEventThrottle={16}
+            onContentSizeChange={onContentSizeChange}
+          >
+            {metrics.map((m, index) => (
+              <View
+                key={m.id}
+                style={[
+                  styles.metricSlot,
+                  index < metrics.length - 1 && { marginRight: METRIC_GAP },
+                ]}
+              >
+                <MetricRing metric={m} />
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
+        {!useFit && showLeadingFade ? (
+          <LinearGradient
+            colors={[bg, fadeClear]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.edgeFadeLeft, { width: fadeWidth }]}
+            pointerEvents="none"
+            accessible={false}
+            importantForAccessibility="no"
+          />
+        ) : null}
+        {!useFit && showTrailingFade ? (
+          <LinearGradient
+            colors={[fadeClear, bg]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.edgeFadeRight, { width: fadeWidth }]}
+            pointerEvents="none"
+            accessible={false}
+            importantForAccessibility="no"
+          />
+        ) : null}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    width: '100%',
+  },
+  scrollWrap: {
+    position: 'relative',
+    width: '100%',
+  },
   container: {
     flexGrow: 0,
     marginBottom: 4,
   },
   scroll: {
-    paddingHorizontal: T.pageInset,
     paddingVertical: 6,
     alignItems: 'flex-start',
+    flexDirection: 'row',
+  },
+  fitRow: {
+    flexDirection: 'row',
+    width: '100%',
+    alignItems: 'flex-start',
+    paddingVertical: 6,
+    marginBottom: 4,
+  },
+  fitColumn: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    alignItems: 'center',
+  },
+  metricSlot: {
+    flexGrow: 0,
+    flexShrink: 0,
+    width: METRIC_WIDTH,
   },
   metric: {
-    width: 72,
+    width: METRIC_WIDTH,
+    flexGrow: 0,
+    flexShrink: 0,
     alignItems: 'center',
-    marginRight: 14,
+  },
+  metricFill: {
+    width: '100%',
+    alignItems: 'center',
   },
   ringWrap: {
     width: RING,
     height: RING,
+    aspectRatio: 1,
+    flexGrow: 0,
+    flexShrink: 0,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'visible',
   },
   ringSvg: {
     position: 'absolute',
     top: 0,
     left: 0,
+    width: RING,
+    height: RING,
   },
   fraction: {
     flexDirection: 'row',
@@ -196,6 +423,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 5,
+    width: '100%',
+    maxWidth: METRIC_WIDTH,
+  },
+  labelRowFill: {
+    maxWidth: '100%',
+    paddingHorizontal: 2,
   },
   // 11pt label; letterSpacing ≈ 15% of font size.
   label: {
@@ -204,8 +437,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     letterSpacing: 11 * 0.15,
     textTransform: 'capitalize',
+    flexShrink: 1,
   },
-  spacer: {
-    width: 12,
+  edgeFadeLeft: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 1,
+  },
+  edgeFadeRight: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 1,
   },
 });

@@ -1,29 +1,31 @@
-import React, { ReactNode, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import {
   TimelineGroup,
   countAgendaItemTypes,
   formatAgendaTypeSummary,
 } from '../../utils/timelineLayout';
-import { TIMELINE_TOKENS as T } from '../../utils/timelineTokens';
+import { useTimelineTokens } from '../../layout/useTimelineTokens';
 import { TimelineHourMarker } from './TimelineHourMarker';
 import { TimelineTimeGroup } from './TimelineTimeGroup';
 
 interface TimelineHourIntervalProps {
-  hour: number;
+  /** Display label, e.g. "07:00" or "07:30". */
   label: string;
   groups: TimelineGroup[];
   onAdd?: () => void;
   onItemPress?: (item: TimelineGroup['items'][number]) => void;
   onGroupPress?: (group: TimelineGroup) => void;
-  nowIndicator?: ReactNode;
+  contentAnchorRef?: React.RefObject<View | null>;
+  onItemBounds?: (itemId: string, y: number, height: number) => void;
+  highlightedItemId?: string | null;
 }
 
 /**
- * Hour interval:
+ * Exact-time timeline section (o’clock or occupied non-o’clock).
  * - Empty: compact height with horizontal guide in the header.
- * - Populated: header (time / + / flex guide + type summary) in normal flow,
- *   then 10px + event stack + 10px.
+ * - Occupied: full header (time / + / type summary) + dedicated card stack.
+ * Counts and cards are local to this section’s exact minute only.
  */
 export function TimelineHourInterval({
   label,
@@ -31,9 +33,12 @@ export function TimelineHourInterval({
   onAdd,
   onItemPress,
   onGroupPress,
-  nowIndicator,
+  contentAnchorRef,
+  onItemBounds,
+  highlightedItemId,
 }: TimelineHourIntervalProps) {
-  const populated = groups.length > 0;
+  const T = useTimelineTokens();
+  const occupied = groups.length > 0;
   const typeCounts = useMemo(
     () => countAgendaItemTypes(groups.flatMap((g) => g.items)),
     [groups],
@@ -45,31 +50,40 @@ export function TimelineHourInterval({
 
   return (
     <View
-      style={[styles.interval, !populated && { minHeight: T.emptyHourHeight }]}
+      style={[styles.interval, !occupied && { minHeight: T.emptyHourHeight }]}
       accessibilityLabel={
-        populated && typeSummaryLabel
-          ? `Hour ${label}, ${typeSummaryLabel}`
-          : `Hour ${label}`
+        occupied && typeSummaryLabel
+          ? `${label}, ${typeSummaryLabel}`
+          : label
       }
     >
       <TimelineHourMarker
         label={label}
         onAdd={onAdd}
-        showGuide={!populated}
-        typeCounts={populated ? typeCounts : undefined}
+        showGuide={!occupied}
+        typeCounts={occupied ? typeCounts : undefined}
       />
 
-      {nowIndicator}
-
-      {populated ? (
-        <View style={styles.content}>
-          <View style={styles.stack}>
+      {occupied ? (
+        <View
+          style={[
+            styles.content,
+            {
+              paddingTop: T.intervalPadVertical,
+              paddingBottom: T.intervalPadVertical,
+            },
+          ]}
+        >
+          <View style={[styles.stack, { gap: T.cardGap }]}>
             {groups.map((group) => (
               <TimelineTimeGroup
                 key={group.id}
                 group={group}
                 onItemPress={onItemPress}
                 onGroupPress={onGroupPress}
+                contentAnchorRef={contentAnchorRef}
+                onItemBounds={onItemBounds}
+                highlightedItemId={highlightedItemId}
               />
             ))}
           </View>
@@ -95,9 +109,6 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     justifyContent: 'flex-start',
     alignItems: 'stretch',
-    // One shared outer clearance around the whole stack (not per card).
-    paddingTop: T.intervalPadVertical,
-    paddingBottom: T.intervalPadVertical,
   },
   stack: {
     width: '100%',
@@ -105,7 +116,6 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'stretch',
     justifyContent: 'flex-start',
-    gap: T.cardGap,
     alignSelf: 'stretch',
     marginTop: 0,
     marginBottom: 0,

@@ -5,11 +5,10 @@ import {
   StyleSheet,
   Pressable,
   TouchableOpacity,
-  useWindowDimensions,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
+import { useResponsiveLayout } from '../../layout/responsive';
 import { AppText } from '../ui/AppText';
 
 export type OverflowAction = {
@@ -29,7 +28,7 @@ interface ItemOverflowMenuProps {
 }
 
 /**
- * Lightweight overflow menu: anchored panel on wide web, bottom sheet on phones.
+ * Lightweight overflow menu: anchored panel on tablet / wide layouts, bottom sheet on phones.
  */
 export function ItemOverflowMenu({
   visible,
@@ -39,9 +38,9 @@ export function ItemOverflowMenu({
   itemTitle,
 }: ItemOverflowMenuProps) {
   const { colors } = useTheme();
-  const { width } = useWindowDimensions();
+  const layout = useResponsiveLayout();
   const insets = useSafeAreaInsets();
-  const anchored = Platform.OS === 'web' && width >= 720;
+  const anchored = layout.useContainedSheet;
 
   if (!visible) return null;
 

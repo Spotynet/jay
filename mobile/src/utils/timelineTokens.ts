@@ -36,7 +36,7 @@ export const TIMELINE_TOKENS = {
   headerTypeGroupGap: 10,
   /** Gap between the flexible hour guide and the type summary. */
   headerGuideCountGap: 8,
-  cardGap: 7,
+  cardGap: 8,
 
   // Untimed ("No time") checklist — single horizontal scroll row
   untimedCardGap: 7,
@@ -50,16 +50,18 @@ export const TIMELINE_TOKENS = {
   untimedIconContainer: 14,
   untimedTitleSize: 12,
   untimedCheckboxSize: 15,
+  /** Subtle edge fade width for horizontal overflow. */
+  untimedEdgeFadeWidth: 20,
   /** Gap after untimed row before timeline. */
   untimedSectionBottom: 10,
 
-  // Scheduled cards — native iOS horizontal row
-  scheduledCardMinHeight: 54,
-  scheduledCardRadius: 16,
-  scheduledCardPaddingH: 12,
-  scheduledCardPaddingV: 11,
+  // Scheduled cards — native iOS horizontal row (compact density)
+  scheduledCardMinHeight: 46,
+  scheduledCardRadius: 14,
+  scheduledCardPaddingH: 9,
+  scheduledCardPaddingV: 7,
   scheduledIconSize: 17,
-  scheduledIconContainer: 28,
+  scheduledIconContainer: 26,
   scheduledTitleSize: 15,
   scheduledSubtitleSize: 12,
   scheduledCheckboxSize: 19,
@@ -87,3 +89,8 @@ export const TIMELINE_TOKENS = {
 } as const;
 
 export type TimelineTokens = typeof TIMELINE_TOKENS;
+
+/** Mutable token bag for responsive overrides (phone values match TIMELINE_TOKENS). */
+export type TimelineTokenValues = {
+  [K in keyof TimelineTokens]: TimelineTokens[K] extends string ? string : number;
+};

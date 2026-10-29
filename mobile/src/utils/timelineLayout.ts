@@ -137,6 +137,7 @@ export function formatHourLabel(hour: number, minute = 0): string {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+/** Local hour*60+minute. Seconds/ms are ignored so 07:30:59 stays in the 07:30 section. */
 export function minutesFromMidnight(date: Date): number {
   return date.getHours() * 60 + date.getMinutes();
 }
@@ -156,8 +157,9 @@ function sumNutrition(items: TimedAgendaItem[]): NutritionTotals | undefined {
 }
 
 /**
- * Group timed items that share the same timestamp (and optional groupId).
+ * Group timed items that share the same local minute (and optional groupId).
  * Distinct groupIds at the same minute remain separate groups.
+ * Different minutes never merge — even with the same groupId.
  * Never uses title as a unique key.
  */
 export function groupTimedItems(items: TimedAgendaItem[]): TimelineGroup[] {
@@ -173,8 +175,8 @@ export function groupTimedItems(items: TimedAgendaItem[]): TimelineGroup[] {
   const groups: TimelineGroup[] = [];
   for (const item of sorted) {
     const mins = minutesFromMidnight(item.startTime);
-    const hour = item.startTime.getHours();
-    const minute = item.startTime.getMinutes();
+    const hour = Math.floor(mins / 60);
+    const minute = mins % 60;
     const groupKey = item.groupId ?? `t-${mins}`;
     const last = groups[groups.length - 1];
     const lastKey = last
@@ -212,59 +214,139 @@ export type TimelineHourInterval = {
 };
 
 /**
- * Build hour intervals. Every hour gets the same start-boundary marker;
- * groups live inside the interval body (never replace the marker).
+ * One timeline section = one exact scheduled minute (or an empty o’clock marker).
+ * Occupied non-o’clock times (07:30, 07:34, …) are first-class sections with the
+ * same header/add/count structure as o’clock sections — not nested under the hour.
  */
-export function buildHourIntervals(
+export type TimelineTimeSection = {
+  id: string;
+  kind: 'section';
+  hour: number;
+  minute: number;
+  minutesFromMidnight: number;
+  timestampLabel: string;
+  /** False only for empty o’clock placeholders. */
+  occupied: boolean;
+  groups: TimelineGroup[];
+};
+
+/**
+ * Build chronological sections:
+ * - Every o’clock marker is present (empty or occupied).
+ * - Occupied non-o’clock minutes become additional full sections.
+ * - Section counts/items are local to that exact minute.
+ */
+export function buildTimelineSections(
   items: AgendaItem[],
   options: { dayStartHour?: number; dayEndHour?: number } = {},
-): TimelineHourInterval[] {
+): TimelineTimeSection[] {
   const dayStart = options.dayStartHour ?? 0;
   const dayEnd = options.dayEndHour ?? 23;
   const timed = items.filter((i): i is TimedAgendaItem => i.startTime != null);
   const groups = groupTimedItems(timed);
 
-  const groupsByHour = new Map<number, TimelineGroup[]>();
-  groups.forEach((g) => {
-    const list = groupsByHour.get(g.hour) ?? [];
+  const groupsByMinute = new Map<number, TimelineGroup[]>();
+  for (const g of groups) {
+    const list = groupsByMinute.get(g.minutesFromMidnight) ?? [];
     list.push(g);
-    groupsByHour.set(g.hour, list);
-  });
+    groupsByMinute.set(g.minutesFromMidnight, list);
+  }
 
+  const sections: TimelineTimeSection[] = [];
+  for (let hour = dayStart; hour <= dayEnd; hour++) {
+    const onTheHour = hour * 60;
+    const hourGroups = groupsByMinute.get(onTheHour) ?? [];
+
+    sections.push({
+      id: `section-${hour}-0`,
+      kind: 'section',
+      hour,
+      minute: 0,
+      minutesFromMidnight: onTheHour,
+      timestampLabel: formatHourLabel(hour, 0),
+      occupied: hourGroups.length > 0,
+      groups: hourGroups,
+    });
+
+    const offMinutes = [...groupsByMinute.keys()]
+      .filter((mins) => Math.floor(mins / 60) === hour && mins % 60 !== 0)
+      .sort((a, b) => a - b);
+
+    for (const mins of offMinutes) {
+      const minute = mins % 60;
+      const atMinute = groupsByMinute.get(mins) ?? [];
+      sections.push({
+        id: `section-${hour}-${minute}`,
+        kind: 'section',
+        hour,
+        minute,
+        minutesFromMidnight: mins,
+        timestampLabel: formatHourLabel(hour, minute),
+        occupied: true,
+        groups: atMinute,
+      });
+    }
+  }
+  return sections;
+}
+
+/**
+ * @deprecated Prefer `buildTimelineSections`. Kept for callers that still bucket by hour.
+ * Groups for an hour include all minutes in that hour (legacy aggregation).
+ */
+export function buildHourIntervals(
+  items: AgendaItem[],
+  options: { dayStartHour?: number; dayEndHour?: number } = {},
+): TimelineHourInterval[] {
+  const sections = buildTimelineSections(items, options);
+  const byHour = new Map<number, TimelineTimeSection[]>();
+  for (const section of sections) {
+    const list = byHour.get(section.hour) ?? [];
+    list.push(section);
+    byHour.set(section.hour, list);
+  }
+
+  const dayStart = options.dayStartHour ?? 0;
+  const dayEnd = options.dayEndHour ?? 23;
   const intervals: TimelineHourInterval[] = [];
   for (let hour = dayStart; hour <= dayEnd; hour++) {
+    const hourSections = byHour.get(hour) ?? [];
     intervals.push({
       id: `interval-${hour}`,
       kind: 'interval',
       hour,
       minutesFromMidnight: hour * 60,
       timestampLabel: formatHourLabel(hour),
-      groups: groupsByHour.get(hour) ?? [],
+      groups: hourSections.flatMap((s) => s.groups),
     });
   }
   return intervals;
 }
 
 /**
- * Flat chronological sequence: hour boundary, then groups in that hour.
- * Hour markers are ALWAYS emitted (populated hours do not replace them).
+ * Flat chronological sequence for tests / debugging.
+ * Each exact-time section emits a boundary row (o’clock or occupied minute),
+ * then its groups. Empty non-o’clock minutes are never emitted.
  */
 export function buildTimelineRows(
   items: AgendaItem[],
   options: { now?: Date | null; dayStartHour?: number; dayEndHour?: number } = {},
 ): TimelineRow[] {
-  const intervals = buildHourIntervals(items, options);
+  const sections = buildTimelineSections(items, options);
   const rows: TimelineRow[] = [];
 
-  for (const interval of intervals) {
+  for (const section of sections) {
     rows.push({
-      id: `hour-${interval.hour}`,
+      id:
+        section.minute === 0
+          ? `hour-${section.hour}`
+          : `hour-${section.hour}-${section.minute}`,
       kind: 'hour',
-      hour: interval.hour,
-      minutesFromMidnight: interval.minutesFromMidnight,
-      timestampLabel: interval.timestampLabel,
+      hour: section.hour,
+      minutesFromMidnight: section.minutesFromMidnight,
+      timestampLabel: section.timestampLabel,
     });
-    for (const group of interval.groups) {
+    for (const group of section.groups) {
       rows.push({
         ...group,
         showHourAdd: false,
@@ -290,6 +372,20 @@ export function buildTimelineRows(
   }
 
   return rows;
+}
+
+/** Index of the section after which the now indicator should render. */
+export function findNowSectionIndex(
+  sections: TimelineTimeSection[],
+  now: Date,
+): number {
+  const nowMins = minutesFromMidnight(now);
+  let idx = -1;
+  for (let i = 0; i < sections.length; i++) {
+    if (sections[i].minutesFromMidnight <= nowMins) idx = i;
+    else break;
+  }
+  return idx;
 }
 
 /** Compact height invariant helpers for tests / docs */

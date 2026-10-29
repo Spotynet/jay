@@ -12,8 +12,8 @@ import {
   IconCalendar,
   IconChecklist,
   IconBook,
-  IconBarbell,
   IconWallet,
+  IconChartBar,
 } from 'tabler-icons-react-native';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -21,8 +21,8 @@ const icons = {
   Today: IconCalendar,
   Plan: IconChecklist,
   Journal: IconBook,
-  Fitness: IconBarbell,
   Financial: IconWallet,
+  Review: IconChartBar,
 };
 
 export const TabBar = ({ state, descriptors, navigation }: any) => {

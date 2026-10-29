@@ -1,211 +1,164 @@
 import React from 'react';
 import { View } from 'react-native';
-import {
-  IconClock,
-  IconRepeat,
-  IconBell,
-  IconMapPin,
-  IconCalendar,
-  IconHourglass,
-  IconNotes,
-  IconFolder,
-} from 'tabler-icons-react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { DetailSection, DetailRow, ReadOnlyDays } from './DetailRows';
+import { DetailSection, DetailMetaRow } from './DetailRows';
+import { HabitRecentActivity } from './HabitRecentActivity';
+import { AppText } from '../ui/AppText';
 import {
   formatClockTime,
   formatDuration,
+  formatEndClockTime,
   formatFriendlyDate,
   formatHabitGoal,
   formatRepeatDays,
 } from '../../utils/itemDetailsFormat';
 
+function NotesBlock({ text }: { text: string }) {
+  const { colors } = useTheme();
+  return (
+    <DetailSection title="Notes">
+      <View style={{ paddingHorizontal: 14, paddingVertical: 14 }}>
+        <AppText style={{ fontSize: 15, lineHeight: 22, color: colors.text }}>{text}</AppText>
+      </View>
+    </DetailSection>
+  );
+}
+
+/**
+ * Habit supporting sections (Recent activity + Schedule + Notes).
+ * Identity, occurrence, and primary action live in the custom `lead` on ItemDetailsScreen.
+ */
 export function HabitDetailsBody({
   habit,
   occurrenceDate,
+  historyUnavailable,
 }: {
   habit: any;
   occurrenceDate?: string;
+  historyUnavailable?: boolean;
 }) {
-  const { colors, entityColors } = useTheme();
-  const accent = entityColors.habits;
   const days: number[] = Array.isArray(habit?.days_of_week) ? habit.days_of_week : [];
-  const scheduleTime = formatClockTime(habit?.reminder_time);
+  const clock = formatClockTime(habit?.reminder_time);
   const repeat = formatRepeatDays(days);
-  const goal = formatHabitGoal(habit);
   const reminderEnabled = !!habit?.reminder_time;
 
   return (
     <View>
-      <DetailSection title="Schedule">
-        {occurrenceDate ? (
-          <DetailRow
-            icon={IconCalendar}
-            iconColor={accent}
-            label="Occurrence"
-            value={formatFriendlyDate(occurrenceDate) || occurrenceDate}
-          />
-        ) : null}
-        <DetailRow
-          icon={IconClock}
-          iconColor={accent}
-          label="Timeline time"
-          value={scheduleTime || 'No scheduled time'}
+      {occurrenceDate ? (
+        <HabitRecentActivity
+          habit={habit}
+          occurrenceDate={occurrenceDate}
+          historyUnavailable={historyUnavailable}
         />
-        <DetailRow
-          icon={IconRepeat}
-          iconColor={accent}
-          label="Repeats"
-          value={repeat}
-          isLast
-        />
-        {days.length > 0 ? (
-          <ReadOnlyDays
-            selected={days}
-            accentColor={accent}
-            accessibilitySummary={`Repeats ${repeat}`}
-          />
-        ) : null}
-      </DetailSection>
-
-      <DetailSection title="Daily goal">
-        <DetailRow value={goal} isLast />
-      </DetailSection>
-
-      <DetailSection title="Reminder">
-        <DetailRow
-          icon={IconBell}
-          iconColor={accent}
-          value={
-            reminderEnabled && scheduleTime ? `Enabled · ${scheduleTime}` : 'No reminder'
-          }
-          isLast
-        />
-      </DetailSection>
-
-      {habit?.description ? (
-        <DetailSection title="Notes">
-          <DetailRow
-            icon={IconNotes}
-            iconColor={colors.subtext}
-            value={String(habit.description)}
-            isLast
-          />
-        </DetailSection>
       ) : null}
+
+      <DetailSection title="Schedule">
+        <DetailMetaRow label="Time" value={clock || 'Anytime'} />
+        <DetailMetaRow label="Repeats" value={repeat} />
+        <DetailMetaRow
+          label="Reminder"
+          value={reminderEnabled && clock ? `Enabled · ${clock}` : 'Off'}
+          isLast
+        />
+      </DetailSection>
+
+      {habit?.description ? <NotesBlock text={String(habit.description)} /> : null}
     </View>
   );
 }
 
+/** @deprecated Prefer formatHabitGoal at call sites; kept for callers. */
+export function habitGoalLabel(habit: any): string | null {
+  if (!habit?.has_target) return null;
+  return formatHabitGoal(habit);
+}
+
+/**
+ * Task metadata only. Due date and scheduled time stay separate fields.
+ * Omit rows/sections when the value is absent — never invent midnight.
+ */
 export function TaskDetailsBody({
   task,
   projectName,
-  occurrenceDate,
 }: {
   task: any;
   projectName?: string;
+  /** Kept for callers; occurrence belongs in the primary-action region. */
   occurrenceDate?: string;
 }) {
-  const { entityColors } = useTheme();
-  const accent = entityColors.tasks;
-  const dueDate = formatFriendlyDate(task?.due_date || occurrenceDate);
+  const dueDate = formatFriendlyDate(task?.due_date);
   const dueTime = formatClockTime(task?.due_time);
   const duration = formatDuration(task?.duration);
-  const status =
-    task?.status === 'COMPLETED'
-      ? 'Completed'
-      : task?.status === 'PENDING'
-        ? 'Pending'
-        : task?.status
-          ? String(task.status)
-          : 'Pending';
+
+  const scheduleRows: { label: string; value: string }[] = [];
+  if (dueDate) scheduleRows.push({ label: 'Due date', value: dueDate });
+  if (dueTime) scheduleRows.push({ label: 'Time', value: dueTime });
+  if (duration) scheduleRows.push({ label: 'Duration', value: duration });
 
   return (
     <View>
-      <DetailSection title="Schedule">
-        <DetailRow
-          icon={IconCalendar}
-          iconColor={accent}
-          label="Due date"
-          value={dueDate || 'Unscheduled'}
-        />
-        <DetailRow
-          icon={IconClock}
-          iconColor={accent}
-          label="Time"
-          value={dueTime || 'No time'}
-          isLast={!duration}
-        />
-        {duration ? (
-          <DetailRow
-            icon={IconHourglass}
-            iconColor={accent}
-            label="Duration"
-            value={duration}
-            isLast
-          />
-        ) : null}
-      </DetailSection>
-
-      <DetailSection title="Status">
-        <DetailRow value={status} isLast />
-      </DetailSection>
+      {scheduleRows.length > 0 ? (
+        <DetailSection title="Schedule">
+          {scheduleRows.map((row, index) => (
+            <DetailMetaRow
+              key={row.label}
+              label={row.label}
+              value={row.value}
+              isLast={index === scheduleRows.length - 1}
+            />
+          ))}
+        </DetailSection>
+      ) : null}
 
       {projectName ? (
         <DetailSection title="Project">
-          <DetailRow icon={IconFolder} iconColor={accent} value={projectName} isLast />
+          <DetailMetaRow label="Project" value={projectName} isLast />
         </DetailSection>
       ) : null}
 
-      {task?.description ? (
-        <DetailSection title="Notes">
-          <DetailRow icon={IconNotes} value={String(task.description)} isLast />
-        </DetailSection>
-      ) : null}
+      {task?.description ? <NotesBlock text={String(task.description)} /> : null}
     </View>
   );
 }
 
+/**
+ * Event metadata. No completion action — events are not completable.
+ * End time is derived from start + duration when both exist.
+ */
 export function EventDetailsBody({ event }: { event: any }) {
-  const { entityColors } = useTheme();
-  const accent = entityColors.events;
   const date = formatFriendlyDate(event?.date);
   const start = formatClockTime(event?.start_time);
+  const end = formatEndClockTime(event?.start_time, event?.duration);
   const duration = formatDuration(event?.duration);
+
+  const whenRows: { label: string; value: string }[] = [];
+  if (date) whenRows.push({ label: 'Date', value: date });
+  if (start) whenRows.push({ label: 'Start', value: start });
+  if (end) whenRows.push({ label: 'End', value: end });
+  else if (duration) whenRows.push({ label: 'Duration', value: duration });
 
   return (
     <View>
-      <DetailSection title="When">
-        <DetailRow icon={IconCalendar} iconColor={accent} label="Date" value={date || 'No date'} />
-        <DetailRow
-          icon={IconClock}
-          iconColor={accent}
-          label="Start"
-          value={start || 'No start time'}
-          isLast={!duration}
-        />
-        {duration ? (
-          <DetailRow
-            icon={IconHourglass}
-            iconColor={accent}
-            label="Duration"
-            value={duration}
-            isLast
-          />
-        ) : null}
-      </DetailSection>
+      {whenRows.length > 0 ? (
+        <DetailSection title="When">
+          {whenRows.map((row, index) => (
+            <DetailMetaRow
+              key={row.label}
+              label={row.label}
+              value={row.value}
+              isLast={index === whenRows.length - 1}
+            />
+          ))}
+        </DetailSection>
+      ) : null}
 
       {event?.location ? (
         <DetailSection title="Location">
-          <DetailRow icon={IconMapPin} iconColor={accent} value={String(event.location)} isLast />
+          <DetailMetaRow label="Location" value={String(event.location)} isLast />
         </DetailSection>
       ) : null}
 
-      {event?.description ? (
-        <DetailSection title="Notes">
-          <DetailRow icon={IconNotes} value={String(event.description)} isLast />
-        </DetailSection>
-      ) : null}
+      {event?.description ? <NotesBlock text={String(event.description)} /> : null}
     </View>
   );
 }

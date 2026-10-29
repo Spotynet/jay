@@ -1,7 +1,13 @@
 import React from 'react';
 import { Platform } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import {
+  DarkTheme,
+  DefaultTheme,
+  NavigationContainer,
+  Theme as NavTheme,
+} from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeBottomTabNavigator } from '@react-navigation/bottom-tabs/unstable';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAuthStore } from '../store/authStore';
@@ -11,8 +17,8 @@ import { useTheme } from '../context/ThemeContext';
 import TodayScreen from '../screens/today/TodayScreen';
 import PlanScreen from '../screens/planning/PlanScreen';
 import DailyJournalScreen from '../screens/journal/DailyJournalScreen';
-import PlaceholderScreen from '../screens/common/PlaceholderScreen';
 import FinanceScreen from '../screens/finance/FinanceScreen';
+import ReviewScreen from '../screens/review/ReviewScreen';
 
 // Auth Screens
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -41,13 +47,50 @@ import TasksSettingsScreen from '../screens/manage/TasksSettingsScreen';
 import HabitsSettingsScreen from '../screens/manage/HabitsSettingsScreen';
 import CalendarSettingsScreen from '../screens/manage/CalendarSettingsScreen';
 import JournalSettingsScreen from '../screens/manage/JournalSettingsScreen';
+import ItemDetailsScreen from '../screens/itemDetails/ItemDetailsScreen';
+import CalendarPickerScreen from '../screens/calendar/CalendarPickerScreen';
 
 import { TabBar } from './components/TabBar';
 
-const Tab = createBottomTabNavigator();
+/** Content-height day picker — not full/page sheet. */
+const calendarPickerOptions = {
+  headerShown: false,
+  presentation: 'formSheet' as const,
+  sheetAllowedDetents: 'fitToContents' as const,
+  sheetGrabberVisible: true,
+  sheetExpandsWhenScrolledToEdge: false,
+  sheetCornerRadius: 16,
+};
+
+/** System UITabBar / BottomNavigationView — Liquid Glass on iOS 26+ (Xcode 26 builds). */
+const NativeTab = createNativeBottomTabNavigator();
+/** JS tab bar retained for web (native tabs are iOS/Android only). */
+const JsTab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
+
+type TabIconSpec = {
+  sf: string;
+  md: string;
+};
+
+const TAB_ICONS: Record<string, TabIconSpec> = {
+  Today: { sf: 'calendar', md: 'calendar_month' },
+  Plan: { sf: 'checklist', md: 'checklist' },
+  Journal: { sf: 'book', md: 'menu_book' },
+  Financial: { sf: 'creditcard', md: 'account_balance_wallet' },
+  Review: { sf: 'chart.bar', md: 'bar_chart' },
+};
+
+function nativeTabIcon(routeName: string) {
+  const spec = TAB_ICONS[routeName] ?? { sf: 'circle', md: 'circle' };
+  return Platform.select({
+    ios: { type: 'sfSymbol' as const, name: spec.sf as any },
+    android: { type: 'materialSymbol' as const, name: spec.md },
+    default: { type: 'sfSymbol' as const, name: spec.sf as any },
+  });
+}
 
 /** Full-height editors on phone; avoid iOS partial sheets for item details. */
 const editorScreenOptions = {
@@ -73,6 +116,14 @@ function MainTabs() {
       <MainStack.Screen name="CategoryEntry" component={CategoryEntryScreen} />
       <MainStack.Screen name="CategoryItemEntry" component={CategoryItemEntryScreen} />
       <MainStack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
+      {/* Timeline item details — same MainStack modal presentation as Profile */}
+      <MainStack.Screen name="ItemDetails" component={ItemDetailsScreen} />
+      {/* Today / Journal day picker — formSheet sized to calendar content */}
+      <MainStack.Screen
+        name="CalendarPicker"
+        component={CalendarPickerScreen}
+        options={calendarPickerOptions}
+      />
       {/* Settings Screens */}
       <MainStack.Screen name="Profile" component={ProfileScreen} />
       <MainStack.Screen name="Account" component={AccountScreen} />
@@ -87,31 +138,84 @@ function MainTabs() {
   );
 }
 
-function TabNavigator() {
+const TAB_SCREENS = [
+  { name: 'Today' as const, component: TodayScreen, title: 'Today' },
+  { name: 'Plan' as const, component: PlanScreen, title: 'Plan' },
+  { name: 'Journal' as const, component: DailyJournalScreen, title: 'Journal' },
+  { name: 'Financial' as const, component: FinanceScreen, title: 'Financial' },
+  { name: 'Review' as const, component: ReviewScreen, title: 'Review' },
+];
+
+/** Native system tab bar (Liquid Glass on iOS 26+ when built with Xcode 26). */
+function NativeTabNavigator() {
+  const { accentColor } = useTheme();
+
   return (
-    <Tab.Navigator
+    <NativeTab.Navigator
+      screenOptions={{
+        headerShown: false,
+        // Red selected accent — system owns glass/material on iOS 26+.
+        tabBarActiveTintColor: accentColor,
+        // Do not set tabBarStyle.backgroundColor — it suppresses Liquid Glass.
+      }}
+    >
+      {TAB_SCREENS.map(({ name, component, title }) => (
+        <NativeTab.Screen
+          key={name}
+          name={name}
+          component={component}
+          options={{
+            title,
+            tabBarLabel: title,
+            tabBarIcon: nativeTabIcon(name),
+          }}
+        />
+      ))}
+    </NativeTab.Navigator>
+  );
+}
+
+/** Custom JS tab bar — web only (native tabs unsupported). */
+function WebTabNavigator() {
+  return (
+    <JsTab.Navigator
       tabBar={(props) => <TabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name="Today" component={TodayScreen} />
-      <Tab.Screen name="Plan" component={PlanScreen} />
-      <Tab.Screen name="Journal" component={DailyJournalScreen} />
-      <Tab.Screen name="Fitness" component={() => (
-        <PlaceholderScreen 
-          title="FITNESS" 
-          message="Track your fitness, sets, and reps. Coming soon to help you stay on top of your fitness game."
-        />
-      )} />
-      <Tab.Screen name="Financial" component={FinanceScreen} />
-    </Tab.Navigator>
+      {TAB_SCREENS.map(({ name, component }) => (
+        <JsTab.Screen key={name} name={name} component={component} />
+      ))}
+    </JsTab.Navigator>
   );
+}
+
+function TabNavigator() {
+  return Platform.OS === 'web' ? <WebTabNavigator /> : <NativeTabNavigator />;
 }
 
 export default function AppNavigator() {
   const user = useAuthStore((state) => state.user);
+  const { isDark, colors, accentColor } = useTheme();
+
+  // Drive native chrome (incl. Liquid Glass tab material) from the app theme.
+  const navigationTheme = React.useMemo<NavTheme>(() => {
+    const base = isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: accentColor,
+        background: colors.background,
+        card: colors.surface,
+        text: colors.text,
+        border: colors.border,
+        notification: accentColor,
+      },
+    };
+  }, [isDark, colors, accentColor]);
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>
       {user ? (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Main" component={MainTabs} />

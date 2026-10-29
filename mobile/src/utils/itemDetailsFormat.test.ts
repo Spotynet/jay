@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import {
   formatClockTime,
   formatDuration,
+  formatEndClockTime,
   formatFriendlyDate,
   formatHabitGoal,
   formatRepeatDays,
@@ -22,6 +23,14 @@ assert.equal(formatClockTime(null), null);
 assert.equal(formatDuration('01:30:00'), '1h 30m');
 assert.equal(formatDuration('00:15:00'), '15 min');
 assert.equal(formatDuration('02:00:00'), '2 hours');
+
+assert.equal(
+  formatEndClockTime('09:00:00', '01:30:00'),
+  formatClockTime('10:30:00'),
+);
+assert.equal(formatEndClockTime('09:00', null), null);
+assert.equal(formatEndClockTime(null, '01:00:00'), null);
+assert.equal(formatEndClockTime('09:00', '00:00:00'), null);
 
 assert.ok(formatFriendlyDate('2026-10-28')?.includes('28'));
 assert.equal(formatHabitGoal({ has_target: false }), 'No daily goal');
