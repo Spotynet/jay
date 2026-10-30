@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import {
   TimelineGroup,
@@ -8,6 +8,11 @@ import {
 import { useTimelineTokens } from '../../layout/useTimelineTokens';
 import { TimelineHourMarker } from './TimelineHourMarker';
 import { TimelineTimeGroup } from './TimelineTimeGroup';
+import { TimelineDurationEndCard } from './TimelineDurationEndCard';
+import {
+  ConnectedEndCard,
+  durationEndBoundsKey,
+} from '../../utils/timelineConnectedDuration';
 
 interface TimelineHourIntervalProps {
   /** Display label, e.g. "07:00" or "07:30". */
@@ -17,15 +22,28 @@ interface TimelineHourIntervalProps {
   onItemPress?: (item: TimelineGroup['items'][number]) => void;
   onGroupPress?: (group: TimelineGroup) => void;
   contentAnchorRef?: React.RefObject<View | null>;
-  onItemBounds?: (itemId: string, y: number, height: number) => void;
+  onItemBounds?: (
+    itemId: string,
+    y: number,
+    height: number,
+    x: number,
+    width: number,
+  ) => void;
   highlightedItemId?: string | null;
+  /** Per-item left indent (px) past active duration lines. */
+  indentByItemId?: Record<string, number>;
+  /** Derived END cards for this exact minute (below heading, before starts). */
+  endCards?: ConnectedEndCard[];
+  endCardAccentFor?: (endCard: ConnectedEndCard) => string;
+  endCardIconFor?: (endCard: ConnectedEndCard) => unknown;
+  contentLeft?: number;
+  onEndCardPress?: (endCard: ConnectedEndCard) => void;
 }
 
 /**
  * Exact-time timeline section (o’clock or occupied non-o’clock).
- * - Empty: compact height with horizontal guide in the header.
- * - Occupied: full header (time / + / type summary) + dedicated card stack.
- * Counts and cards are local to this section’s exact minute only.
+ * Ordinary start cards and derived END cards both live in the content stack
+ * so the block’s measured height includes them.
  */
 export function TimelineHourInterval({
   label,
@@ -36,9 +54,17 @@ export function TimelineHourInterval({
   contentAnchorRef,
   onItemBounds,
   highlightedItemId,
+  indentByItemId,
+  endCards = [],
+  endCardAccentFor,
+  endCardIconFor,
+  contentLeft,
+  onEndCardPress,
 }: TimelineHourIntervalProps) {
   const T = useTimelineTokens();
-  const occupied = groups.length > 0;
+  const endRefs = useRef<Record<string, View | null>>({});
+  const hasEndCards = endCards.length > 0;
+  const occupied = groups.length > 0 || hasEndCards;
   const typeCounts = useMemo(
     () => countAgendaItemTypes(groups.flatMap((g) => g.items)),
     [groups],
@@ -48,20 +74,40 @@ export function TimelineHourInterval({
     [typeCounts],
   );
 
+  const reportEndBounds = (itemId: string) => {
+    if (!onItemBounds) return;
+    const node = endRefs.current[itemId];
+    const anchor = contentAnchorRef?.current;
+    if (!node || !anchor) return;
+    node.measureLayout(
+      anchor as unknown as number,
+      (x, y, width, height) => {
+        if (height > 0 && width > 0) {
+          onItemBounds(durationEndBoundsKey(itemId), y, height, x, width);
+        }
+      },
+      () => {},
+    );
+  };
+
+  const padLeft = contentLeft ?? T.pageInset + T.contentOffsetX;
+
   return (
     <View
       style={[styles.interval, !occupied && { minHeight: T.emptyHourHeight }]}
       accessibilityLabel={
         occupied && typeSummaryLabel
           ? `${label}, ${typeSummaryLabel}`
-          : label
+          : hasEndCards
+            ? `${label}, ends`
+            : label
       }
     >
       <TimelineHourMarker
         label={label}
         onAdd={onAdd}
         showGuide={!occupied}
-        typeCounts={occupied ? typeCounts : undefined}
+        typeCounts={occupied && groups.length > 0 ? typeCounts : undefined}
       />
 
       {occupied ? (
@@ -75,6 +121,44 @@ export function TimelineHourInterval({
           ]}
         >
           <View style={[styles.stack, { gap: T.cardGap }]}>
+            {/* Endings before starts at the same timestamp. */}
+            {hasEndCards ? (
+              <View
+                style={[
+                  styles.endStack,
+                  {
+                    gap: T.cardGap,
+                    paddingLeft: padLeft,
+                    paddingRight: T.pageInset,
+                  },
+                ]}
+              >
+                {endCards.map((endCard) => {
+                  const accent = endCardAccentFor?.(endCard) ?? '#5B8DEF';
+                  return (
+                    <View
+                      key={`end-card-${endCard.itemId}`}
+                      collapsable={false}
+                      ref={(r) => {
+                        endRefs.current[endCard.itemId] = r;
+                      }}
+                      onLayout={() => reportEndBounds(endCard.itemId)}
+                    >
+                      <TimelineDurationEndCard
+                        endCard={endCard}
+                        accent={accent}
+                        indent={0}
+                        icon={endCardIconFor?.(endCard)}
+                        onPress={
+                          onEndCardPress ? () => onEndCardPress(endCard) : undefined
+                        }
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
+
             {groups.map((group) => (
               <TimelineTimeGroup
                 key={group.id}
@@ -84,6 +168,7 @@ export function TimelineHourInterval({
                 contentAnchorRef={contentAnchorRef}
                 onItemBounds={onItemBounds}
                 highlightedItemId={highlightedItemId}
+                indentByItemId={indentByItemId}
               />
             ))}
           </View>
@@ -119,5 +204,11 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginTop: 0,
     marginBottom: 0,
+  },
+  endStack: {
+    width: '100%',
+    minWidth: 0,
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
 });

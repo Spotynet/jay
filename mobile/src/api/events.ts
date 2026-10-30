@@ -50,3 +50,11 @@ export async function updateEvent(eventId: number, event: any) {
   if (!res.ok) throw new Error('Failed to update event');
   return res.json();
 }
+
+export async function deleteEvent(eventId: number) {
+  const res = await fetch(`${getApiUrl()}/api/events/events/${eventId}/`, {
+    method: 'DELETE',
+    headers: await getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete event');
+}

@@ -11,14 +11,22 @@ interface TimelineTimeGroupProps {
   onGroupPress?: (group: TimelineGroup) => void;
   /** Anchor view in scroll-content coordinates (timeline body). */
   contentAnchorRef?: React.RefObject<View | null>;
-  onItemBounds?: (itemId: string, y: number, height: number) => void;
+  onItemBounds?: (
+    itemId: string,
+    y: number,
+    height: number,
+    x: number,
+    width: number,
+  ) => void;
   highlightedItemId?: string | null;
+  /** Per-item left indent (px) past active duration lines. */
+  indentByItemId?: Record<string, number>;
 }
 
 /**
  * Card stack for one exact-time group.
- * Section headers (time label / add / counts) live on the parent section —
- * this component never draws a secondary time label.
+ * Section headers live on the parent section — no secondary time label here.
+ * Cards use the normal content width; optional indent clears connected rails.
  */
 export function TimelineTimeGroup({
   group,
@@ -27,6 +35,7 @@ export function TimelineTimeGroup({
   contentAnchorRef,
   onItemBounds,
   highlightedItemId,
+  indentByItemId,
 }: TimelineTimeGroupProps) {
   const T = useTimelineTokens();
   const showNutrition = !!group.nutrition;
@@ -37,17 +46,17 @@ export function TimelineTimeGroup({
     const node = itemRefs.current[itemId];
     const anchor = contentAnchorRef?.current;
     if (!node || !anchor) return;
-    // Relative to timeline body so Y matches ScrollView content coordinates.
     node.measureLayout(
       anchor as unknown as number,
-      (_x, y, _w, height) => {
-        if (height > 0) onItemBounds(itemId, y, height);
+      (x, y, width, height) => {
+        if (height > 0 && width > 0) onItemBounds(itemId, y, height, x, width);
       },
-      () => {
-        // Fallback: ignore — recompute will retry on next layout/scroll.
-      },
+      () => {},
     );
   };
+
+  // Normal timeline content width after the time axis (no permanent gutter).
+  const contentPadLeft = T.pageInset + T.contentOffsetX;
 
   return (
     <View
@@ -55,7 +64,7 @@ export function TimelineTimeGroup({
         styles.stack,
         {
           gap: T.cardGap,
-          paddingLeft: T.pageInset + T.contentOffsetX,
+          paddingLeft: contentPadLeft,
           paddingRight: T.pageInset,
         },
       ]}
@@ -68,22 +77,26 @@ export function TimelineTimeGroup({
           onPress={onGroupPress ? () => onGroupPress(group) : undefined}
         />
       ) : null}
-      {group.items.map((item) => (
-        <View
-          key={item.id}
-          collapsable={false}
-          ref={(r) => {
-            itemRefs.current[item.id] = r;
-          }}
-          onLayout={() => reportBounds(item.id)}
-        >
-          <TimelineEventCard
-            item={item}
-            highlighted={highlightedItemId === item.id}
-            onPress={() => onItemPress?.(item)}
-          />
-        </View>
-      ))}
+      {group.items.map((item) => {
+        const indent = indentByItemId?.[item.id] ?? 0;
+        return (
+          <View
+            key={item.id}
+            collapsable={false}
+            ref={(r) => {
+              itemRefs.current[item.id] = r;
+            }}
+            onLayout={() => reportBounds(item.id)}
+            style={indent > 0 ? { marginLeft: indent } : undefined}
+          >
+            <TimelineEventCard
+              item={item}
+              highlighted={highlightedItemId === item.id}
+              onPress={() => onItemPress?.(item)}
+            />
+          </View>
+        );
+      })}
     </View>
   );
 }

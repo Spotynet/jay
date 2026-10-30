@@ -34,19 +34,19 @@ assert.equal(parseAgendaEntityId('bad'), null);
 }
 
 {
-  let opened = false;
   const target = resolveAgendaEditorTarget(
     base({
       id: 'journal',
       type: 'journal',
-      onPress: () => {
-        opened = true;
-      },
+      title: 'Journal Completed',
     }),
   );
   assert.equal(target.kind, 'journal');
-  if (target.kind === 'journal') target.open();
-  assert.equal(opened, true);
+  // Discriminator is typed `type`, not title/icon.
+  const decoy = resolveAgendaEditorTarget(
+    base({ id: 'h-1', type: 'habit', title: 'Journal' }),
+  );
+  assert.equal(decoy.kind, 'habit');
 }
 
 {

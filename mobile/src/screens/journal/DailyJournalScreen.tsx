@@ -66,6 +66,8 @@ export default function DailyJournalScreen() {
   const energyScoreRef = useRef(energyScore);
   const dateStrRef = useRef(dateStr);
   const savePromiseRef = useRef<Promise<void> | null>(null);
+  /** Drop stale fetch results after date change or overlapping loads. */
+  const fetchGenRef = useRef(0);
 
   journalEntryRef.current = journalEntry;
   moodScoreRef.current = moodScore;
@@ -83,12 +85,16 @@ export default function DailyJournalScreen() {
     }
   }, [selectedDate]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    const gen = ++fetchGenRef.current;
+    const forDate = dateStrRef.current;
     try {
       const [journalData, habitsData] = await Promise.all([
-        getJournalEntries(dateStr),
-        getHabitsForDate(dateStr),
+        getJournalEntries(forDate),
+        getHabitsForDate(forDate),
       ]);
+
+      if (gen !== fetchGenRef.current || forDate !== dateStrRef.current) return;
 
       if (journalData.length > 0) {
         const entry = journalData[0];
@@ -104,24 +110,25 @@ export default function DailyJournalScreen() {
       setHabits(habitsData);
       setError(null);
     } catch (e) {
+      if (gen !== fetchGenRef.current || forDate !== dateStrRef.current) return;
       console.error('Failed to fetch journal data:', e);
       setError("Couldn't load your journal.");
     }
-  };
+  }, []);
 
   useEffect(() => {
     const load = async () => {
       if (savePromiseRef.current) await savePromiseRef.current;
-      fetchData();
+      if (isFocused) await fetchData();
     };
-    if (isFocused) load();
-  }, [selectedDate, isFocused]);
+    void load();
+  }, [selectedDate, isFocused, fetchData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchData();
     setRefreshing(false);
-  }, [selectedDate]);
+  }, [fetchData]);
 
   const saveJournalEntry = useCallback(async (mood: number | null, energy: number | null) => {
     const promise = (async () => {
@@ -164,22 +171,72 @@ export default function DailyJournalScreen() {
     saveJournalEntry(moodScoreRef.current, val);
   }, [saveJournalEntry]);
 
-  const handleSetStatus = async (habitId: number, date: string, status: 'PENDING' | 'COMPLETED' | 'SKIPPED' | 'FAILED') => {
-    setHabits(habits.map(h => h.id === habitId ? { ...h, status, completed: status === 'COMPLETED' } : h));
-    try { await setHabitStatus(habitId, date, status); fetchData(); }
-    catch { await fetchData(); setError("Couldn't update this habit."); }
+  const handleSetStatus = async (
+    habitId: number,
+    date: string,
+    status: 'PENDING' | 'COMPLETED' | 'SKIPPED' | 'FAILED',
+  ) => {
+    // Capture date + previous snapshot for rollback; never use a stale habits array.
+    setHabits((prev) =>
+      prev.map((h) =>
+        h.id === habitId
+          ? { ...h, status, completed: status === 'COMPLETED' }
+          : h,
+      ),
+    );
+    try {
+      await setHabitStatus(habitId, date, status);
+      await fetchData();
+    } catch {
+      await fetchData();
+      setError("Couldn't update this habit.");
+    }
   };
 
   const handleIncrementHabit = async (habitId: number, date: string) => {
-    setHabits(habits.map(h => h.id === habitId ? { ...h, progress: Math.min(h.progress + 1, h.target_value), completed: h.progress + 1 >= h.target_value } : h));
-    try { await incrementHabitProgress(habitId, date); fetchData(); }
-    catch { await fetchData(); setError("Couldn't update this habit."); }
+    setHabits((prev) =>
+      prev.map((h) => {
+        if (h.id !== habitId) return h;
+        const progress = Math.min(h.progress + 1, h.target_value);
+        const completed = progress >= h.target_value;
+        return {
+          ...h,
+          progress,
+          completed,
+          status: completed ? 'COMPLETED' : 'PENDING',
+        };
+      }),
+    );
+    try {
+      await incrementHabitProgress(habitId, date);
+      await fetchData();
+    } catch {
+      await fetchData();
+      setError("Couldn't update this habit.");
+    }
   };
 
   const handleDecrementHabit = async (habitId: number, date: string) => {
-    setHabits(habits.map(h => h.id === habitId ? { ...h, progress: Math.max(h.progress - 1, 0), completed: h.progress - 1 >= h.target_value } : h));
-    try { await decrementHabitProgress(habitId, date); fetchData(); }
-    catch { await fetchData(); setError("Couldn't update this habit."); }
+    setHabits((prev) =>
+      prev.map((h) => {
+        if (h.id !== habitId) return h;
+        const progress = Math.max(h.progress - 1, 0);
+        const completed = progress >= h.target_value;
+        return {
+          ...h,
+          progress,
+          completed,
+          status: completed ? 'COMPLETED' : 'PENDING',
+        };
+      }),
+    );
+    try {
+      await decrementHabitProgress(habitId, date);
+      await fetchData();
+    } catch {
+      await fetchData();
+      setError("Couldn't update this habit.");
+    }
   };
 
   const isToday = isSameDay(selectedDate, new Date());

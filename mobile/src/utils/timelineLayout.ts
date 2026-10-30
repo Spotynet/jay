@@ -234,11 +234,18 @@ export type TimelineTimeSection = {
  * Build chronological sections:
  * - Every o’clock marker is present (empty or occupied).
  * - Occupied non-o’clock minutes become additional full sections.
+ * - Optional `endpointMinutes` inserts compact anchors for duration end badges
+ *   (no start cards) when that minute is otherwise empty.
  * - Section counts/items are local to that exact minute.
  */
 export function buildTimelineSections(
   items: AgendaItem[],
-  options: { dayStartHour?: number; dayEndHour?: number } = {},
+  options: {
+    dayStartHour?: number;
+    dayEndHour?: number;
+    /** Exact local minutes needing end-badge anchors (e.g. 14:20 → 860). */
+    endpointMinutes?: number[];
+  } = {},
 ): TimelineTimeSection[] {
   const dayStart = options.dayStartHour ?? 0;
   const dayEnd = options.dayEndHour ?? 23;
@@ -250,6 +257,14 @@ export function buildTimelineSections(
     const list = groupsByMinute.get(g.minutesFromMidnight) ?? [];
     list.push(g);
     groupsByMinute.set(g.minutesFromMidnight, list);
+  }
+
+  const endpointSet = new Set<number>();
+  for (const mins of options.endpointMinutes ?? []) {
+    if (!Number.isFinite(mins)) continue;
+    const m = Math.floor(mins);
+    if (m < dayStart * 60 || m > dayEnd * 60 + 59) continue;
+    endpointSet.add(m);
   }
 
   const sections: TimelineTimeSection[] = [];
@@ -268,13 +283,19 @@ export function buildTimelineSections(
       groups: hourGroups,
     });
 
-    const offMinutes = [...groupsByMinute.keys()]
-      .filter((mins) => Math.floor(mins / 60) === hour && mins % 60 !== 0)
-      .sort((a, b) => a - b);
+    const offMinutes = new Set<number>([
+      ...[...groupsByMinute.keys()].filter(
+        (mins) => Math.floor(mins / 60) === hour && mins % 60 !== 0,
+      ),
+      ...[...endpointSet].filter(
+        (mins) => Math.floor(mins / 60) === hour && mins % 60 !== 0,
+      ),
+    ]);
 
-    for (const mins of offMinutes) {
+    for (const mins of [...offMinutes].sort((a, b) => a - b)) {
       const minute = mins % 60;
       const atMinute = groupsByMinute.get(mins) ?? [];
+      const hasGroups = atMinute.length > 0;
       sections.push({
         id: `section-${hour}-${minute}`,
         kind: 'section',
@@ -282,7 +303,9 @@ export function buildTimelineSections(
         minute,
         minutesFromMidnight: mins,
         timestampLabel: formatHourLabel(hour, minute),
-        occupied: true,
+        // Endpoint-only minutes emit a section; TimelineHourInterval marks the
+        // block occupied when derived END cards are present (reserves height).
+        occupied: hasGroups,
         groups: atMinute,
       });
     }

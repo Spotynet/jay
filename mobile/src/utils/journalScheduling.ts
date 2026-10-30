@@ -8,6 +8,8 @@ export interface JournalSettings {
 export interface JournalEntry {
   id: number;
   date: string;
+  mood_score?: number | null;
+  energy_score?: number | null;
 }
 
 export type TimelineState = 'none' | 'placeholder' | 'completed';
@@ -41,11 +43,15 @@ export const formatReminderSummary = (settings: JournalSettings): string => {
 
 /**
  * Computes the Journal timeline visibility and state for a specific date.
+ *
+ * `reviewComplete` is derived from mood + energy + habit review coverage
+ * (`isJournalDayReviewComplete`) — not from entry existence alone.
  */
 export const getJournalTimelineState = (
   date: Date,
   settings: JournalSettings,
-  existingEntry: JournalEntry | null
+  existingEntry: JournalEntry | null,
+  reviewComplete = false,
 ): JournalTimelineResult => {
   const mode = settings.reminder_enabled ? 'scheduled' : 'manual';
   
@@ -79,7 +85,7 @@ export const getJournalTimelineState = (
   }
 
   const entryExists = !!existingEntry;
-  const timelineState: TimelineState = entryExists ? 'completed' : 'placeholder';
+  const timelineState: TimelineState = reviewComplete ? 'completed' : 'placeholder';
 
   return {
     mode,

@@ -87,8 +87,47 @@ export function formatDuration(value: string | null | undefined): string | null 
   return `${h}h ${m}m`;
 }
 
+type ParsedClock = { h: number; m: number; s: number };
+type ParsedDuration = { h: number; m: number; s: number; totalSeconds: number };
+
+function parseClockParts(value: string | null | undefined): ParsedClock | null {
+  if (value == null || value === '') return null;
+  const match = String(value).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!match) return null;
+  const h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  const s = parseInt(match[3] || '0', 10);
+  if ([h, m, s].some((n) => Number.isNaN(n))) return null;
+  return { h, m, s };
+}
+
+function parseDurationParts(value: string | null | undefined): ParsedDuration | null {
+  if (!value) return null;
+  const parts = String(value).trim().split(':');
+  if (parts.length < 2) return null;
+  const h = parseInt(parts[0], 10) || 0;
+  const m = parseInt(parts[1], 10) || 0;
+  const s = parseInt(parts[2] || '0', 10) || 0;
+  if ([h, m, s].some((n) => Number.isNaN(n))) return null;
+  const totalSeconds = h * 3600 + m * 60 + s;
+  if (totalSeconds <= 0) return null;
+  return { h, m, s, totalSeconds };
+}
+
+function parseLocalDateParts(value: string | Date | null | undefined): Date | null {
+  if (value == null || value === '') return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  const s = String(value);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 /**
- * Start clock + duration → end clock (local wall time, same calendar day).
+ * Start clock + duration → end clock (local wall time).
  * Returns null when either value is missing/unparseable.
  * Does not invent midnight for untimed items.
  */
@@ -96,23 +135,84 @@ export function formatEndClockTime(
   start: string | null | undefined,
   duration: string | null | undefined,
 ): string | null {
-  if (!start || !duration) return null;
-  const startMatch = String(start).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-  const durParts = String(duration).trim().split(':');
-  if (!startMatch || durParts.length < 2) return null;
-  const startH = parseInt(startMatch[1], 10);
-  const startM = parseInt(startMatch[2], 10);
-  const startS = parseInt(startMatch[3] || '0', 10);
-  const durH = parseInt(durParts[0], 10) || 0;
-  const durM = parseInt(durParts[1], 10) || 0;
-  const durS = parseInt(durParts[2] || '0', 10) || 0;
-  if ([startH, startM, startS, durH, durM, durS].some((n) => Number.isNaN(n))) {
-    return null;
-  }
-  if (durH === 0 && durM === 0 && durS === 0) return null;
-  const end = new Date(1970, 0, 1, startH, startM, startS, 0);
-  end.setSeconds(end.getSeconds() + durH * 3600 + durM * 60 + durS);
+  const startParts = parseClockParts(start);
+  const dur = parseDurationParts(duration);
+  if (!startParts || !dur) return null;
+  const end = new Date(1970, 0, 1, startParts.h, startParts.m, startParts.s, 0);
+  end.setSeconds(end.getSeconds() + dur.totalSeconds);
   return formatClockTime(end);
+}
+
+/** Read-only Event Details schedule fields (omit empty — never invent times). */
+export type EventScheduleDisplay = {
+  dateLabel: string | null;
+  startLabel: string | null;
+  /** Clock, or clock + date when the interval crosses midnight. */
+  endLabel: string | null;
+  durationLabel: string | null;
+  crossesMidnight: boolean;
+};
+
+/**
+ * Canonical event interval for Details: date + start_time + duration.
+ * End is derived; duration is display-only (no write-back).
+ */
+export function buildEventScheduleDisplay(event: {
+  date?: string | Date | null;
+  start_time?: string | null;
+  duration?: string | null;
+}): EventScheduleDisplay {
+  const dateLabel = formatFriendlyDate(event?.date ?? null);
+  const startLabel = formatClockTime(event?.start_time ?? null);
+  const durationLabel = formatDuration(event?.duration ?? null);
+  const startParts = parseClockParts(event?.start_time);
+  const dur = parseDurationParts(event?.duration);
+  if (!startParts || !dur) {
+    return {
+      dateLabel,
+      startLabel,
+      endLabel: null,
+      durationLabel,
+      crossesMidnight: false,
+    };
+  }
+
+  const baseDate = parseLocalDateParts(event?.date ?? null) ?? new Date(1970, 0, 1);
+  const startDt = new Date(
+    baseDate.getFullYear(),
+    baseDate.getMonth(),
+    baseDate.getDate(),
+    startParts.h,
+    startParts.m,
+    startParts.s,
+    0,
+  );
+  const endDt = new Date(startDt.getTime() + dur.totalSeconds * 1000);
+  const crossesMidnight =
+    endDt.getFullYear() !== startDt.getFullYear() ||
+    endDt.getMonth() !== startDt.getMonth() ||
+    endDt.getDate() !== startDt.getDate();
+  const endClock = formatClockTime(endDt);
+  const endDateLabel = formatFriendlyDate(endDt);
+  const endLabel =
+    endClock && crossesMidnight && endDateLabel
+      ? `${endClock} · ${endDateLabel}`
+      : endClock;
+
+  return {
+    dateLabel,
+    startLabel,
+    endLabel,
+    durationLabel,
+    crossesMidnight,
+  };
+}
+
+/** Nonempty trimmed text, or null (omit empty optional sections). */
+export function nonemptyText(value: unknown): string | null {
+  if (value == null) return null;
+  const trimmed = String(value).trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 export function formatHabitGoal(habit: {

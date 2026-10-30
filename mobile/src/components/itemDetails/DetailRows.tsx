@@ -52,7 +52,10 @@ export function DetailRow({ icon, iconColor, label, value, isLast }: DetailRowPr
   );
 }
 
-/** Compact label/value without decorative icon boxes — for dense Schedule groups. */
+/**
+ * Compact leading-label / trailing-value row for dense Schedule groups.
+ * Value may wrap; at very narrow widths the row wraps instead of overlapping.
+ */
 export function DetailMetaRow({
   label,
   value,
@@ -147,7 +150,11 @@ export function ReadOnlyDays({ selected, accentColor, accessibilitySummary }: Re
 }
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 22 },
+  section: {
+    alignSelf: 'stretch',
+    width: '100%',
+    marginBottom: 22,
+  },
   sectionTitle: {
     fontSize: 12,
     fontWeight: '600',
@@ -156,6 +163,8 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   group: {
+    alignSelf: 'stretch',
+    width: '100%',
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
@@ -179,14 +188,32 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: 12 },
   rowValue: { fontSize: 15, fontWeight: '500' },
   metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    columnGap: 12,
+    rowGap: 4,
     paddingHorizontal: 14,
     paddingVertical: 12,
     minHeight: 48,
-    justifyContent: 'center',
-    gap: 2,
   },
-  metaLabel: { fontSize: 12, fontWeight: '500' },
-  metaValue: { fontSize: 15, fontWeight: '500' },
+  metaLabel: {
+    fontSize: 15,
+    fontWeight: '400',
+    flexGrow: 0,
+    flexShrink: 0,
+    paddingTop: 1,
+  },
+  metaValue: {
+    fontSize: 15,
+    fontWeight: '500',
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: '40%',
+    textAlign: 'right',
+    lineHeight: 20,
+  },
   daysRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

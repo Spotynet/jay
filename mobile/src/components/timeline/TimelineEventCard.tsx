@@ -14,6 +14,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { Icon } from '../ui/Icon';
 import { ENTITY_ICONS } from '../../constants/entityIcons';
 import { AgendaItem } from '../../utils/timelineLayout';
+import { buildTimelineInterval } from '../../utils/timelineInterval';
+import { agendaItemSupportsManualCompletion } from '../../utils/agendaCompletionCapability';
 import { useTimelineTokens } from '../../layout/useTimelineTokens';
 import { NutrientInlineValue } from './NutrientInlineValue';
 
@@ -35,20 +37,14 @@ interface TimelineEventCardProps {
 const COMPLETE_MS = 180;
 const COMPLETE_EASE = Easing.out(Easing.cubic);
 
-function formatDuration(minutes?: number): string | null {
-  if (!minutes || minutes <= 0) return null;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h > 0 && m > 0) return `${h}h ${m}m`;
-  if (h > 0) return `${h}h`;
-  return `${m}m`;
-}
-
 function buildSubtitle(item: AgendaItem): string {
   if (item.subtitle) return item.subtitle;
   const bits: string[] = [];
-  const duration = formatDuration(item.durationMinutes);
-  if (duration) bits.push(duration);
+  // Prefer start–end · duration when a scheduled interval exists.
+  const interval = buildTimelineInterval(item);
+  if (interval) {
+    bits.push(interval.rangeSubtitle);
+  }
   if (item.projectName) bits.push(item.projectName);
   if (item.location) bits.push(item.location);
   if (item.type === 'finance' && item.timeRange) bits.push(item.timeRange);
@@ -89,7 +85,7 @@ function UntimedChecklistCard({
   const T = useTimelineTokens();
   const reduceMotion = useReducedMotion();
   const completed = !!item.isCompleted;
-  const canToggle = (item.type === 'task' || item.type === 'habit') && !!item.onToggle;
+  const canToggle = agendaItemSupportsManualCompletion(item);
   const checkboxSize = T.untimedCheckboxSize;
   const iconSize = T.untimedIconSize;
   const typeIconVisible = showTypeIcon;
@@ -268,7 +264,7 @@ export function TimelineEventCard({
   const entityColor = entityColorFor(item, entityColors, colors.accent);
   const icon = item.icon || ENTITY_ICONS[item.type as keyof typeof ENTITY_ICONS];
   const showCompleted = !!item.isCompleted;
-  const canToggle = (item.type === 'task' || item.type === 'habit') && !!item.onToggle;
+  const canToggle = agendaItemSupportsManualCompletion(item);
   const subtitle = buildSubtitle(item);
   const hasNutrition = !!item.nutrition;
 
@@ -296,9 +292,49 @@ export function TimelineEventCard({
     !!item.badge &&
     !(canToggle && item.badge === 'check');
 
-  const accessibilityLabel = `${item.title}${subtitle ? `, ${subtitle}` : ''}${
-    showCompleted ? ', completed' : ''
-  }`;
+  const interval = buildTimelineInterval(item);
+  const accessibilityLabel = `${item.title}${
+    interval
+      ? `, ${interval.startLabel} to ${interval.endLabel}, ${interval.durationLabel}`
+      : subtitle
+        ? `, ${subtitle}`
+        : ''
+  }${showCompleted ? ', completed' : ''}`;
+
+  // Locate-highlight (scheduled only). Hooks must run unconditionally.
+  const reduceMotion = useReducedMotion();
+  const locateFlash = useSharedValue(0);
+  const highlightGen = useRef(0);
+
+  useEffect(() => {
+    if (compact) return;
+    if (!highlighted) {
+      locateFlash.value = withTiming(0, {
+        duration: reduceMotion ? 0 : 160,
+        easing: COMPLETE_EASE,
+      });
+      return;
+    }
+    const gen = ++highlightGen.current;
+    if (reduceMotion) {
+      locateFlash.value = 0.32;
+      return;
+    }
+    locateFlash.value = withSequence(
+      withTiming(0.38, { duration: 160, easing: COMPLETE_EASE }),
+      withTiming(0.18, { duration: 280, easing: COMPLETE_EASE }),
+      withTiming(0, { duration: 560, easing: COMPLETE_EASE }),
+    );
+    return () => {
+      if (highlightGen.current === gen) {
+        locateFlash.value = 0;
+      }
+    };
+  }, [compact, highlighted, reduceMotion, locateFlash]);
+
+  const locateOverlayStyle = useAnimatedStyle(() => ({
+    opacity: locateFlash.value,
+  }));
 
   // ── Untimed checklist cell ─────────────────────────────────────────────
   if (compact) {
@@ -331,9 +367,23 @@ export function TimelineEventCard({
           borderRadius: T.scheduledCardRadius,
           paddingHorizontal: T.scheduledCardPaddingH,
           paddingVertical: T.scheduledCardPaddingV,
+          overflow: 'hidden',
         },
       ]}
     >
+      <Animated.View
+        pointerEvents="none"
+        accessible={false}
+        importantForAccessibility="no"
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            backgroundColor: entityColor,
+            borderRadius: T.scheduledCardRadius,
+          },
+          locateOverlayStyle,
+        ]}
+      />
       <Pressable
         onPress={onPress}
         disabled={!onPress}

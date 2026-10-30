@@ -1,16 +1,18 @@
 import React from 'react';
 import { View } from 'react-native';
+import { IconMapPin } from 'tabler-icons-react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { DetailSection, DetailMetaRow } from './DetailRows';
+import { DetailSection, DetailMetaRow, DetailRow } from './DetailRows';
 import { HabitRecentActivity } from './HabitRecentActivity';
 import { AppText } from '../ui/AppText';
 import {
+  buildEventScheduleDisplay,
   formatClockTime,
   formatDuration,
-  formatEndClockTime,
   formatFriendlyDate,
   formatHabitGoal,
   formatRepeatDays,
+  nonemptyText,
 } from '../../utils/itemDetailsFormat';
 
 function NotesBlock({ text }: { text: string }) {
@@ -18,7 +20,9 @@ function NotesBlock({ text }: { text: string }) {
   return (
     <DetailSection title="Notes">
       <View style={{ paddingHorizontal: 14, paddingVertical: 14 }}>
-        <AppText style={{ fontSize: 15, lineHeight: 22, color: colors.text }}>{text}</AppText>
+        <AppText style={{ fontSize: 15, lineHeight: 22, color: colors.text }}>
+          {text}
+        </AppText>
       </View>
     </DetailSection>
   );
@@ -43,7 +47,7 @@ export function HabitDetailsBody({
   const reminderEnabled = !!habit?.reminder_time;
 
   return (
-    <View>
+    <View style={{ alignSelf: 'stretch', width: '100%' }}>
       {occurrenceDate ? (
         <HabitRecentActivity
           habit={habit}
@@ -123,42 +127,44 @@ export function TaskDetailsBody({
 
 /**
  * Event metadata. No completion action — events are not completable.
- * End time is derived from start + duration when both exist.
+ * Schedule uses date + start_time + duration (end derived, read-only).
+ * Empty location/notes are omitted (no filler rows).
  */
 export function EventDetailsBody({ event }: { event: any }) {
-  const date = formatFriendlyDate(event?.date);
-  const start = formatClockTime(event?.start_time);
-  const end = formatEndClockTime(event?.start_time, event?.duration);
-  const duration = formatDuration(event?.duration);
+  const schedule = buildEventScheduleDisplay(event);
+  const location = nonemptyText(event?.location);
+  const notes = nonemptyText(event?.description);
 
-  const whenRows: { label: string; value: string }[] = [];
-  if (date) whenRows.push({ label: 'Date', value: date });
-  if (start) whenRows.push({ label: 'Start', value: start });
-  if (end) whenRows.push({ label: 'End', value: end });
-  else if (duration) whenRows.push({ label: 'Duration', value: duration });
+  const scheduleRows: { label: string; value: string }[] = [];
+  if (schedule.dateLabel) scheduleRows.push({ label: 'Date', value: schedule.dateLabel });
+  if (schedule.startLabel) scheduleRows.push({ label: 'Start', value: schedule.startLabel });
+  if (schedule.endLabel) scheduleRows.push({ label: 'End', value: schedule.endLabel });
+  if (schedule.durationLabel) {
+    scheduleRows.push({ label: 'Duration', value: schedule.durationLabel });
+  }
 
   return (
-    <View>
-      {whenRows.length > 0 ? (
-        <DetailSection title="When">
-          {whenRows.map((row, index) => (
+    <View style={{ alignSelf: 'stretch', width: '100%' }}>
+      {scheduleRows.length > 0 ? (
+        <DetailSection title="Schedule">
+          {scheduleRows.map((row, index) => (
             <DetailMetaRow
               key={row.label}
               label={row.label}
               value={row.value}
-              isLast={index === whenRows.length - 1}
+              isLast={index === scheduleRows.length - 1}
             />
           ))}
         </DetailSection>
       ) : null}
 
-      {event?.location ? (
+      {location ? (
         <DetailSection title="Location">
-          <DetailMetaRow label="Location" value={String(event.location)} isLast />
+          <DetailRow icon={IconMapPin} value={location} isLast />
         </DetailSection>
       ) : null}
 
-      {event?.description ? <NotesBlock text={String(event.description)} /> : null}
+      {notes ? <NotesBlock text={notes} /> : null}
     </View>
   );
 }

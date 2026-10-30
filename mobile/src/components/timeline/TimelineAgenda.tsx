@@ -7,8 +7,11 @@ import {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Alert,
+  AccessibilityInfo,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useTheme } from '../../context/ThemeContext';
 import {
   AgendaItem,
@@ -16,6 +19,19 @@ import {
   buildTimelineSections,
   findNowSectionIndex,
 } from '../../utils/timelineLayout';
+import {
+  collectEndpointMinutes,
+  collectTimelineIntervals,
+  sectionIdForMinutes,
+} from '../../utils/timelineInterval';
+import { pruneSectionYs } from '../../utils/durationRailVisibility';
+import {
+  buildConnectedDurationLayout,
+  scheduledIconCenterOffset,
+  durationEndBoundsKey,
+  CardBounds,
+  ConnectedEndCard,
+} from '../../utils/timelineConnectedDuration';
 import { useResponsiveLayout } from '../../layout/responsive';
 import {
   TAB_CHROME_GAP,
@@ -25,6 +41,7 @@ import { useFloatingChromeBottom } from '../../layout/useFloatingChromeBottom';
 import { useTimelineTokens } from '../../layout/useTimelineTokens';
 import { TimelineHourInterval } from './TimelineHourInterval';
 import { TimelineEventCard } from './TimelineEventCard';
+import { TimelineDurationDecorations } from './TimelineDurationDecorations';
 import { timelineColumnStyles, railAbsoluteLeft, rowInsetStyle } from './timelineColumns';
 
 interface TimelineAgendaProps {
@@ -52,7 +69,7 @@ export const TimelineAgenda = ({
   onAddAtHour,
   now = null,
 }: TimelineAgendaProps) => {
-  const { colors, isDark } = useTheme();
+  const { colors, entityColors, isDark } = useTheme();
   const layout = useResponsiveLayout();
   const T = useTimelineTokens();
   // Measure this host vs window + safe-area / native-tab fallback so scroll
@@ -67,12 +84,23 @@ export const TimelineAgenda = ({
   const [showLeadingFade, setShowLeadingFade] = useState(false);
   const [showTrailingFade, setShowTrailingFade] = useState(false);
   const [untimedSnapOffsets, setUntimedSnapOffsets] = useState<number[]>([]);
+  /** Section Y positions for duration end anchors (timeline body coords). */
+  const [sectionYs, setSectionYs] = useState<Record<string, number>>({});
+  /** Measured opaque card surfaces (timeline-body coords). */
+  const [cardBounds, setCardBounds] = useState<Record<string, CardBounds>>({});
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
+  const [scrollViewportH, setScrollViewportH] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const timelineBodyRef = useRef<View>(null);
   const rowOffsets = useRef<Record<string, number>>({});
+  const scrollOffsetY = useRef(0);
+  const cardBoundsRef = useRef<Record<string, CardBounds>>({});
+  const revealGenRef = useRef(0);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didAutoScroll = useRef(false);
   const untimedScrollMetrics = useRef({ offset: 0, contentW: 0, layoutW: 0 });
   const untimedCardXs = useRef<Record<string, number>>({});
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -87,13 +115,200 @@ export const TimelineAgenda = ({
   );
 
   const showNow = now != null;
-  const sections = useMemo(() => buildTimelineSections(timedItems), [timedItems]);
+  const durationIntervals = useMemo(
+    () => collectTimelineIntervals(timedItems),
+    [timedItems],
+  );
+  const endpointMinutes = useMemo(
+    () => collectEndpointMinutes(durationIntervals),
+    [durationIntervals],
+  );
+  const sections = useMemo(
+    () => buildTimelineSections(timedItems, { endpointMinutes }),
+    [timedItems, endpointMinutes],
+  );
+  const sectionSignature = useMemo(
+    () => sections.map((s) => s.id).join('|'),
+    [sections],
+  );
+  useEffect(() => {
+    // Prune stale Y anchors only. Never blank the map after onLayout —
+    // RN will not re-fire onLayout for unchanged rows.
+    const validIds = [...sections.map((s) => s.id), 'now'];
+    setSectionYs((prev) => pruneSectionYs(prev, validIds));
+    const valid = new Set(validIds);
+    for (const id of Object.keys(rowOffsets.current)) {
+      if (!valid.has(id)) delete rowOffsets.current[id];
+    }
+  }, [sectionSignature, sections]);
+
+  const timedItemIds = useMemo(() => timedItems.map((i) => i.id).join('|'), [timedItems]);
+
   const nowSectionIndex = useMemo(() => {
     if (!showNow) return -1;
     return findNowSectionIndex(sections, currentTime);
   }, [showNow, sections, currentTime]);
 
   const contentWidth = Math.min(layout.width, T.maxContentWidth);
+  const contentLeft = T.pageInset + T.contentOffsetX;
+  const contentRight = contentWidth - T.pageInset;
+
+  const connectedLayout = useMemo(
+    () =>
+      buildConnectedDurationLayout({
+        items: timedItems,
+        sectionYs,
+        cardBounds,
+        contentLeft,
+        contentRight,
+        iconCenterOffset: scheduledIconCenterOffset(
+          T.scheduledCardPaddingH,
+          T.scheduledIconContainer,
+        ),
+        estimatedCardHeight: T.scheduledCardMinHeight,
+        sectionCardTopOffset: T.boundaryHeight + T.intervalPadVertical,
+        railWidth: T.durationRailWidth,
+        clearance: T.durationRailClearance,
+        minRailSpan: T.durationMinRailSpan,
+        minCardWidth: T.durationMinCardWidth,
+        endCardHeight: T.durationEndCardHeight,
+      }),
+    [
+      timedItems,
+      sectionYs,
+      cardBounds,
+      contentLeft,
+      contentRight,
+      T.scheduledCardPaddingH,
+      T.scheduledIconContainer,
+      T.scheduledCardMinHeight,
+      T.boundaryHeight,
+      T.intervalPadVertical,
+      T.durationRailWidth,
+      T.durationRailClearance,
+      T.durationMinRailSpan,
+      T.durationMinCardWidth,
+      T.durationEndCardHeight,
+    ],
+  );
+
+  const indentByItemId = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of connectedLayout.placements) {
+      if (p.indent > 0) map[p.itemId] = p.indent;
+    }
+    return map;
+  }, [connectedLayout.placements]);
+
+  /** END cards keyed by exact end minutes — rendered inside that time block. */
+  const endCardsByMinute = useMemo(() => {
+    const map = new Map<number, ConnectedEndCard[]>();
+    for (const rail of connectedLayout.rails) {
+      if (!rail.endCard) continue;
+      const iv = durationIntervals.find((i) => i.itemId === rail.itemId);
+      if (!iv) continue;
+      const mins = iv.displayEndMinutes;
+      const list = map.get(mins) ?? [];
+      list.push(rail.endCard);
+      map.set(mins, list);
+    }
+    for (const [, list] of map) {
+      list.sort((a, b) => a.itemId.localeCompare(b.itemId));
+    }
+    return map;
+  }, [connectedLayout.rails, durationIntervals]);
+
+  useEffect(() => {
+    const valid = new Set(timedItems.map((i) => i.id));
+    for (const rail of connectedLayout.rails) {
+      if (rail.endCard) valid.add(durationEndBoundsKey(rail.itemId));
+    }
+    setCardBounds((prev) => {
+      let changed = false;
+      const next: Record<string, CardBounds> = {};
+      for (const [id, b] of Object.entries(prev)) {
+        if (valid.has(id)) next[id] = b;
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [timedItemIds, timedItems, connectedLayout.rails]);
+
+  const onItemBounds = useCallback(
+    (itemId: string, y: number, height: number, x: number, width: number) => {
+      setCardBounds((prev) => {
+        const cur = prev[itemId];
+        if (
+          cur &&
+          Math.abs(cur.y - y) < 0.5 &&
+          Math.abs(cur.height - height) < 0.5 &&
+          Math.abs(cur.x - x) < 0.5 &&
+          Math.abs(cur.width - width) < 0.5
+        ) {
+          return prev;
+        }
+        const next = { ...prev, [itemId]: { x, y, width, height } };
+        cardBoundsRef.current = next;
+        return next;
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    cardBoundsRef.current = cardBounds;
+  }, [cardBounds]);
+
+  const clearHighlightTimer = useCallback(() => {
+    if (highlightTimerRef.current) {
+      clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    // Drop transient highlight when the day/items change.
+    revealGenRef.current += 1;
+    clearHighlightTimer();
+    setHighlightedItemId(null);
+  }, [timedItemIds, clearHighlightTimer]);
+
+  useEffect(
+    () => () => {
+      revealGenRef.current += 1;
+      clearHighlightTimer();
+    },
+    [clearHighlightTimer],
+  );
+
+  const entityColorForItem = useCallback(
+    (item: AgendaItem) => {
+      const key = (
+        item.type === 'journal' || item.type === 'finance'
+          ? item.type
+          : `${item.type}s`
+      ) as keyof typeof entityColors;
+      return entityColors[key] || colors.accent;
+    },
+    [entityColors, colors.accent],
+  );
+
+  const endCardAccentFor = useCallback(
+    (endCard: ConnectedEndCard) => {
+      const item = timedItems.find((i) => i.id === endCard.itemId);
+      return item ? entityColorForItem(item) : colors.accent;
+    },
+    [timedItems, entityColorForItem, colors.accent],
+  );
+
+  const endCardIconFor = useCallback(
+    (endCard: ConnectedEndCard) => {
+      const item = timedItems.find((i) => i.id === endCard.itemId);
+      return item?.icon;
+    },
+    [timedItems],
+  );
+
   const railColor = isDark ? T.railColorDark : T.railColorLight;
   const untimedMixedTypes = useMemo(() => {
     const types = new Set(allDayItems.map((i) => i.type));
@@ -101,12 +316,127 @@ export const TimelineAgenda = ({
   }, [allDayItems]);
 
   const onRowLayout = useCallback((id: string, e: LayoutChangeEvent) => {
-    rowOffsets.current[id] = e.nativeEvent.layout.y;
+    const y = e.nativeEvent.layout.y;
+    rowOffsets.current[id] = y;
+    setSectionYs((prev) => (prev[id] === y ? prev : { ...prev, [id]: y }));
   }, []);
 
   const scrollToY = useCallback((y: number, animated = true) => {
     scrollViewRef.current?.scrollTo({ y: Math.max(0, y), animated });
   }, []);
+
+  const revealStartFromEndCard = useCallback(
+    (endCard: ConnectedEndCard) => {
+      const itemId = endCard.itemId;
+      const item = timedItems.find((i) => i.id === itemId);
+      if (!item || !item.startTime) {
+        Alert.alert('Activity start unavailable');
+        return;
+      }
+
+      const gen = ++revealGenRef.current;
+      clearHighlightTimer();
+      setHighlightedItemId(null);
+
+      const applyHighlight = () => {
+        if (revealGenRef.current !== gen) return;
+        // Drop if the occurrence vanished mid-reveal.
+        if (!timedItems.some((i) => i.id === itemId)) return;
+        setHighlightedItemId(itemId);
+        AccessibilityInfo.announceForAccessibility?.(
+          `Showing start of ${item.title}`,
+        );
+        highlightTimerRef.current = setTimeout(() => {
+          if (revealGenRef.current !== gen) return;
+          setHighlightedItemId(null);
+          highlightTimerRef.current = null;
+        }, reduceMotion ? 600 : 1100);
+      };
+
+      const resolveTargetY = (): { y: number; height: number } | null => {
+        const bounds = cardBoundsRef.current[itemId];
+        if (bounds && typeof bounds.y === 'number') {
+          return { y: bounds.y, height: bounds.height };
+        }
+        const mins =
+          item.startTime!.getHours() * 60 + item.startTime!.getMinutes();
+        const sectionY = sectionYs[sectionIdForMinutes(mins)];
+        if (typeof sectionY === 'number') {
+          return {
+            y: sectionY + T.boundaryHeight + T.intervalPadVertical,
+            height: T.scheduledCardMinHeight,
+          };
+        }
+        return null;
+      };
+
+      const inset = 48;
+      const isComfortablyVisible = (y: number, height: number) => {
+        const viewTop = scrollOffsetY.current + inset;
+        const viewBottom =
+          scrollOffsetY.current +
+          Math.max(scrollViewportH, 1) -
+          inset -
+          tabOverlap;
+        return y >= viewTop && y + height <= viewBottom;
+      };
+
+      const MAX_ATTEMPTS = 10;
+      const attemptReveal = (attempt: number) => {
+        if (revealGenRef.current !== gen) return;
+        const target = resolveTargetY();
+        if (!target) {
+          if (attempt < MAX_ATTEMPTS) {
+            highlightTimerRef.current = setTimeout(
+              () => attemptReveal(attempt + 1),
+              reduceMotion ? 16 : 48,
+            );
+            return;
+          }
+          applyHighlight();
+          return;
+        }
+
+        if (isComfortablyVisible(target.y, target.height)) {
+          applyHighlight();
+          return;
+        }
+
+        scrollToY(Math.max(0, target.y - inset), !reduceMotion);
+        // Wait for scroll + layout; re-check before highlighting.
+        highlightTimerRef.current = setTimeout(
+          () => {
+            if (revealGenRef.current !== gen) return;
+            const again = resolveTargetY();
+            if (again && !isComfortablyVisible(again.y, again.height) && attempt < MAX_ATTEMPTS) {
+              scrollToY(Math.max(0, again.y - inset), !reduceMotion);
+              highlightTimerRef.current = setTimeout(
+                () => attemptReveal(attempt + 1),
+                reduceMotion ? 16 : 120,
+              );
+              return;
+            }
+            applyHighlight();
+          },
+          reduceMotion ? 0 : 320,
+        );
+      };
+
+      attemptReveal(0);
+    },
+    [
+      timedItems,
+      sectionYs,
+      T.boundaryHeight,
+      T.intervalPadVertical,
+      T.scheduledCardMinHeight,
+      scrollViewportH,
+      tabOverlap,
+      scrollToY,
+      reduceMotion,
+      clearHighlightTimer,
+    ],
+  );
 
   useEffect(() => {
     if (!showNow || didAutoScroll.current) return;
@@ -321,6 +651,11 @@ export const TimelineAgenda = ({
             styles.scrollContent,
             { paddingBottom: scrollBottomPad },
           ]}
+          onLayout={(e) => setScrollViewportH(e.nativeEvent.layout.height)}
+          onScroll={(e) => {
+            scrollOffsetY.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
         >
           <View ref={timelineBodyRef} style={styles.timelineBody} collapsable={false}>
             <View
@@ -337,6 +672,16 @@ export const TimelineAgenda = ({
               ]}
             />
 
+            {/* Under cards: lines from icon centers + connected mini end cards. */}
+            <TimelineDurationDecorations
+              layer="under"
+              layout={connectedLayout}
+              items={timedItems}
+              sectionYs={sectionYs}
+              cardBounds={cardBounds}
+              entityColorFor={entityColorForItem}
+            />
+
             {sections.map((section, index) => (
               <View key={section.id} onLayout={(e) => onRowLayout(section.id, e)}>
                 <TimelineHourInterval
@@ -349,6 +694,14 @@ export const TimelineAgenda = ({
                   }
                   onItemPress={onItemPress}
                   contentAnchorRef={timelineBodyRef}
+                  onItemBounds={onItemBounds}
+                  indentByItemId={indentByItemId}
+                  highlightedItemId={highlightedItemId}
+                  endCards={endCardsByMinute.get(section.minutesFromMidnight) ?? []}
+                  endCardAccentFor={endCardAccentFor}
+                  endCardIconFor={endCardIconFor}
+                  contentLeft={contentLeft}
+                  onEndCardPress={revealStartFromEndCard}
                 />
                 {showNow && index === nowSectionIndex ? (
                   <View
@@ -390,6 +743,17 @@ export const TimelineAgenda = ({
                 ) : null}
               </View>
             ))}
+
+            {/* Above cards: tappable overflow chips when nesting hits min width. */}
+            <TimelineDurationDecorations
+              layer="overflow"
+              layout={connectedLayout}
+              items={timedItems}
+              sectionYs={sectionYs}
+              cardBounds={cardBounds}
+              entityColorFor={entityColorForItem}
+              onItemPress={onItemPress}
+            />
           </View>
         </ScrollView>
       </View>

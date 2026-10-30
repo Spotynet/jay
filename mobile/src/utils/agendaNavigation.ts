@@ -9,7 +9,8 @@ export function parseAgendaEntityId(agendaId: string): string | null {
 }
 
 export type AgendaEditorTarget =
-  | { kind: 'journal'; open: () => void }
+  /** Journal opens the Journal tab — not ItemDetails / JournalEntry. */
+  | { kind: 'journal' }
   | { kind: 'habit'; entityId: string }
   | { kind: 'task'; entityId: string }
   | { kind: 'event'; entityId: string }
@@ -18,15 +19,11 @@ export type AgendaEditorTarget =
 /**
  * Map a timeline AgendaItem to a details/editor target.
  * Finance budget reminders have no details surface today.
+ * Journal is identified by typed `item.type === 'journal'`.
  */
 export function resolveAgendaEditorTarget(item: AgendaItem): AgendaEditorTarget {
   if (item.type === 'journal') {
-    return {
-      kind: 'journal',
-      open: () => {
-        item.onPress?.();
-      },
-    };
+    return { kind: 'journal' };
   }
 
   const entityId = parseAgendaEntityId(item.id);

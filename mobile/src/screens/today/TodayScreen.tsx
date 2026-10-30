@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation, useIsFocused, useRoute } from '@react-navigation/native';
@@ -24,10 +24,13 @@ import { FINANCE_ICONS } from '../../constants/financeIcons';
 import { HABIT_ICONS } from '../../constants/habitIcons';
 import { ENTITY_ICONS } from '../../constants/entityIcons';
 import { getJournalTimelineState, JournalSettings } from '../../utils/journalScheduling';
+import { isJournalDayReviewComplete } from '../../utils/journalReviewCompletion';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { toLocalDateString, parseLocalDate } from '../../utils/date';
 import { AgendaItem } from '../../utils/timelineLayout';
+import { parseDurationToMinutes } from '../../utils/timelineInterval';
 import { resolveAgendaEditorTarget } from '../../utils/agendaNavigation';
+import { handleJournalAgendaPress } from '../../utils/agendaJournalPress';
 
 function resolveHabitIcon(iconName?: string | null) {
   if (!iconName) return ENTITY_ICONS.habit;
@@ -35,14 +38,7 @@ function resolveHabitIcon(iconName?: string | null) {
 }
 
 function durationMinutesFromField(value: string | null | undefined): number | undefined {
-  if (!value) return undefined;
-  const parts = String(value).split(':');
-  if (parts.length < 2) return undefined;
-  const hours = parseInt(parts[0], 10);
-  const minutes = parseInt(parts[1], 10);
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) return undefined;
-  const total = hours * 60 + minutes;
-  return total > 0 ? total : undefined;
+  return parseDurationToMinutes(value);
 }
 
 export default function TodayScreen() {
@@ -53,6 +49,8 @@ export default function TodayScreen() {
   const [entries, setEntries] = useState<any[]>([]);
   const [journalSettings, setJournalSettings] = useState<JournalSettings | null>(null);
   const [habits, setHabits] = useState<any[]>([]);
+  /** False while habits for selectedDate are loading or failed — avoids false Journal completion. */
+  const [habitsReady, setHabitsReady] = useState(false);
   const [tasks, setTasks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
@@ -61,6 +59,12 @@ export default function TodayScreen() {
   const [error, setError] = useState<string | null>(null);
   const [pendingHour, setPendingHour] = useState<{ hour: number; minute: number } | null>(null);
   const completionLockRef = useRef(new Set<string>());
+  /** Drop stale timeline fetches after date/focus races. */
+  const fetchGenRef = useRef(0);
+  /** Local date string of the last successful habits load — avoid false incomplete on refetch. */
+  const habitsLoadedForDateRef = useRef<string | null>(null);
+  const selectedDateRef = useRef(selectedDate);
+  selectedDateRef.current = selectedDate;
 
   const isFocused = useIsFocused();
   const navigation = useNavigation<any>();
@@ -120,48 +124,71 @@ export default function TodayScreen() {
     }
   }, [route.params?.date]);
 
-  const fetchEntries = async () => {
-    const dateStr = selectedDate.getFullYear() + '-' + 
-      ('0' + (selectedDate.getMonth() + 1)).slice(-2) + '-' + 
-      ('0' + selectedDate.getDate()).slice(-2);
-    
-    try {
-        const [settings, journalEntries] = await Promise.all([
-            getJournalSettings().catch(() => null),
-            getJournalEntries(dateStr).catch(() => [])
-        ]);
-        setJournalSettings(settings);
-        setEntries(journalEntries);
-    } catch (e) {
-        console.warn('Journal fetch flow error:', e);
+  const fetchEntries = useCallback(async () => {
+    const gen = ++fetchGenRef.current;
+    const viewDate = selectedDateRef.current;
+    const dateStr =
+      viewDate.getFullYear() +
+      '-' +
+      ('0' + (viewDate.getMonth() + 1)).slice(-2) +
+      '-' +
+      ('0' + viewDate.getDate()).slice(-2);
+
+    // Only clear readiness when the viewed date changes — same-date focus refetch
+    // must not flip the Journal card incomplete (looks like a tap toggle).
+    if (habitsLoadedForDateRef.current !== dateStr) {
+      setHabitsReady(false);
     }
 
     try {
-        const [habitData, taskData, eventData, categoryData, transactionData, projectData] = await Promise.all([
-            getHabitsForDate(dateStr),
-            getTasksForDate(dateStr),
-            getEventsForDate(dateStr),
-            getCategories().catch(() => []),
-            getTransactions().catch(() => []),
-            getProjects().catch(() => []),
-        ]);
-        
-        setHabits(habitData);
-        setTasks(taskData);
-        setProjects(Array.isArray(projectData) ? projectData : []);
-        setEvents(eventData);
-        setCategories(categoryData);
-        setTransactions(transactionData);
-        setError(null);
+      const [settings, journalEntries] = await Promise.all([
+        getJournalSettings().catch(() => null),
+        getJournalEntries(dateStr).catch(() => []),
+      ]);
+      if (gen !== fetchGenRef.current) return;
+      setJournalSettings(settings);
+      setEntries(journalEntries);
     } catch (e) {
-        console.error('Critical timeline fetch failed:', e);
-        setError("Couldn't load today.");
+      if (gen !== fetchGenRef.current) return;
+      console.warn('Journal fetch flow error:', e);
     }
-  };
+
+    try {
+      const [habitData, taskData, eventData, categoryData, transactionData, projectData] =
+        await Promise.all([
+          getHabitsForDate(dateStr),
+          getTasksForDate(dateStr),
+          getEventsForDate(dateStr),
+          getCategories().catch(() => []),
+          getTransactions().catch(() => []),
+          getProjects().catch(() => []),
+        ]);
+
+      if (gen !== fetchGenRef.current) return;
+
+      setHabits(habitData);
+      habitsLoadedForDateRef.current = dateStr;
+      setHabitsReady(true);
+      setTasks(taskData);
+      setProjects(Array.isArray(projectData) ? projectData : []);
+      setEvents(eventData);
+      setCategories(categoryData);
+      setTransactions(transactionData);
+      setError(null);
+    } catch (e) {
+      if (gen !== fetchGenRef.current) return;
+      console.error('Critical timeline fetch failed:', e);
+      // Keep prior readiness if this was a same-date refresh failure.
+      if (habitsLoadedForDateRef.current !== dateStr) {
+        setHabitsReady(false);
+      }
+      setError("Couldn't load today.");
+    }
+  }, []);
 
   useEffect(() => {
-    if (isFocused) fetchEntries();
-  }, [selectedDate, isFocused]);
+    if (isFocused) void fetchEntries();
+  }, [selectedDate, isFocused, fetchEntries]);
 
   const timeParam = pendingHour
     ? `${String(pendingHour.hour).padStart(2, '0')}:${String(pendingHour.minute).padStart(2, '0')}`
@@ -285,7 +312,19 @@ export default function TodayScreen() {
   const agendaItems: AgendaItem[] = useMemo(() => {
     const journalItems: AgendaItem[] = journalSettings
       ? (() => {
-          const journalState = getJournalTimelineState(selectedDate, journalSettings, entries[0]);
+          const entry = entries[0] ?? null;
+          const reviewComplete = isJournalDayReviewComplete({
+            moodScore: entry?.mood_score,
+            energyScore: entry?.energy_score,
+            habits: habits.map((h: any) => ({ id: Number(h.id), status: h.status })),
+            habitsReady,
+          });
+          const journalState = getJournalTimelineState(
+            selectedDate,
+            journalSettings,
+            entry,
+            reviewComplete,
+          );
           if (!journalState.shouldAppearInTimeline) return [];
           return [
             {
@@ -294,15 +333,14 @@ export default function TodayScreen() {
               startTime: journalState.scheduledTime
                 ? new Date(`${dateStr}T${journalState.scheduledTime}`)
                 : new Date(`${dateStr}T09:00:00`),
-              type: 'journal',
+              type: 'journal' as const,
               timeRange: journalState.scheduledTime
                 ? journalState.scheduledTime.substring(0, 5)
                 : '09:00',
               isActive: journalState.timelineState !== 'completed',
               isCompleted: journalState.timelineState === 'completed',
-              badge: journalState.timelineState === 'completed' ? 'check' : null,
-              onPress: () =>
-                navigation.navigate('JournalEntry', { entry: entries[0], date: dateStr }),
+              // Read-only status badge — never attach onToggle (derived review coverage).
+              badge: journalState.timelineState === 'completed' ? ('check' as const) : null,
             },
           ];
         })()
@@ -373,10 +411,17 @@ export default function TodayScreen() {
           const key = `habit-${h.id}`;
           if (completionLockRef.current.has(key)) return;
           completionLockRef.current.add(key);
-          const wasCompleted = !!h.completed;
+          const wasCompleted = !!h.completed || h.status === 'COMPLETED';
+          // Keep `status` in sync — Journal timeline completion reads status, not `completed`.
           setHabits((prev) =>
             prev.map((habit) =>
-              habit.id === h.id ? { ...habit, completed: !wasCompleted } : habit,
+              habit.id === h.id
+                ? {
+                    ...habit,
+                    completed: !wasCompleted,
+                    status: wasCompleted ? 'PENDING' : 'COMPLETED',
+                  }
+                : habit,
             ),
           );
           try {
@@ -385,7 +430,13 @@ export default function TodayScreen() {
           } catch (e) {
             setHabits((prev) =>
               prev.map((habit) =>
-                habit.id === h.id ? { ...habit, completed: wasCompleted } : habit,
+                habit.id === h.id
+                  ? {
+                      ...habit,
+                      completed: wasCompleted,
+                      status: wasCompleted ? 'COMPLETED' : 'PENDING',
+                    }
+                  : habit,
               ),
             );
             setError("Couldn't update this habit.");
@@ -401,13 +452,14 @@ export default function TodayScreen() {
     events,
     tasks,
     habits,
+    habitsReady,
     projects,
     budgetDueDates,
     journalSettings,
     selectedDate,
     entries,
     dateStr,
-    navigation,
+    fetchEntries,
   ]);
 
   return (
@@ -452,12 +504,17 @@ export default function TodayScreen() {
             items={agendaItems}
             onAddAtHour={handleAddAtHour}
             onItemPress={(item: AgendaItem) => {
-              const target = resolveAgendaEditorTarget(item);
-              if (target.kind === 'journal') {
-                target.open();
+              // Journal: navigation only — never mutate derived completion from the card.
+              if (
+                handleJournalAgendaPress(item, {
+                  navigateToJournalTab: () => navigation.navigate('Journal'),
+                }) === 'navigated-journal'
+              ) {
                 return;
               }
-              if (target.kind === 'unsupported') return;
+
+              const target = resolveAgendaEditorTarget(item);
+              if (target.kind === 'unsupported' || target.kind === 'journal') return;
 
               // MainStack modal (same pattern as Profile) — keeps Today mounted underneath.
               navigation.navigate('ItemDetails', {

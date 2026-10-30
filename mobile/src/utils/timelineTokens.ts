@@ -80,6 +80,27 @@ export const TIMELINE_TOKENS = {
   nowLineThickness: 1.5,
   nowBulbSize: 7,
 
+  /**
+   * Card-connected duration rails (no permanent gutter).
+   * Line descends from icon center; intervening cards indent past active lines.
+   */
+  durationRailWidth: 2,
+  /** Gap between an active rail’s right edge and an indented card’s leading edge. */
+  durationRailClearance: 10,
+  /** Min px below card bottom before drawing an external rail + end card. */
+  durationMinRailSpan: 36,
+  /** Stop nesting when remaining card width would fall below this. */
+  durationMinCardWidth: 168,
+  /** Estimated height of the connected END card (matches scheduled card min). */
+  durationEndCardHeight: 46,
+  /** @deprecated Elbow connectors removed — end card is full-width top-entry. */
+  durationEndCardWidth: 0,
+  durationConnectorWidth: 0,
+  /** @deprecated Removed permanent gutter — kept 0 for any stale readers. */
+  durationGutterWidth: 0,
+  durationLaneGap: 10,
+  durationMaxVisibleLanes: 4,
+
   railColorDark: 'rgba(255,255,255,0.07)',
   railColorLight: 'rgba(0,0,0,0.07)',
   hourGuideColorDark: 'rgba(255,255,255,0.06)',

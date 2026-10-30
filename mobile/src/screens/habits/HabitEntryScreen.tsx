@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -12,24 +12,22 @@ import { AppText } from '../../components/ui/AppText';
 import { Icon } from '../../components/ui/Icon';
 import FormScreen from '../../components/common/FormScreen';
 import { IconPickerModal } from './components/IconPickerModal';
+import { HabitReminderTimeControl } from './components/HabitReminderTimeControl';
 import { HABIT_ICONS } from '../../constants/habitIcons';
 import { createHabit, updateHabit, deleteHabit } from '../../api/habits';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { AppTimePicker } from '../../components/common/AppTimePicker';
-import DeleteConfirm from '../../components/ui/DeleteConfirm';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 import { DetailSection } from '../../components/itemDetails/DetailRows';
+import { HabitScheduleDayPicker } from '../../components/habits/HabitScheduleDayPicker';
+import { normalizeDaysOfWeek } from '../../components/habits/habitWeekdaySelection';
+import { confirmHabitDelete } from '../../utils/confirmHabitDelete';
+import { HabitDeleteRowIcon } from './components/HabitDeleteRowIcon';
 
-const DAY_SHORT = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-const DAY_FULL = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
+/** Horizontal inset shared by Goal / Notifications rows. */
+const ROW_PAD_H = 16;
+const ROW_PAD_V = 13;
+/** Default everyday schedule when API omits days. */
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
 function snapshotHabitDraft(values: {
   name: string;
@@ -47,18 +45,14 @@ function snapshotHabitDraft(values: {
   });
 }
 
-function formatReminderTime(date: Date): string {
-  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
 export default function HabitEntryScreen() {
   const { colors, entityColors, isDark } = useTheme();
   const habitColor = entityColors.habits;
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const habit = route.params?.habit;
+  const fromDetails = !!route.params?.fromDetails;
   const isEditing = !!habit;
-  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const [name, setName] = useState(habit?.name || '');
   const [targetValue, setTargetValue] = useState(habit?.target_value || 1);
@@ -70,22 +64,26 @@ export default function HabitEntryScreen() {
     habit?.reminder_time ? new Date(`1970-01-01T${habit.reminder_time}`) : new Date(),
   );
   const [hasReminder, setHasReminder] = useState(!!habit?.reminder_time);
-  const [showTimePicker, setShowTimePicker] = useState(false);
   const [iconName, setIconName] = useState(habit?.icon || 'Activity');
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDays, setSelectedDays] = useState<number[]>(
-    habit?.days_of_week || [0, 1, 2, 3, 4, 5, 6],
-  );
-  const [allowLeave, setAllowLeave] = useState(false);
+  const [selectedDays, setSelectedDays] = useState<number[]>(() => {
+    const normalized = normalizeDaysOfWeek(habit?.days_of_week);
+    return normalized.length > 0 ? normalized : [...ALL_DAYS];
+  });
+
+  /** Sync bypass so successful Save/Delete does not re-trigger discard. */
+  const bypassRef = useRef(false);
 
   const initialSnapshot = useMemo(
-    () =>
-      snapshotHabitDraft({
+    () => {
+      const normalized = normalizeDaysOfWeek(habit?.days_of_week);
+      return snapshotHabitDraft({
         name: habit?.name || '',
         iconName: habit?.icon || 'Activity',
-        selectedDays: habit?.days_of_week || [0, 1, 2, 3, 4, 5, 6],
+        selectedDays: normalized.length > 0 ? normalized : [...ALL_DAYS],
         hasTarget: habit?.has_target || false,
         targetValue: habit?.target_value || 1,
         targetType: habit?.target_type || 'COUNT',
@@ -93,7 +91,8 @@ export default function HabitEntryScreen() {
         reminderKey: habit?.reminder_time
           ? String(habit.reminder_time).slice(0, 5)
           : reminderTime.toTimeString().slice(0, 5),
-      }),
+      });
+    },
     // Intentionally snapshot once from route params at mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -109,8 +108,24 @@ export default function HabitEntryScreen() {
     hasReminder,
     reminderKey: reminderTime.toTimeString().slice(0, 5),
   });
-  const isDirty = !allowLeave && currentSnapshot !== initialSnapshot;
-  useUnsavedChangesGuard(isDirty);
+  const isDirty = !bypassRef.current && currentSnapshot !== initialSnapshot;
+
+  useUnsavedChangesGuard(isDirty, {
+    bypassRef,
+    title: 'Discard changes?',
+    message: "Your changes to this habit haven’t been saved.",
+    keepLabel: 'Keep Editing',
+    discardLabel: 'Discard Changes',
+  });
+
+  // Interactive modal dismiss cannot always be intercepted safely — disable
+  // while dirty; Cancel remains available and uses the native confirmation.
+  useEffect(() => {
+    navigation.setOptions?.({ gestureEnabled: !isDirty });
+    return () => {
+      navigation.setOptions?.({ gestureEnabled: true });
+    };
+  }, [navigation, isDirty]);
 
   const toggleDay = (day: number) => {
     setSelectedDays((prev) =>
@@ -121,8 +136,18 @@ export default function HabitEntryScreen() {
   const selectedIcon =
     HABIT_ICONS.find((i) => i.name === iconName)?.icon || HABIT_ICONS[0].icon;
 
+  const leaveAfterSuccess = () => {
+    bypassRef.current = true;
+    if (fromDetails && typeof navigation.pop === 'function') {
+      // Leave HabitEntry and the deleted/stale ItemDetails underneath.
+      navigation.pop(2);
+      return;
+    }
+    navigation.goBack();
+  };
+
   const saveHabit = async () => {
-    if (loading) return;
+    if (loading || deleting) return;
     if (!name.trim()) {
       setError('Enter a habit name.');
       return;
@@ -146,7 +171,7 @@ export default function HabitEntryScreen() {
       };
       if (habit) await updateHabit(habit.id, data);
       else await createHabit(data);
-      setAllowLeave(true);
+      bypassRef.current = true;
       navigation.goBack();
     } catch {
       setError("Couldn't save this habit.");
@@ -155,55 +180,49 @@ export default function HabitEntryScreen() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!habit) return;
+  const performDelete = async () => {
+    if (!habit || deleting || loading) return;
+    setDeleting(true);
+    setError(null);
     try {
       await deleteHabit(habit.id);
-      setAllowLeave(true);
-      navigation.goBack();
+      leaveAfterSuccess();
     } catch {
-      setDeleteModalVisible(false);
       setError("Couldn't delete this habit.");
+    } finally {
+      setDeleting(false);
     }
   };
 
-  const rowDivider = {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+  const confirmDelete = () => {
+    if (!habit || deleting || loading) return;
+    const label = name.trim() || habit.name || 'this habit';
+    confirmHabitDelete(label, () => {
+      void performDelete();
+    });
   };
+
+  const daysLocked = loading || deleting;
 
   return (
     <FormScreen
       title={isEditing ? 'Edit Habit' : 'New Habit'}
       submitPlacement="header"
       cancelLabel="Cancel"
-      submitTitle={loading ? 'Saving…' : 'Save'}
+      submitTitle="Save"
       onSubmit={saveHabit}
       loading={loading}
+      submitDisabled={!isDirty || deleting}
+      submitAccent={habitColor}
       error={error}
       scrollContentStyle={styles.scrollPad}
     >
-      <DeleteConfirm
-        visible={deleteModalVisible}
-        title="Delete Habit"
-        message="Delete this habit and all of its completion history? This cannot be undone."
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteModalVisible(false)}
-      />
       <IconPickerModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         onSelect={setIconName}
       />
-      <AppTimePicker
-        visible={showTimePicker}
-        onClose={() => setShowTimePicker(false)}
-        value={reminderTime}
-        onChange={(date: Date) => setReminderTime(date)}
-        label="Reminder Time"
-      />
 
-      {/* Identity — editable counterpart of DetailsIdentity */}
       <View style={styles.identity}>
         <Pressable
           onPress={() => setModalVisible(true)}
@@ -238,45 +257,24 @@ export default function HabitEntryScreen() {
       </View>
 
       <DetailSection title="Schedule">
-        <View style={styles.daysBlock}>
-          <AppText style={[styles.rowLabel, { color: colors.subtext }]}>Repeat</AppText>
-          <View style={styles.daysRow}>
-            {DAY_SHORT.map((label, idx) => {
-              const selected = selectedDays.includes(idx);
-              return (
-                <Pressable
-                  key={label}
-                  onPress={() => toggleDay(idx)}
-                  style={({ pressed }) => [
-                    styles.dayChip,
-                    {
-                      backgroundColor: selected ? habitColor + '22' : 'transparent',
-                      borderColor: selected ? habitColor : colors.border,
-                      opacity: pressed ? 0.75 : 1,
-                    },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  accessibilityLabel={`${DAY_FULL[idx]}${selected ? ', selected' : ''}`}
-                >
-                  <AppText
-                    style={{
-                      fontSize: 12,
-                      fontWeight: selected ? '600' : '400',
-                      color: selected ? colors.text : colors.subtext,
-                    }}
-                  >
-                    {label}
-                  </AppText>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
+        <HabitScheduleDayPicker
+          selectedDays={selectedDays}
+          onToggleDay={toggleDay}
+          disabled={daysLocked}
+          accent={habitColor}
+        />
       </DetailSection>
 
-      <DetailSection title="Daily goal">
-        <View style={[styles.configRow, hasTarget && rowDivider]}>
+      <DetailSection title="Goal">
+        <View
+          style={[
+            styles.configRow,
+            hasTarget && {
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: colors.border,
+            },
+          ]}
+        >
           <AppText style={[styles.configLabel, { color: colors.text }]}>Daily goal</AppText>
           <Switch
             value={hasTarget}
@@ -326,8 +324,16 @@ export default function HabitEntryScreen() {
         ) : null}
       </DetailSection>
 
-      <DetailSection title="Reminder">
-        <View style={[styles.configRow, hasReminder && rowDivider]}>
+      <DetailSection title="Notifications">
+        <View
+          style={[
+            styles.configRow,
+            hasReminder && {
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: colors.border,
+            },
+          ]}
+        >
           <AppText style={[styles.configLabel, { color: colors.text }]}>Reminder</AppText>
           <Switch
             value={hasReminder}
@@ -339,46 +345,37 @@ export default function HabitEntryScreen() {
           />
         </View>
         {hasReminder ? (
-          <Pressable
-            onPress={() => setShowTimePicker(true)}
-            style={({ pressed }) => [
-              styles.configRow,
-              pressed && { opacity: 0.7 },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={`Reminder time, ${formatReminderTime(reminderTime)}`}
-          >
+          <View style={styles.configRow}>
             <AppText style={[styles.configLabel, { color: colors.text }]}>Time</AppText>
-            <AppText style={[styles.timeValue, { color: habitColor }]}>
-              {formatReminderTime(reminderTime)}
-            </AppText>
-          </Pressable>
+            <HabitReminderTimeControl value={reminderTime} onChange={setReminderTime} />
+          </View>
         ) : null}
       </DetailSection>
 
       {isEditing ? (
-        <View style={styles.destructiveBlock}>
-          <Pressable
-            onPress={() => setDeleteModalVisible(true)}
-            style={({ pressed }) => [
-              styles.deleteRow,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Delete habit"
-          >
+        <Pressable
+          onPress={confirmDelete}
+          disabled={deleting || loading}
+          style={({ pressed }) => [
+            styles.deletePressable,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              opacity: pressed || deleting || loading ? 0.55 : 1,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Delete habit"
+          accessibilityState={{ disabled: deleting || loading, busy: deleting }}
+        >
+          {/* Explicit RN row — do not rely on Pressable defaults or Host children. */}
+          <View style={styles.deleteRow} collapsable={false}>
+            <HabitDeleteRowIcon color={colors.error} />
             <AppText style={[styles.deleteLabel, { color: colors.error }]}>
-              Delete Habit
+              {deleting ? 'Deleting…' : 'Delete habit'}
             </AppText>
-          </Pressable>
-          <AppText style={[styles.deleteHint, { color: colors.subtext }]}>
-            Removes the habit and all completion history—not only one day.
-          </AppText>
-        </View>
+          </View>
+        </Pressable>
       ) : null}
     </FormScreen>
   );
@@ -418,34 +415,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     margin: 0,
   },
-  daysBlock: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 14,
-    gap: 10,
-  },
-  rowLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  daysRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 6,
-  },
-  dayChip: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   configRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
+    paddingHorizontal: ROW_PAD_H,
+    paddingVertical: ROW_PAD_V,
     minHeight: 52,
     gap: 12,
   },
@@ -454,16 +429,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flexShrink: 1,
   },
-  timeValue: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
   goalFields: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingHorizontal: 14,
-    paddingBottom: 14,
+    paddingHorizontal: ROW_PAD_H,
+    paddingBottom: ROW_PAD_V,
     paddingTop: 4,
   },
   goalValue: {
@@ -484,26 +455,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  destructiveBlock: {
-    marginTop: 8,
+  deletePressable: {
+    marginTop: 24,
     marginBottom: 8,
-    gap: 8,
-  },
-  deleteRow: {
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    minHeight: 52,
+    minHeight: 48,
+    overflow: 'hidden',
+  },
+  deleteRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
+    justifyContent: 'flex-start',
+    gap: 10,
+    minHeight: 48,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   deleteLabel: {
     fontSize: 16,
-    fontWeight: '600',
-  },
-  deleteHint: {
-    fontSize: 12,
-    lineHeight: 16,
-    paddingHorizontal: 4,
+    fontWeight: '500',
+    fontFamily: 'Manrope_500Medium',
   },
 });

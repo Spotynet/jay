@@ -8,6 +8,7 @@ import {
   ViewStyle,
   StyleProp,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,6 +46,13 @@ interface FormScreenProps {
   /** Leading label when `submitPlacement="header"`. Defaults to Cancel. */
   cancelLabel?: string;
   onCancel?: () => void;
+  /**
+   * When `submitPlacement="header"`, disables the header Save (e.g. clean draft).
+   * Validation failures should still call onSubmit and show inline errors.
+   */
+  submitDisabled?: boolean;
+  /** Accent fill for the header Save pill (opt-in; defaults to theme accent). */
+  submitAccent?: string;
 }
 
 /**
@@ -70,13 +78,17 @@ export default function FormScreen({
   submitPlacement = 'footer',
   cancelLabel = 'Cancel',
   onCancel,
+  submitDisabled = false,
+  submitAccent,
 }: FormScreenProps) {
-  const { colors } = useTheme();
+  const { colors, accentColor } = useTheme();
   const layout = useResponsiveLayout();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const useDialog = containedOnWideWeb && layout.useContainedSheet;
   const headerSubmit = submitPlacement === 'header';
+  const saveAccent = submitAccent || accentColor;
+  const saveDisabled = !!loading || !!submitDisabled;
 
   const handleCancel = () => {
     if (onCancel) {
@@ -96,19 +108,33 @@ export default function FormScreen({
           render: () => (
             <Pressable
               onPress={onSubmit}
-              disabled={!!loading}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+              disabled={saveDisabled}
+              hitSlop={{ top: 6, bottom: 6, left: 4, right: 2 }}
               style={({ pressed }) => [
-                styles.headerSaveHit,
-                (pressed || loading) && { opacity: 0.45 },
+                styles.headerSavePill,
+                {
+                  backgroundColor: saveDisabled
+                    ? colors.surfaceElevated
+                    : saveAccent,
+                  opacity: pressed && !saveDisabled ? 0.85 : 1,
+                },
               ]}
               accessibilityRole="button"
-              accessibilityLabel={submitTitle}
-              accessibilityState={{ disabled: !!loading, busy: !!loading }}
+              accessibilityLabel={loading ? 'Saving' : 'Save'}
+              accessibilityState={{ disabled: saveDisabled, busy: !!loading }}
             >
-              <AppText style={[styles.headerSave, { color: colors.text }]}>
-                {submitTitle}
-              </AppText>
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <AppText
+                  style={[
+                    styles.headerSaveLabel,
+                    { color: saveDisabled ? colors.subtext : '#FFFFFF' },
+                  ]}
+                >
+                  {submitTitle}
+                </AppText>
+              )}
             </Pressable>
           ),
         }
@@ -242,19 +268,28 @@ export default function FormScreen({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  scrollContent: { paddingBottom: 24, paddingTop: 8 },
+  scrollContent: {
+    paddingBottom: 24,
+    paddingTop: 8,
+    alignItems: 'stretch',
+    width: '100%',
+  },
   scrollContentHeaderSubmit: {
     // No footer — keep a modest end pad for the last controls / keyboard.
     paddingBottom: 40,
   },
   footer: { paddingTop: 10 },
-  headerSaveHit: {
-    minHeight: 44,
+  headerSavePill: {
+    minWidth: 72,
+    minHeight: 32,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
   },
-  headerSave: {
-    fontSize: 17,
+  headerSaveLabel: {
+    fontSize: 16,
     fontWeight: '600',
     letterSpacing: -0.2,
   },

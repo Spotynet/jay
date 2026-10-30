@@ -5,12 +5,19 @@ import { AppText } from '../../../components/ui/AppText';
 import { Icon } from '../../../components/ui/Icon';
 import { IconFlame } from 'tabler-icons-react-native';
 import { HABIT_ICONS } from '../../../constants/habitIcons';
+import {
+  isHabitSegmentSelected,
+  nextHabitStatusAfterSegmentTap,
+  normalizeHabitLogStatus,
+  type HabitLogStatus,
+  type HabitReviewSegment,
+} from '../../../utils/habitReviewStatus';
 import Svg, { Circle } from 'react-native-svg';
 
-type HabitStatus = 'PENDING' | 'COMPLETED' | 'SKIPPED' | 'FAILED';
+type HabitStatus = HabitLogStatus;
 
-const STATUS_OPTIONS: { key: Exclude<HabitStatus, 'PENDING'>; symbol: string; label: string }[] = [
-  { key: 'FAILED', symbol: '✕', label: 'Failed' },
+const STATUS_OPTIONS: { key: HabitReviewSegment; symbol: string; label: string }[] = [
+  { key: 'FAILED', symbol: '✕', label: 'Missed' },
   { key: 'SKIPPED', symbol: '−', label: 'Skipped' },
   { key: 'COMPLETED', symbol: '✓', label: 'Completed' },
 ];
@@ -40,9 +47,8 @@ export const HabitRow = ({ habit, date, onSetStatus, onIncrement, onDecrement, i
   const { colors, isDark, entityColors } = useTheme();
   const habitColor = entityColors.habits;
 
-  const status: HabitStatus = habit.status || 'PENDING';
+  const status: HabitStatus = normalizeHabitLogStatus(habit.status);
   const isCompleted = status === 'COMPLETED';
-  const selected = status === 'PENDING' ? 'SKIPPED' : status;
 
   const getStreak = () => {
     const toDateStr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -85,7 +91,7 @@ export const HabitRow = ({ habit, date, onSetStatus, onIncrement, onDecrement, i
     }
   };
 
-  const statusColor = (key: Exclude<HabitStatus, 'PENDING'>) => {
+  const statusColor = (key: HabitReviewSegment) => {
     if (key === 'FAILED') return { fill: colors.error + '14', glyph: colors.error };
     if (key === 'SKIPPED') return { fill: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', glyph: colors.subtext };
     return { fill: habitColor + '1F', glyph: habitColor };
@@ -162,13 +168,17 @@ export const HabitRow = ({ habit, date, onSetStatus, onIncrement, onDecrement, i
         {/* 3-state toggle */}
         <View style={[styles.seg, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }]}>
           {STATUS_OPTIONS.map(opt => {
-            const active = selected === opt.key;
+            const active = isHabitSegmentSelected(status, opt.key);
             const c = statusColor(opt.key);
             return (
               <TouchableOpacity
                 key={opt.key}
-                accessibilityLabel={opt.label}
-                onPress={() => onSetStatus(habit.id, date, opt.key)}
+                accessibilityLabel={
+                  active ? `${opt.label}, selected. Double tap to clear` : opt.label
+                }
+                onPress={() =>
+                  onSetStatus(habit.id, date, nextHabitStatusAfterSegmentTap(status, opt.key))
+                }
                 style={[styles.segBtn, active && { backgroundColor: c.fill }]}
                 activeOpacity={0.6}
               >

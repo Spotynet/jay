@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, StyleSheet, Alert } from 'react-native';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenLayout from '../../components/common/ScreenLayout';
-import DeleteConfirm from '../../components/ui/DeleteConfirm';
+import { AppText } from '../../components/ui/AppText';
 import { ItemDetailsShell } from '../../components/itemDetails/ItemDetailsShell';
 import { ItemDetailsOverflowButton } from '../../components/itemDetails/ItemDetailsOverflowButton';
 import { DetailsIdentity } from '../../components/itemDetails/DetailsIdentity';
@@ -26,6 +26,7 @@ import {
   formatClockTime,
   formatFriendlyDate,
 } from '../../utils/itemDetailsFormat';
+import { confirmHabitDelete } from '../../utils/confirmHabitDelete';
 import {
   getHabitById,
   deleteHabit,
@@ -34,7 +35,7 @@ import {
   decrementHabitProgress,
 } from '../../api/habits';
 import { getTaskById, deleteTask, toggleTaskCompletion } from '../../api/tasks';
-import { getEventById } from '../../api/events';
+import { getEventById, deleteEvent } from '../../api/events';
 
 function dismissDetails(navigation: any) {
   if (navigation.canGoBack()) {
@@ -54,7 +55,7 @@ function resolveHabitIcon(iconName?: string | null) {
  * Shared visual grammar; type-specific content stays in typeBodies + lead builders.
  */
 export default function ItemDetailsScreen() {
-  const { entityColors } = useTheme();
+  const { colors, entityColors } = useTheme();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const isFocused = useIsFocused();
@@ -68,12 +69,13 @@ export default function ItemDetailsScreen() {
   const [entity, setEntity] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [deleteVisible, setDeleteVisible] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [progressBusy, setProgressBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(!!params.isCompleted);
   const [progress, setProgress] = useState(0);
+  /** Prevents duplicate delete mutations from rapid confirm taps. */
+  const deletingRef = useRef(false);
 
   const accent =
     kind === 'habit'
@@ -114,7 +116,7 @@ export default function ItemDetailsScreen() {
   }, [kind, entityId, occurrenceDate, params.isCompleted]);
 
   useEffect(() => {
-    setDeleteVisible(false);
+    deletingRef.current = false;
     setActionError(null);
     setCompleted(!!params.isCompleted);
     reload();
@@ -144,7 +146,7 @@ export default function ItemDetailsScreen() {
 
   const supportsCompletion =
     (kind === 'habit' && !isMeasurableCount) || kind === 'task';
-  const supportsDelete = kind === 'habit' || kind === 'task';
+  const supportsDelete = kind === 'habit' || kind === 'task' || kind === 'event';
 
   const handleEdit = () => {
     if (!kind || !entity) return;
@@ -152,6 +154,7 @@ export default function ItemDetailsScreen() {
       navigation.navigate('HabitEntry', {
         habit: entity,
         occurrenceDate,
+        fromDetails: true,
       });
     } else if (kind === 'task') {
       navigation.navigate('TaskEntry', {
@@ -165,6 +168,71 @@ export default function ItemDetailsScreen() {
       });
     }
   };
+
+  const performDelete = useCallback(async () => {
+    if (!kind || !entityId || deletingRef.current) return;
+    deletingRef.current = true;
+    setActionError(null);
+    try {
+      const id = Number(entityId);
+      if (kind === 'habit') await deleteHabit(id);
+      else if (kind === 'task') await deleteTask(id);
+      else if (kind === 'event') await deleteEvent(id);
+      dismissDetails(navigation);
+    } catch {
+      deletingRef.current = false;
+      setActionError("Couldn't delete this item.");
+    }
+  }, [kind, entityId, navigation]);
+
+  const requestDelete = useCallback(() => {
+    if (!kind || !entityId || deletingRef.current) return;
+    if (kind === 'habit') {
+      confirmHabitDelete(entity?.name || title, () => {
+        void performDelete();
+      });
+      return;
+    }
+    if (kind === 'task') {
+      // Tasks are single records (not occurrence series). Subtasks cascade-delete.
+      const hasSubtasks = Array.isArray(entity?.subtasks) && entity.subtasks.length > 0;
+      const label = (entity?.name || title || 'this task').trim() || 'this task';
+      Alert.alert(
+        'Delete task?',
+        hasSubtasks
+          ? `Delete “${label}” and its subtasks? This can’t be undone.`
+          : `Delete “${label}”? This can’t be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete Task',
+            style: 'destructive',
+            onPress: () => {
+              void performDelete();
+            },
+          },
+        ],
+      );
+      return;
+    }
+    if (kind === 'event') {
+      const label = (entity?.name || title || 'this event').trim() || 'this event';
+      Alert.alert(
+        'Delete event?',
+        `Delete “${label}”? This can’t be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete Event',
+            style: 'destructive',
+            onPress: () => {
+              void performDelete();
+            },
+          },
+        ],
+      );
+    }
+  }, [kind, entityId, entity, title, performDelete]);
 
   const overflowActions = useMemo((): DetailsOverflowAction[] => {
     const actions: DetailsOverflowAction[] = [
@@ -181,44 +249,13 @@ export default function ItemDetailsScreen() {
         label: 'Delete',
         systemImage: 'trash',
         destructive: true,
-        onPress: () => setDeleteVisible(true),
+        onPress: requestDelete,
       });
     }
     return actions;
-    // handleEdit / supportsDelete close over current entity context.
+    // handleEdit / supportsDelete / requestDelete close over current entity context.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, entity, occurrenceDate, supportsDelete]);
-
-  const deleteConfirmCopy = useMemo(() => {
-    if (kind === 'habit') {
-      return {
-        title: 'Delete Habit',
-        message: `Delete the habit "${title}"? This removes the habit definition and all of its completion history—not only the selected day’s occurrence. This cannot be undone.`,
-      };
-    }
-    // Tasks are single records (not occurrence series). Subtasks cascade-delete on the backend.
-    const hasSubtasks = Array.isArray(entity?.subtasks) && entity.subtasks.length > 0;
-    return {
-      title: 'Delete Task',
-      message: hasSubtasks
-        ? `Delete the task "${title}" and its subtasks? This cannot be undone.`
-        : `Delete the task "${title}"? This cannot be undone.`,
-    };
-  }, [kind, title, entity]);
-
-  const handleDeleteConfirm = async () => {
-    if (!kind || !entityId) return;
-    try {
-      const id = Number(entityId);
-      if (kind === 'habit') await deleteHabit(id);
-      else if (kind === 'task') await deleteTask(id);
-      setDeleteVisible(false);
-      dismissDetails(navigation);
-    } catch {
-      setDeleteVisible(false);
-      setActionError("Couldn't delete this item.");
-    }
-  };
+  }, [kind, entity, occurrenceDate, supportsDelete, requestDelete]);
 
   const handleToggleComplete = async () => {
     if (!kind || !entityId || !supportsCompletion || completing) return;
@@ -368,11 +405,16 @@ export default function ItemDetailsScreen() {
     } else {
       // Events: identity only — no completion action.
       detailsLead = (
-        <DetailsIdentity
-          title={title}
-          iconComponent={iconComponent}
-          accent={accent}
-        />
+        <View>
+          <DetailsIdentity
+            title={title}
+            iconComponent={iconComponent}
+            accent={accent}
+          />
+          {actionError ? (
+            <AppText style={{ color: colors.error, marginBottom: 12 }}>{actionError}</AppText>
+          ) : null}
+        </View>
       );
     }
   }
@@ -420,13 +462,6 @@ export default function ItemDetailsScreen() {
         {entity && kind === 'event' ? <EventDetailsBody event={entity} /> : null}
       </ItemDetailsShell>
 
-      <DeleteConfirm
-        visible={deleteVisible}
-        title={deleteConfirmCopy.title}
-        message={deleteConfirmCopy.message}
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteVisible(false)}
-      />
     </ScreenLayout>
   );
 }
